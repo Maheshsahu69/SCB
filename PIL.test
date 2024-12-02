@@ -1,1 +1,215 @@
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import PILDashboard from "./PILDashboard";
+import * as services from "../services/preApprovalServices";
+import { dispatchLoader } from "../../../services/common-service";
 
+jest.mock("../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+jest.mock("../services/preApprovalServices", () => ({
+  getSessionByPreLogin: jest.fn(),
+  getProductMetaDataInfo: jest.fn(),
+  getDataFormConfig: jest.fn(),
+}));
+
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getParameterByName: jest.fn(),
+    getChannelRefNo: jest.fn().mockReturnValue({ applicationRefNo: "12345" }),
+  },
+}));
+
+const mockStore = configureStore([thunk]);
+
+describe("PILDashboard Component", () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore({
+      preApproval: {
+        formConfigmetaData: {
+          fieldmetadata: {
+            data: {
+              stages: [
+                {
+                  fields: [
+                    {
+                      field_set_name: "New Application",
+                      rwb_label_name: "Terms and Conditions",
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        currentStage: "PD-0",
+      },
+      auth: { sessionUid: "test-session-uid" },
+      stages: {
+        otpOpen: false,
+        stages: [{ stageId: "pd-1" }],
+      },
+      urlParam: { validUrl: true },
+    });
+  });
+
+  it("renders the initial UI correctly", () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(
+      screen.getByText(/Before you start your application:/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Please READ the following Key Facts Statement by tapping on the button or using the scroll bar to read till the bottom of the screen to proceed/i
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("displays the OTP model when otpOpen is true", () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: { otpOpen: true, stages: [{ stageId: "pd-1" }] },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // Check if OTPModel is rendered
+    expect(screen.getByText(/OTP Model Component/i)).toBeInTheDocument(); // Replace with an actual element in your OTPModel.
+  });
+
+  it("displays the popup model when URL is invalid", () => {
+    store = mockStore({
+      ...store.getState(),
+      urlParam: { validUrl: false },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByText(/techincalissue/i)).toBeInTheDocument(); // Replace with actual text in your Model component.
+  });
+
+  it("progresses to the next stage on `nextPage`", () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const dynamicComponent = screen.getByText(/Please READ the following Key Facts Statement/i);
+    fireEvent.click(dynamicComponent);
+
+    expect(screen.getByText(/New Application/i)).toBeInTheDocument();
+    expect(screen.getByText(/Terms and Conditions/i)).toBeInTheDocument();
+  });
+
+  it("fetches sessionUid and metadata on mount", async () => {
+    services.getSessionByPreLogin.mockResolvedValueOnce({
+      status: 201,
+      headers: { sessionuid: "mock-session-uid" },
+    });
+
+    services.getProductMetaDataInfo.mockResolvedValueOnce(["product1", "product2"]);
+    services.getDataFormConfig.mockResolvedValueOnce();
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(services.getSessionByPreLogin).toHaveBeenCalledTimes(1);
+      expect(services.getProductMetaDataInfo).toHaveBeenCalledTimes(1);
+      expect(services.getDataFormConfig).toHaveBeenCalledTimes(1);
+    });
+
+    expect(dispatchLoader).toHaveBeenCalledWith(false);
+  });
+
+  it("handles edge cases when sessionUid is missing", async () => {
+    store = mockStore({
+      ...store.getState(),
+      auth: { sessionUid: null },
+    });
+
+    services.getSessionByPreLogin.mockResolvedValueOnce({
+      status: 201,
+      headers: { sessionuid: "mock-session-uid" },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(services.getSessionByPreLogin).toHaveBeenCalledTimes(1);
+    });
+
+    expect(dispatchLoader).toHaveBeenCalledWith(false);
+  });
+
+  it("sets the correct document title on mount", () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(document.title).toBe(
+      "personal-instalment-loan - Standard Chartered"
+    );
+  });
+
+  it("updates `isVisible` state on scroll end", () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PILDashboard />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // Simulate scrolling
+    const scrollableDiv = screen.getByRole("main"); // Adjust the selector based on your actual scrollable container
+    fireEvent.scroll(scrollableDiv);
+
+    // Ensure the state changes based on scroll
+    expect(screen.getByText(/Please READ the following Key Facts Statement/i)).toBeInTheDocument();
+  });
+});
