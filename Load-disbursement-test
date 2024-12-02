@@ -1,1 +1,121 @@
 
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import LoanDisbursement from "./LoanDisbursement";
+
+// Mock Redux store and services
+const mockStore = configureStore([thunk]);
+
+jest.mock("../../../../services/preApprovalServices", () => ({
+  getOffer2: jest.fn(() => Promise.resolve({ status: 200, data: { application: { response_type: "SOFT", response_action: "CONTINUE" } } })),
+  getOfferCalulated: jest.fn(() => Promise.resolve({ status: 200, data: { apr: "10", monthly_flat_rate: "1.5", repayment_amount: "5000" } })),
+}));
+
+jest.mock("../../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+describe("LoanDisbursement Component", () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore({
+      lovDesc: { lovDesc: [] },
+      lov: [],
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              products: [
+                {
+                  offer_details: [
+                    { approved_amount: 50000, apr: "10", flatRate: "1.5", repaymentAmount: "5000" },
+                    { approved_amount: 100000 },
+                  ],
+                },
+              ],
+              applicants: { requested_loan_amount_a_1: "50000", requested_loan_tenor_a_1: "60" },
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("renders the component with initial values", () => {
+    render(
+      <Provider store={store}>
+        <LoanDisbursement />
+      </Provider>
+    );
+
+    // Verify initial elements
+    expect(screen.getByText(/Congratulations!/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your preliminary assessment is completed/i)).toBeInTheDocument();
+    expect(screen.getByText(/The maximum eligible amount is HK\$100000/i)).toBeInTheDocument();
+    expect(screen.getByText(/HKD 5000 x 60 months/i)).toBeInTheDocument();
+    expect(screen.getByText(/Annualized Percentage Rate \(APR\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/10%/i)).toBeInTheDocument();
+    expect(screen.getByText(/Monthly Flat Rate/i)).toBeInTheDocument();
+    expect(screen.getByText(/1.5%/i)).toBeInTheDocument();
+  });
+
+  it("handles the slider input to change loan amount", async () => {
+    render(
+      <Provider store={store}>
+        <LoanDisbursement />
+      </Provider>
+    );
+
+    const slider = screen.getByRole("slider");
+    fireEvent.input(slider, { target: { value: 60000 } });
+
+    // Verify that the default loan amount is updated
+    expect(screen.getByText(/HKD 60000/i)).toBeInTheDocument();
+  });
+
+  it("handles changing the loan tenor", async () => {
+    render(
+      <Provider store={store}>
+        <LoanDisbursement />
+      </Provider>
+    );
+
+    const tenorButtons = screen.getAllByRole("button");
+    fireEvent.click(tenorButtons[1]); // Click on "48 Months"
+
+    // Verify that the default tenor is updated
+    expect(screen.getByText(/HKD 5000 x 48 months/i)).toBeInTheDocument();
+  });
+
+  it("calls nextStage on clicking the Continue button", async () => {
+    render(
+      <Provider store={store}>
+        <LoanDisbursement />
+      </Provider>
+    );
+
+    const continueButton = screen.getByText(/Continue/i);
+    fireEvent.click(continueButton);
+
+    // Mock dispatchLoader and stage change actions
+    expect(screen.getByText(/Congratulations!/i)).toBeInTheDocument();
+  });
+
+  it("displays spinner during calculation", async () => {
+    render(
+      <Provider store={store}>
+        <LoanDisbursement />
+      </Provider>
+    );
+
+    const slider = screen.getByRole("slider");
+    fireEvent.input(slider, { target: { value: 70000 } });
+
+    // Spinner should be displayed
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+});
