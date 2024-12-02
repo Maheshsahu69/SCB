@@ -1,1 +1,192 @@
-PI
+import { useEffect, useRef, useState } from "react";
+import { preApprovalAction } from "../store/preApproval-slice";
+import LeftSideBar from "../../dashboard/left-sidebar/left-sidebar";
+import { useDispatch, useSelector } from "react-redux";
+import { StoreModel } from "../../../utils/model/common-model";
+import DynamicComponent from "../dynamicComponent/dynamicComponent";
+import { dispatchLoader } from "../../../services/common-service";
+import {getDataFormConfig, getProductMetaDataInfo, getSessionByPreLogin } from "../services/preApprovalServices";
+import { authAction } from "../../../utils/store/auth-slice";
+import '../styles/styles-hk/common.scss';
+import {  payloadFormConfig } from "../services/payload";
+import { getUrl } from "../../../utils/common/change.utils";
+import OTPModel from "../../../shared/components/otp-model/otp-model";
+import "../../dashboard/dashboard.scss";
+import HeaderRef from "../../../shared/components/header-ref/header-ref";
+import Close from "../../../shared/components/close/close";
+import PopupModel from "../../../shared/components/popup-model/popup-model";
+import Model from "../../../shared/components/model/model";
+import { urlParamAction } from "../../../utils/store/urlparam-slice";
+import { useLocation } from "react-router-dom";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { CONSTANTS } from "../../../utils/common/constants";
+import { store } from "../../../utils/store/store";
+import { loaderAction } from "../../../utils/store/loader-slice";
+
+
+
+const PILDashboard : React.FC<any> = () => {
+
+	const urlParams = useLocation();
+ // const urlParamSelector= useSelector((state: StoreModel) => state.urlParam);
+  const [kcTitle, setKcTitle] = useState("Before you start your application:");
+  const [TnCBannerNotes, setTnCBannerNotes] = useState("Please READ the following Key Facts Statement by tapping on the button or using the scroll bar to read till the bottom of the screen to proceed");
+  const [stage_Id, setStage_Id] = useState(0);
+	const [urlInvalid, setUrlInvalid] = useState(false);
+  const dispatch = useDispatch();
+  const formConfigmetaData = useSelector((state: StoreModel) => state.preApproval.formConfigmetaData);
+  const currentStage = useSelector((state: StoreModel) => state.preApproval.currentStage);
+  const sessionUid = useSelector((state: StoreModel) => state.auth.sessionUid);
+  const otpShowSelector = useSelector(
+    (state: StoreModel) => state.stages.otpOpen
+  );
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
+  const [isVisible, setIsVisible] = useState(true);
+  const headerHeight = useRef<HTMLInputElement>(null);
+
+   const  nextPage = () => {
+    if (stage_Id > 0) {
+      setKcTitle(formConfigmetaData?.fieldmetadata.data.stages[0]?.fields[0]?.field_set_name);
+      setTnCBannerNotes(formConfigmetaData?.fieldmetadata.data.stages[0]?.fields[0]?.rwb_label_name);
+    }
+
+    let stageVal = (Number(currentStage.split('-')[1]) + 1);
+    dispatch(preApprovalAction.setCurrentStage("PD-" + stageVal));
+    dispatch(preApprovalAction.setPreviousStage(currentStage));
+    if (stage_Id + 1 === 1) {
+      setIsVisible(true);
+      setTnCBannerNotes('Please READ the following Terms & Conditions by tapping on the button or using the scroll bar to read till the bottom of the screen to proceed')
+    }
+    setStage_Id(stage_Id + 1);
+  };
+
+  useEffect(() => {
+    dispatch(dispatchLoader(true));
+    dispatch(urlParamAction.getUrlParameter(urlParams));
+		if (getUrl.getParameterByName("auth") !== "resume") {
+          dispatch(
+              stagesAction.getStage({
+                id: CONSTANTS.STAGE_NAMES.DECLARE,
+              //   formConfig: fieldLevelSwipe(fieldSwaped),
+              })
+          );
+      }
+		if (!store.getState().urlParam.validUrl) {
+			dispatch(
+				loaderAction.getState({
+					isFetching: false,
+				})
+			);
+			setUrlInvalid(true);
+		}
+    // else if (getUrl.getParameterByName("auth") === "resume") {
+		// 	dispatch(urlParamAction.isResume(true));
+		// 	dispatch(getSessionByLogin()).then(async (response: any) => {
+		// 		dispatch(dispatchLoader(false));
+		// 		navigate("hk/otp");
+		// 	});
+		// }
+    else {
+      if (!sessionUid) {
+        getSessionByPreLogin().then(async (res: any) => {
+          if(res.status === 201) {
+            var sessionUid = res.headers["sessionuid"]
+            console.log(sessionUid)
+            await dispatch(getProductMetaDataInfo(urlParams)).then(async (res:any)=> {
+              let payload= payloadFormConfig;
+              payload.products= res;
+              dispatch(urlParamAction.productDetails(res));
+              await dispatch(getDataFormConfig(payload))
+              dispatch(authAction.getSession({ sessionuid:sessionUid }));
+              dispatch(dispatchLoader(false));
+            }) 
+          }
+        });
+      }
+		}
+    document.title = 'personal-instalment-loan - Standard Chartered';
+  },[]);
+
+  // useEffect(() => {
+  //   return () => {
+  //     window.addEventListener("beforeunload", function(e) {
+  //       let confirmationMessage = "o/";
+  //       (e || window.event).returnValue = confirmationMessage; //Gecko + IE
+  //       console.log("logout !");
+  //       return confirmationMessage; //Webkit, Safari, Chrome
+  //     });
+  //  }
+  // });
+
+  const onScrollEnd = (isVisible: any) => {
+    setIsVisible(isVisible);
+  }
+  const applicationRefNo = getUrl.getChannelRefNo().applicationRefNo;
+  console.log(sessionUid)
+  return (
+    <>
+    
+			{(urlInvalid) && (
+				<PopupModel displayPopup={urlInvalid}>
+					{urlInvalid && <Model name="techincalissue" />}
+				</PopupModel>
+			)}
+      {stageSelector &&
+        stageSelector[0] &&
+        stageSelector[0].stageId === "pd-1" && otpShowSelector && <OTPModel />}
+
+      {stageSelector && stageSelector.length > 0 && !otpShowSelector && (
+        <div className="app" style={{ overflow: "hidden" }}>
+          <div className="appHeight" style={{ overflowY: (currentStage === 'PD-0' || currentStage === 'PD-1' || currentStage === 'RP' || currentStage === 'DC') ? "hidden" :  currentStage === 'DC' ? "scroll" : "scroll", height: (currentStage === 'PD-0' || currentStage === 'PD-1' || currentStage === 'RP' || currentStage === 'DC' || currentStage === 'LD' || currentStage === 'FFD') ? "100vh" : "" }}>
+            <div className="app__header">
+              <div>
+                <LeftSideBar />
+              </div>
+              <div ref={headerHeight}>
+                {applicationRefNo && (currentStage !== 'DC' || currentStage !== 'LD' || currentStage !== 'FFD') ?
+                  <HeaderRef applicationNo={applicationRefNo} />
+                  :
+                  <div className="header-wrapper-hk">
+                    {(currentStage === 'DC' && currentStage === 'LD' && currentStage === 'FFD') ?
+                      <div className="hk-banner" style={{height: 60}}>
+                      </div>
+                      :
+                      <>
+                        <div className="hk-banner">
+                          <span className="banner-icon"></span>
+                          <div className="hk-banner-set">
+                            <div className="card-title">{kcTitle}</div>
+                            <section className={stage_Id === 2 ? 'pre-approva-note-red' : 'pre-approva-note'}>
+                              <p>{TnCBannerNotes}</p>
+                            </section>
+                          </div>
+                          {currentStage ==='PD-2' &&
+                            <div className="headerclose-btnH">
+                              {/* <button type="button" className="headerclose-btn" onClick={headerPopUP}></button> */}
+                              <Close authType="resume" />
+                            </div>
+                          }
+                        </div>
+                      </>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+            <div className="app__body" style={{padding: (currentStage === 'PD-0' || currentStage === 'PD-1') ? "15px 20px" : currentStage === 'rp' ? "0px 0px 20px" : "0px 20px 20px"}}>
+              <div className="app__right"style={{height: currentStage === 'DC' ? "450px" : 0}}>
+                {/* {sessionUid &&  */}
+                <DynamicComponent isVisible={isVisible} onScrollEnd={onScrollEnd} stageId={stage_Id} nextPage={nextPage} />
+                {/* // } */}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+export default PILDashboard;
+
+
