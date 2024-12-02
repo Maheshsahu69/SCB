@@ -1,0 +1,356 @@
+
+import { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import Close from "../../../../shared/components/close/close";
+import Model from "../../../../shared/components/model/model";
+import SelectionBox from "../../../../shared/components/selection-box/selection-box";
+import Text from "../../../../shared/components/text/text";
+import { fieldIdAppend } from "../../../../utils/common/change.utils";
+import { CONSTANTS } from "../../../../utils/common/constants";
+import { FieldModel, StoreModel } from "../../../../utils/model/common-model";
+import { lastAction } from "../../../../utils/store/last-accessed-slice";
+import { stageFields } from "../../../dashboard/fields/fields.utils";
+
+const FundDisbursement: React.FC<any> = (props) => {
+  const [fields, setFields] =  useState<FieldModel>();
+  const [checked, setChecked] =  useState(false);
+  const [errors, setErrors] =  useState(false);
+  const [lovData, setLovData] = useState([]);
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
+  const lovSelector = useSelector((state: StoreModel) => state.lov);
+  const otherBank= "*Other Bank Account";
+  const dispatch = useDispatch();
+  
+  console.log(props)
+  console.log(lovSelector)
+  console.log(stageSelector)
+  const infoData= {
+    "country": "HK",
+    "system_derived": null,
+    "logical_field_name": "disbursement_tip_note",
+    "min_length": null,
+    "status": "A",
+    "product_specific": "No",
+    "sub_product_code": null,
+    "joint": "Y",
+    "ntb": "Y",
+    "etb": "Y",
+    "rcw_cc": "X",
+    "rcw_pl": "Y",
+    "rcw_sa": null,
+    "rcw_ca": null,
+    "rcw_td": null,
+    "RTOB_STAGE": "AD",
+    "rwb_rtob_stage": "FFD",
+    "rwb_rtob_sf_stage": null,
+    "rwb_category": "ld-1",
+    "rwb_ipad": null,
+    "rwb_desktop": null,
+    "sc_com": "Y",
+    "mobile": "Y",
+    "lov_field_name": "Tips",
+    "child_lov_field_name": null,
+    "rwb_label_name": "*Instant fund disbursement is subject to the final decision of the Bank and the disbursement result. Funds will be disbursed in the next working day if you have selected other bank account for fund disbursement.",
+    "aadhaar_prepop": null,
+    "etb_preprop": null,
+    "value_pair": null,
+    "label_length": "109",
+    "seq_no": "700",
+    "positioning": "1",
+    "field_set": "Yes",
+    "component_type": "Info with modal",
+    "mandatory": "Yes",
+    "length": "1",
+    "type": "Text",
+    "lov": "No",
+    "regex": null,
+    "sf": null,
+    "sfp": null,
+    "prepopulation_service_type": null,
+    "prepopulation_field_mapping": null,
+    "ui_derivation_logic": null,
+    "ui_defaulted_value": null,
+    "default_visibility": null,
+    "header": null,
+    "details": null,
+    "max_selects": null,
+    "info_tooltips": null,
+    "field_set_with_info": null,
+    "prelogin_ntc_or_ntp": "Y",
+    "postlogin_ntc_or_ntp": "Y",
+    "prelogin_etc_or_etp": "Y",
+    "postlogin_etc_or_etp": "Y",
+    "prelogin_eca": null,
+    "postlogin_eca": null,
+    "prelogin_ecc": null,
+    "postlogin_ecc": null,
+    "editable": false
+  };
+
+  const changeHandler = (
+    fieldName: string,
+    value: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    let optionsValue= [];
+    setChecked(true)
+    let newLovData:any=JSON.parse(JSON.stringify(lovData));
+    for(let i in newLovData) {
+      if(newLovData[i].CODE_VALUE === value) {
+        newLovData[i].checked= true;
+        optionsValue.push(newLovData[i]);
+      }
+      else {
+        newLovData[i].checked= false;
+      }
+    }
+    setLovData(newLovData);
+    props.handleCallback(props.fields[0].fields[0], value);
+    props.handleFieldDispatch(fieldName, value, otherBank);
+    setErrors(false);
+    let filteredValue= newLovData.filter((item:any)=>item.checked);
+    if ((props.fields[0].fields[0].mandatory === "Yes" || props.fields[0].fields[0].mandatory === "Conditional") && filteredValue.length === 0) {
+      setErrors(true);
+    }
+  }
+  const getMarkup = (desc: string) => {
+    return {
+      __html: `
+          ${desc}
+        `,
+    };
+  }
+  const focusHandler = (fieldName: string, event: React.FocusEvent<HTMLInputElement>) => {
+    dispatch(lastAction.getField(fieldName));
+  };
+
+  const bankName= {
+    "country": "HK",
+    "system_derived": null,
+    "logical_field_name": "oth_bank_name",
+    "min_length": null,
+    "status": "A",
+    "product_specific": "No",
+    "sub_product_code": null,
+    "joint": "Y",
+    "ntb": "Y",
+    "etb": "Y",
+    "rcw_cc": "X",
+    "rcw_pl": "Y",
+    "rcw_sa": null,
+    "rcw_ca": null,
+    "rcw_td": null,
+    "RTOB_STAGE": "AD",
+    "rwb_rtob_stage": "FFD",
+    "rwb_rtob_sf_stage": null,
+    "rwb_category": "ld-1",
+    "rwb_ipad": null,
+    "rwb_desktop": null,
+    "sc_com": "Y",
+    "mobile": "Y",
+    "lov_field_name": "Bank Name",
+    "child_lov_field_name": null,
+    "rwb_label_name": "Bank Name",
+    "aadhaar_prepop": null,
+    "etb_preprop": null,
+    "value_pair": null,
+    "label_length": "75",
+    "seq_no": "400",
+    "positioning": "1",
+    "field_set": "Yes",
+    "component_type": "Selection Box",
+    "mandatory": "No",
+    "length": "1",
+    "type": "Picklist",
+    "lov": "Yes",
+    "regex": null,
+    "sf": null,
+    "sfp": null,
+    "prepopulation_service_type": null,
+    "prepopulation_field_mapping": null,
+    "ui_derivation_logic": null,
+    "ui_defaulted_value": null,
+    "default_visibility": null,
+    "header": null,
+    "details": null,
+    "max_selects": null,
+    "info_tooltips": null,
+    "field_set_with_info": null,
+    "prelogin_ntc_or_ntp": "Y",
+    "postlogin_ntc_or_ntp": "Y",
+    "prelogin_etc_or_etp": "Y",
+    "postlogin_etc_or_etp": "Y",
+    "prelogin_eca": null,
+    "postlogin_eca": null,
+    "prelogin_ecc": null,
+    "postlogin_ecc": null,
+    "editable": false
+  };
+
+  const bankAccountNumber= {
+    "country": "HK",
+    "system_derived": null,
+    "logical_field_name": "oth_bank_number",
+    "min_length": null,
+    "status": "A",
+    "product_specific": "No",
+    "sub_product_code": null,
+    "joint": "Y",
+    "ntb": "Y",
+    "etb": "Y",
+    "rcw_cc": "X",
+    "rcw_pl": "Y",
+    "rcw_sa": null,
+    "rcw_ca": null,
+    "rcw_td": null,
+    "RTOB_STAGE": "AD",
+    "rwb_rtob_stage": "FFD",
+    "rwb_rtob_sf_stage": null,
+    "rwb_category": "ld-1",
+    "rwb_ipad": null,
+    "rwb_desktop": null,
+    "sc_com": "Y",
+    "mobile": "Y",
+    "lov_field_name": "Bank Account Number",
+    "child_lov_field_name": null,
+    "rwb_label_name": "Bank Account Number",
+    "aadhaar_prepop": null,
+    "etb_preprop": null,
+    "value_pair": null,
+    "label_length": "75",
+    "seq_no": "500",
+    "positioning": "1",
+    "field_set": "Yes",
+    "component_type": "Text",
+    "mandatory": "No",
+    "length": "12",
+    "type": "Text",
+    "lov": "Yes",
+    "regex": "^[0-9]+(?: [0-9]+)*$",
+    "sf": null,
+    "sfp": null,
+    "prepopulation_service_type": null,
+    "prepopulation_field_mapping": null,
+    "ui_derivation_logic": null,
+    "ui_defaulted_value": null,
+    "default_visibility": "No",
+    "header": null,
+    "details": null,
+    "max_selects": null,
+    "info_tooltips": null,
+    "field_set_with_info": null,
+    "prelogin_ntc_or_ntp": "Y",
+    "postlogin_ntc_or_ntp": "Y",
+    "prelogin_etc_or_etp": "Y",
+    "postlogin_etc_or_etp": "Y",
+    "prelogin_eca": null,
+    "postlogin_eca": null,
+    "prelogin_ecc": null,
+    "postlogin_ecc": null,
+    "editable": false
+  };
+
+  return (
+    <div className="field__group">
+      <div className="pending__resume-header banner_ext">
+        <div className="header-wrapper-hk" style={{display: 'flex'}}>
+          <div className="hk-banner">
+            <span className="banner-icon banner-icon-mobile"></span>
+            <div className="card-title card-title-replace">{props.fields[0]["field_set_name"]}</div>
+          </div>
+        </div>
+        <Close authType="resume" />
+      </div>
+      {props.fields.length > 0 &&
+        <>
+          <div className="radioWithLabel" id={fieldIdAppend(props)}>
+            <div className="radioAlign">
+              <div className={(props.fields[0].fields[0].logical_field_name === "investment_impact" || props.fields[0].fields[0].logical_field_name === "investment_objective" || props.fields[0].fields[0].logical_field_name === "client_deposit_info_consent_form" || props.fields[0].fields[0].logical_field_name === "supplementary_invest_experience") ? "" : "radioAligner"}>
+                <label htmlFor="select_account">
+                  <input
+                    type="radio"
+                    name={props.fields[0].fields[0].rwb_label_name}
+                    id={props.fields[0].fields[0].rwb_label_name}
+                    onChange={changeHandler.bind(this, props.fields[0].fields[0].logical_field_name, "OTH")}
+                    checked={checked}
+                    onFocus={focusHandler.bind(this, props.fields[0].fields[0].logical_field_name)}
+                    // disabled={props.fields[0].fields[0].logical_field_name === CONSTANTS.LOGICAL_FIELD_NAMES.SUPPLEMENTARY_INVEST_EXPERINECE && disableRadio ? disableRadio : props.fields[0].fields[0].editable}
+                  />
+                  <span dangerouslySetInnerHTML={getMarkup(otherBank)}></span>
+                </label>
+              </div>
+            </div>
+          </div>
+          {checked &&
+            <SelectionBox 
+              data={bankName}
+              key={bankName.logical_field_name}
+              handleCallback={props.handleCallback}
+              handleFieldDispatch={props.handleFieldDispatch}
+              value={props.userInput}
+              updateCheckboxStatus={props.updateCheckboxStatus}
+            />
+          }
+          {checked &&
+            <Text 
+              data={bankAccountNumber}
+              key={bankAccountNumber.logical_field_name}
+              handleCallback={props.handleCallback}
+              handleFieldDispatch={props.handleFieldDispatch}
+              value={props.userInput}
+              updateCheckboxStatus={props.updateCheckboxStatus}
+            />
+          }
+          <InfoWithoutModal data={infoData}/>
+        </>
+      }
+    </div>
+  )
+}
+export default FundDisbursement;
+
+export const InfoWithoutModal = (props: any) => {
+  const userInputSelector = useSelector(
+    (state: StoreModel) => state.stages.userInput
+  );
+  //using declaration page
+  const marketingPhoneAll=userInputSelector.applicants[0].marketing_phone_all;
+  const marketingPhoneOthers=userInputSelector.applicants[0].marketing_phone_others;
+  const marketingEmail=userInputSelector.applicants[0].marketing_email;
+  const marketingMobileMessage=userInputSelector.applicants[0].marketing_mobile_message;
+  const marketingPost=userInputSelector.applicants[0].marketing_post;
+  const getMarkup = () => {
+    if(props.data.logical_field_name === "fill_in_note" ) {
+      return {
+        __html: `
+            <div id="fill_in_note_hk">${props && props.data && props.data.rwb_label_name}</div>
+          `,
+      };
+    }
+    if(props.data.logical_field_name === "direct_marketing_opt_out" && marketingPhoneAll==='Y' || marketingPhoneOthers==='Y' || marketingEmail==='Y' || marketingMobileMessage==='Y' || marketingPost==='Y' ) {
+      return {
+        __html: `
+            <div>${props && props.data && props.data.rwb_label_name}</div>
+          `,
+      };
+    }
+    else {
+      if(props.data.logical_field_name!== "direct_marketing_opt_out"){
+      return {
+        __html: `
+            <div>${props && props.data && props.data.rwb_label_name}</div>
+          `,
+      };
+    }
+    
+    }
+  };
+
+  return (
+    <>
+    <div className="info-without-modal-div">
+      <div className={`info ${props.data.logical_field_name==="client_sc_consent_title"?"consent-alignment":""}`} dangerouslySetInnerHTML={getMarkup()} id={props && fieldIdAppend(props)}></div>
+    </div>
+  </>
+  );
+};
