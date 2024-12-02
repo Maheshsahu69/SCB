@@ -1,1 +1,308 @@
+import "./loan-disbursement.scss";
+import budgetIcon from "../../../../assets/_images/budget.png";
+import offerAPIMock from "../../../../assets/_json/offer.json";
+// import { KeyWithAnyModel } from "../../../utils/model/common-model";
+import { useEffect, useState } from "react";
+import { KeyWithAnyModel, StoreModel } from "../../../../utils/model/common-model";
+import { nextStage } from "../../../dashboard/fields/stage.utils";
+import { useDispatch, useSelector } from "react-redux";
+import { preApprovalAction } from "../../store/preApproval-slice";
+import { getOffer,getOffer2, getOfferCalulated } from "../../services/preApprovalServices";
+import {  postSaveData } from "../../services/preApprovalPostServices";
+import { offerPayload, offerDetails, offerResponse } from "../../services/payload";
+import { stagesAction } from "../../../../utils/store/stages-slice";
+import { CONSTANTS } from "../../../../utils/common/constants";
+import Spinner from "../../../../shared/components/spinner/spinner";
+import { dispatchLoader } from "../../../../services/common-service";
 
+const LoanDisbursement = () => {
+  const [bestOffer, setBestOffer] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [spinnerEnabled, setSpinnerEnabled] = useState(false);
+  const [defaultValue, setDefaultValue] = useState("");
+  const [defaultMonth, setDefaultMonth] = useState("60");
+  const [aprValue, setAprValue] = useState("");
+  const [flateRateValue, setFlateRateValue] = useState("");
+  const [repaymentAmount, setRepaymentAmount] = useState("");
+  const [finalApprovedAmount, setFinalApprovedAmount] = useState("");
+  const dispatch = useDispatch();
+  const offer: KeyWithAnyModel = offerAPIMock;
+  console.log(offer.products)
+  console.log(offer.applicants)
+  const lovDesc = useSelector(
+    (state: StoreModel) => state.lovDesc.lovDesc
+  );
+  const lovSelector = useSelector((state: StoreModel) => state.lov);
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages[0].stageInfo);
+  const loanTenor = [
+    {
+      "CODE_DESC": "12 Months",
+      "CODE_VALUE": "12"
+    },
+    {
+      "CODE_DESC": "24 Months",
+      "CODE_VALUE": "24"
+    },
+    {
+      "CODE_DESC": "36 Months",
+      "CODE_VALUE": "36"
+    },
+    {
+      "CODE_DESC": "48 Months",
+      "CODE_VALUE": "48"
+    },
+    {
+      "CODE_DESC": "60 Months",
+      "CODE_VALUE": "60"
+    }
+  ]
+  useEffect(() => {
+    let offers= stageSelector.products[0];
+    setDefaultValue(offers.offer_details[0].approved_amount)
+    setAprValue(offers.offer_details[0].apr)
+    setFlateRateValue(offers.offer_details[0].flatRate)
+    setRepaymentAmount(offers.offer_details[0].repaymentAmount)
+    setFinalApprovedAmount(offerDetails.offer_details[1].approved_amount)
+  }, [])
+
+  useEffect(() => {
+    if(loaded) {
+      calculateOffer();
+      setSpinnerEnabled(true)
+    }
+  }, [defaultMonth, defaultValue])
+
+  const nextStage = async() => {
+    dispatch(dispatchLoader(true));
+    var payload:any= JSON.parse(JSON.stringify(stageSelector));
+    let acdService:boolean= false;
+    if(payload.applicants.requested_loan_amount_a_1 !== defaultValue.toString() || payload.applicants.requested_loan_tenor_a_1 !== defaultMonth.toString()){
+      dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_3));
+      acdService= true
+    }
+    else {
+      dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_4));
+      payload.applicants["offer_a_1"]="R";
+    }
+    
+    await getOffer2(payload)?.then(async(offerRes:any)=>{
+      if(offerRes.status === 200) {
+        let responseType = offerRes.data.application.response_type.toUpperCase();
+        let responseAction = offerRes.data.application.response_action.toUpperCase();
+        if(responseAction==='SUCCESS' || responseType ==='INFO' || (responseType==='SOFT' && responseAction === 'CONTINUE')) {
+          if(acdService){
+            dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_4));
+            let newOfferData= JSON.parse(JSON.stringify(offerRes.data));
+            newOfferData.applicants["enquriy_nature_of_bussiness_a_1"]= "";
+            newOfferData.applicants["adsuccess"]= "true";
+            newOfferData.applicants["client_pl_consent4_a_1"]= null;
+            newOfferData.applicants["nationality_note_a_1"]= null;
+            newOfferData.applicants["mailing_address_rwb_a_1"]="RES";
+            newOfferData.applicants["marketing_email_a_1"]="N"
+            newOfferData.applicants["marketing_mobile_message_a_1"]="N"
+            newOfferData.applicants["marketing_phone_all_a_1"]="N"
+            newOfferData.applicants["marketing_phone_others_a_1"]="N"
+            newOfferData.applicants["marketing_post_a_1"]="N"
+            newOfferData.applicants["marketing_questionaires_a_1"]="No"
+            newOfferData.applicants["offer_a_1"] ="B";
+            newOfferData.applicants["requested_loan_amount_a_1"] = defaultValue.toString();
+            newOfferData.applicants["tenor_a_1"] = defaultMonth.toString();
+            newOfferData.applicants["requested_loan_tenor_a_1"] =defaultMonth.toString();
+            await getOffer(newOfferData).then((offerRes:any)=>{
+              if(offerRes.status === 200) {
+                let responseType = offerRes.data.application.response_type.toUpperCase();
+                let responseAction = offerRes.data.application.response_action.toUpperCase();
+                if(responseAction ==='SUCCESS' || responseType ==='INFO' || (responseType ==='SOFT' && responseAction === 'CONTINUE')) {
+  
+                  console.log(offerRes)
+                  let stageData = Object.assign({}, offerRes.data);
+                  delete stageData.applicants;
+                  delete stageData.fieldmetadata;
+        
+                  stageData.fieldMetaData = offerRes.data.fieldmetadata;
+                  stageData.applicant_documents = offerRes.data.applicant_documents;
+                  stageData.applicants = [offerRes.data.applicants];
+                  dispatch(
+                    stagesAction.getStage({
+                      id: CONSTANTS.STAGE_NAMES.DOC_3,
+                      formConfig: stageData,
+                    })
+                  );
+                  dispatch(preApprovalAction.setCurrentStage("DC"));
+                  dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.DOC_3));
+                  dispatch(dispatchLoader(false));
+                }
+  
+              }
+            })
+          }
+          else {
+            console.log(offerRes)
+            let stageData = Object.assign({}, offerRes.data);
+            delete stageData.applicants;
+            delete stageData.fieldmetadata;
+  
+            stageData.fieldMetaData = offerRes.data.fieldmetadata;
+            stageData.applicant_documents = offerRes.data.applicant_documents;
+            stageData.applicants = [offerRes.data.applicants];
+            dispatch(
+              stagesAction.getStage({
+                id: CONSTANTS.STAGE_NAMES.DOC_3,
+                formConfig: stageData,
+              })
+            );
+            dispatch(preApprovalAction.setCurrentStage("DC"));
+            dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.DOC_3));
+            dispatch(dispatchLoader(false));
+          }
+        }
+        if(responseType==='HARD' && (responseAction==='STOP' || responseAction==='RESUBMIT')){
+          //'Sorry we are currently unable to process your application.'
+          dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.RP));
+        } 
+        if(responseType==='HARD' && responseAction==='CORRECT RESUBMIT'){
+          //'Sorry we are currently unable to process your application.'
+          dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.RP));
+        }
+      }
+    })
+  }
+  const previousStage = () => {
+    dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.RP));
+    dispatch(preApprovalAction.setCurrentStage("RP"));
+  }
+  const changeHandler = (e:any) => {
+    // e.preventDefault();
+    console.log(e)
+    setLoaded(true)
+    setDefaultValue(e.target.value.toString())
+  }
+  const changeMonths = (value: any) => {
+    setLoaded(true)
+    setDefaultMonth(value);
+  }
+
+  const calculateOffer = () => {
+    let data: any = {
+      "requested_tenure": defaultMonth,
+      "requested_amount": defaultValue
+    }
+    getOfferCalulated(data)?.then((res: any) => {
+      console.log(res)
+      if (res.status >= 200 && res.status <= 300) {
+        if ((res.data.response_indicator && res.data.response_indicator.toUpperCase() !== "HARD") && (res.data.response_action && res.data.response_action.toUpperCase() !== "STOP")) {
+          setAprValue(res.data.apr);
+          setFlateRateValue(res.data.monthly_flat_rate);
+          setRepaymentAmount(res.data.repayment_amount);
+          setSpinnerEnabled(false)
+        }
+        else {
+          setAprValue(res.data.apr);
+          setFlateRateValue(res.data.monthly_flat_rate);
+          setRepaymentAmount(res.data.repayment_amount);
+          setSpinnerEnabled(false)
+        }
+      }
+    })
+  }
+
+  return (
+    <>
+      <div className="main-wrapper" style={{ justifyContent: 'center', overflowY: 'scroll', maxHeight: '70vh' }}>
+        {/* <div className="logo-section"></div> */}
+        <div className="aipScreenPL">
+          <form name="formName[stageName]">
+            <div className="header1">
+              <div className="grid1">
+                <div className="row column01" style={{ paddingTop: 0 }}>
+                  <div className="headerPL">
+                    <div className='imagePL'>
+                      <img src={budgetIcon} />
+                      <h3 style={{ fontSize: '25px' }}>Congratulations!</h3>
+                      <p style={{ fontSize: '18px' }}>Your preliminary assessment is completed. Please confirm the loan offer to continue the application processing:</p>
+                    </div>
+                  </div>
+
+                  {/* <!--Best Offer--> */}
+                  <div className="offer-section">
+                    <div className="media" ng-show="!bestOfferSplash">
+
+                      <div className="media-body">
+                        <div className="BestOffer_Section">
+                          <div className="Loan_Amount_edit">
+                            <div className="loanAmount">
+                              <div className="loan_amt_hkd_text">HKD</div>
+                              <div className="amount_change">{defaultValue}</div>
+                            </div>
+                            <div className="rtob-form-component-hk componentHKPriceSlider">
+                              <div className="slidecontainer">
+                                <input type="range"
+                                  min={offerDetails.offer_details[0].approved_amount}
+                                  max={offerDetails.offer_details[1].approved_amount}
+                                  step="1000"
+                                  className="slider" id="myRangeSlider"
+                                  onInput={changeHandler}
+                                  // onMouseUp={changeHandler}
+                                />
+                              </div>
+                            </div>
+                            <p className="eligible-amount">The maximum eligible amount is HK${finalApprovedAmount}</p>
+                          </div>
+                          <div className="tenor-title">Tenor & Monthly Repayment</div>
+
+                          <div className="select_tenuor scroll">
+                            <div className="amount_tenor">
+                              <div ng-repeat="val in TenorMonthlist">
+                                {loanTenor.length > 0 && loanTenor.sort((a: any, b: any) => Number(b.CODE_VALUE) - Number(a.CODE_VALUE)).map((value, ind) => {
+                                  return (
+                                    <div key={ind} className={defaultMonth === value.CODE_VALUE ? "tenorButton selected" : "tenorButton"} onClick={() => changeMonths(value.CODE_VALUE)}>{value.CODE_DESC}</div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          {spinnerEnabled ?
+                            <div className="repayment_card">
+                              <div className="spinner__container">
+                              {/* <Spinner /> */}
+                              <div className="spinner__icon"></div>
+                            </div>
+                            </div>
+                          :
+                            <div className="repayment_card" style={{backgroundColor: 'white'}}>
+                              <div className="result_HKd">HKD <span className="hkd_result_amount"
+                                style={{ fontWeight: 'bold' }}> {repaymentAmount} </span> x {defaultMonth} months </div>
+                              <hr className="hkd_line" style={{ borderBlockColor: '#EEEE' }} />
+                              <div className="repayment_details">
+                                <p className="repayment_title">Annualized Percentage Rate (APR)</p>
+                                <p className="apr_percentage">{aprValue}%</p>
+                              </div>
+                              <div className="repayment_details">
+                                <p className="repayment_title">Monthly Flat Rate</p>
+                                <p className="monthly_falat_rate">{flateRateValue}%</p>
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div className="footer">
+        {/* <div className="back" onClick={previousStage}>
+          <span className="arrow"></span> Back
+        </div> */}
+        <button type="submit" className={`continue form-valid`} onClick={nextStage}>
+          Continue
+        </button>
+      </div>
+    </>
+  )
+}
+
+export default LoanDisbursement
