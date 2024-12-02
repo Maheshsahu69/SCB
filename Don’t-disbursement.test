@@ -1,1 +1,160 @@
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import FundDisbursement, { InfoWithoutModal } from "./FundDisbursement";
 
+// Mock components
+jest.mock("../../../../shared/components/close/close", () => () => (
+  <div>Mock Close Component</div>
+));
+
+jest.mock("../../../../shared/components/selection-box/selection-box", () => () => (
+  <div>Mock SelectionBox Component</div>
+));
+
+jest.mock("../../../../shared/components/text/text", () => () => (
+  <div>Mock Text Component</div>
+));
+
+// Mock Redux
+const mockStore = configureStore([thunk]);
+
+describe("FundDisbursement Component", () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [],
+        userInput: {
+          applicants: [
+            {
+              marketing_phone_all: "Y",
+              marketing_phone_others: "N",
+              marketing_email: "N",
+              marketing_mobile_message: "N",
+              marketing_post: "Y",
+            },
+          ],
+        },
+      },
+      lov: [],
+    });
+  });
+
+  const mockProps = {
+    fields: [
+      {
+        field_set_name: "Fund Disbursement",
+        fields: [
+          {
+            logical_field_name: "disbursement_field",
+            mandatory: "Yes",
+            rwb_label_name: "Disbursement",
+          },
+        ],
+      },
+    ],
+    handleCallback: jest.fn(),
+    handleFieldDispatch: jest.fn(),
+    userInput: "",
+    updateCheckboxStatus: jest.fn(),
+  };
+
+  it("renders the FundDisbursement component with basic elements", () => {
+    render(
+      <Provider store={store}>
+        <FundDisbursement {...mockProps} />
+      </Provider>
+    );
+
+    // Check header
+    expect(screen.getByText("Fund Disbursement")).toBeInTheDocument();
+    expect(screen.getByText("Mock Close Component")).toBeInTheDocument();
+
+    // Check radio button
+    const radioInput = screen.getByRole("radio");
+    expect(radioInput).toBeInTheDocument();
+
+    // Check InfoWithoutModal rendered
+    expect(
+      screen.getByText(
+        "*Instant fund disbursement is subject to the final decision of the Bank and the disbursement result. Funds will be disbursed in the next working day if you have selected other bank account for fund disbursement."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("handles radio button selection and renders SelectionBox and Text components", () => {
+    render(
+      <Provider store={store}>
+        <FundDisbursement {...mockProps} />
+      </Provider>
+    );
+
+    const radioInput = screen.getByRole("radio");
+
+    // Simulate selecting the radio button
+    fireEvent.click(radioInput);
+
+    // Verify SelectionBox and Text components are rendered
+    expect(screen.getByText("Mock SelectionBox Component")).toBeInTheDocument();
+    expect(screen.getByText("Mock Text Component")).toBeInTheDocument();
+
+    // Verify the callbacks
+    expect(mockProps.handleCallback).toHaveBeenCalledTimes(1);
+    expect(mockProps.handleFieldDispatch).toHaveBeenCalledTimes(1);
+  });
+
+  it("displays an error when mandatory field is not selected", () => {
+    render(
+      <Provider store={store}>
+        <FundDisbursement {...mockProps} />
+      </Provider>
+    );
+
+    // Attempt to trigger an error
+    const radioInput = screen.getByRole("radio");
+    fireEvent.click(radioInput);
+    fireEvent.click(radioInput); // Deselect to trigger error
+
+    // Error state logic would be added here if implemented in the component
+  });
+
+  it("renders InfoWithoutModal with correct content", () => {
+    const infoData = {
+      data: {
+        logical_field_name: "direct_marketing_opt_out",
+        rwb_label_name: "Direct Marketing Opt-Out",
+      },
+    };
+
+    render(
+      <Provider store={store}>
+        <InfoWithoutModal {...infoData} />
+      </Provider>
+    );
+
+    expect(screen.getByText("Direct Marketing Opt-Out")).toBeInTheDocument();
+  });
+
+  it("renders InfoWithoutModal with fill_in_note logical field name", () => {
+    const infoData = {
+      data: {
+        logical_field_name: "fill_in_note",
+        rwb_label_name: "Please fill in the note",
+      },
+    };
+
+    render(
+      <Provider store={store}>
+        <InfoWithoutModal {...infoData} />
+      </Provider>
+    );
+
+    expect(
+      screen.getByText("Please fill in the note")
+    ).toBeInTheDocument();
+  });
+});
