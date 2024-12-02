@@ -1,0 +1,70 @@
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import Text from "./Text"; // Adjust the import path based on your project structure
+
+describe("Text Component", () => {
+  const mockHandleCallback = jest.fn();
+
+  const mockProps = {
+    data: {
+      ui_defaulted_value: "",
+      rwb_label_name: "Email Address",
+      logical_field_name: "email",
+      mandatory: "Yes",
+      regex: "^[a-zA-Z0-9_%+\\-]+@[a-zA-Z0-9\\-]+\\.[a-zA-Z]{2,5}$",
+      min_length: 5,
+      max_length: 50,
+      type: "text",
+      info_tooltips: "",
+    },
+    handleCallback: mockHandleCallback,
+  };
+
+  it("should update the input value and call handleCallback on change", () => {
+    render(<Text {...mockProps} />);
+
+    const input = screen.getByPlaceholderText("Email Address");
+    expect(input).toBeInTheDocument();
+
+    // Simulate user input
+    fireEvent.change(input, { target: { value: "test@example.com" } });
+
+    // Check if the input value has been updated
+    expect(input.value).toBe("test@example.com");
+
+    // Verify handleCallback was called with the correct arguments
+    expect(mockHandleCallback).toHaveBeenCalledWith(
+      mockProps.data,
+      "test@example.com"
+    );
+  });
+
+  it("should show an error message if the input value is invalid", () => {
+    render(<Text {...mockProps} />);
+
+    const input = screen.getByPlaceholderText("Email Address");
+
+    // Simulate invalid input
+    fireEvent.change(input, { target: { value: "invalid-email" } });
+
+    // Check if the error message is displayed
+    const errorMessage = screen.getByText("Email Address is invalid.");
+    expect(errorMessage).toBeInTheDocument();
+
+    // Ensure handleCallback is not called when there is an error
+    expect(mockHandleCallback).not.toHaveBeenCalled();
+  });
+
+  it("should not show an error message for valid input", () => {
+    render(<Text {...mockProps} />);
+
+    const input = screen.getByPlaceholderText("Email Address");
+
+    // Simulate valid input
+    fireEvent.change(input, { target: { value: "test@example.com" } });
+
+    // Check if no error message is displayed
+    const errorMessage = screen.queryByText("Email Address is invalid.");
+    expect(errorMessage).not.toBeInTheDocument();
+  });
+});
