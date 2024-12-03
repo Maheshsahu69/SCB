@@ -1,0 +1,729 @@
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import { getUrl } from "../../../utils/common/change.utils";
+import encrypt from "../../../services/encryption";
+import { CONSTANTS } from "../../../utils/common/constants";
+import { nextStage, stateUrl } from "../../dashboard/fields/stage.utils";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { dispatchError, lovRequests } from "../../../services/common-service";
+import { preApprovalAction } from "../store/preApproval-slice";
+import PreApprovalUtil from "./preApprovalUtils";
+
+import { urlParamAction } from '../../../utils/store/urlparam-slice';
+
+
+export type AppDispatch = typeof store.dispatch;
+//const dispatch = useDispatch();
+export const getData = (URLdata: any): any => {
+  return axios
+    .get(URLdata)
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getPDFData = (URLdata: any) => {
+  return axios
+    .get(URLdata, { responseType: "blob" })
+    .then((response: any) => {
+      if (response.status === 200) {
+        //After csl integration
+       // const link = document.createElement("a");
+        var blob = new Blob([response.data], { type: "application/pdf" });
+        if (
+          navigator.userAgent.indexOf("Chrome") !== -1 ||
+          navigator.userAgent.match("CriOS")
+        ) {
+          blob = new Blob([response.data], { type: "application/pdf" });
+        } else {
+          var pdfBase64Data = new Uint8Array(response.data);
+          blob = new Blob([pdfBase64Data], {
+            type: "application/octet-stream",
+          });
+        }
+        const dataURL = window.URL.createObjectURL(blob);
+         return Promise.resolve(dataURL);
+      } else {
+        console.log(response);
+      }
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+export const getDataFormConfig = (formPayload: any): any => {
+  const channelReference = store.getState().urlParam.applicationDetails.channelRefNo;
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const endpoint = `${process.env.REACT_APP_RTOB_FORM_CONFIG}`;
+  const url = baseUrl + endpoint;
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(formPayload),
+  };
+  console.log("lin1");
+
+  return (dispatch: AppDispatch) =>
+    axios
+      .post(url, JSON.stringify(formPayload), { headers: options.headers })
+      .then((response: any) => {
+        console.log("lin2");
+        if (response.status === 200) {
+          dispatch(preApprovalAction.setFormConfigMetaData(response.data));
+          let stageData = Object.assign({}, response.data);
+          delete stageData.applicants;
+          delete stageData.fieldmetadata;
+
+          stageData.fieldMetaData = response.data.fieldmetadata;
+          stageData.applicants = [response.data.applicants];
+          let isBdStage: string;
+          let newStageData: any = {};
+          if (formPayload.stage.stage_id === "" && formPayload.stage.page_id === CONSTANTS.STAGE_NAMES.PD_1) {
+            isBdStage = CONSTANTS.STAGE_NAMES.PD_1;
+            dispatch(preApprovalAction.setCurrentStage("PD-0"));
+            dispatch(preApprovalAction.setPreviousStage("PD-0"));
+            dispatch(preApprovalAction.setNextStages("pd-1,bd-1a,bd-1,ad-1,ad-1a,ad-2,ad-3,ad-6,rp,ld-1,doc-3,fd-1,ffd-1"));//only for PIL "pd-1,bd-1a,bd-1,ad-1,ad-1a,ad-2,ad-3,ad-6,rp,aip-1,doc-3,ld-1,ffd-1"
+          }
+          else if (formPayload.stage.stage_id === "" && formPayload.stage.page_id === "") {
+            isBdStage = nextStage(
+              CONSTANTS.STAGE_NAMES.PD_1,
+              formPayload.application.journey_type
+            );
+            newStageData = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+            newStageData.fieldMetaData = response.data.fieldmetadata;
+          }
+          else {
+            isBdStage = response.data.stage.page_id;
+          }
+
+          if (formPayload) {
+            for (let key in formPayload.applicant) {
+              if (formPayload.applicant[key]) {
+                response.data.applicants[key] =
+                  response.data.applicant[key];
+              }
+            }
+          }
+
+          dispatch(
+            stagesAction.getStage({
+              id: isBdStage,
+              formConfig: isBdStage === CONSTANTS.STAGE_NAMES.PD_1 ? stageData : newStageData,
+            })
+          );
+
+          stateUrl(isBdStage);
+          dispatch(lovRequests(stageData, isBdStage));
+          console.log("response--" + response);
+          return Promise.resolve(response);
+        }
+      })
+      .catch((error: any) => {
+        console.log("clientResponse", error);
+        dispatchError(error);
+        return Promise.reject(error);
+      });
+};
+
+export const getSessionByPreLogin = (): any => {
+  var scClientContextHeaders = {
+    "SC-CLIENT-CONTEXT":
+      '{"reqId":"' +
+      PreApprovalUtil.generateUUID() +
+      '","Channel":"MOBILE","Country":"SG",' +
+      '"Language":"EN","AppName":"RCWB","ClientId":"MOBILE","InstanceCode":"CB_IN",' +
+      '"RumDevice":"devicebrowserversion","Source":"sc.com","DeviceType":"Desktop"}',
+  };
+
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const endpoint = `${process.env.REACT_APP_RTOB_LOGIN_END_POINT}`;
+  const options = {
+    method: "GET",
+    url: baseUrl + endpoint,
+    target: "https://pt.sc.com",
+    changeOrigin: true,
+    secure: false,
+    headers: {
+      Authorization: `${process.env.REACT_APP_RTOB_AUTHORIZATION}`,
+      "SC-CLIENT-CONTEXT": scClientContextHeaders["SC-CLIENT-CONTEXT"],
+    },
+  };
+
+  return axios
+    .request(options)
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getProductMetaDataInfo = (urlParams: any): any => {
+  var scClientContextHeaders = {
+    "SC-CLIENT-CONTEXT":
+      '{"reqId":"' +
+      PreApprovalUtil.generateUUID() +
+      '","Channel":"MOBILE","Country":"SG",' +
+      '"Language":"EN","AppName":"RCWB","ClientId":"MOBILE","InstanceCode":"CB_IN",' +
+      '"RumDevice":"devicebrowserversion","Source":"sc.com","DeviceType":"Desktop"}',
+  };
+  const endpoint = `${process.env.REACT_APP_PRODUCT_INFO_URL}`;
+  const options = {
+    method: "GET",
+    url: endpoint,
+    headers: {
+      Authorization: `${process.env.REACT_APP_RTOB_AUTHORIZATION}`,
+      "SC-CLIENT-CONTEXT": scClientContextHeaders["SC-CLIENT-CONTEXT"],
+    },
+  };
+
+  return async (dispatch: AppDispatch) => axios
+    .request(options)
+    .then((response) => {
+      let productInfoResponse = response.data.products;
+      let products = getUrl.getParameterByName("products") ? getUrl.getParameterByName("products") : getUrl.getParameterByName("product");
+      let resume = getUrl.getParameterByName("auth");
+      if (!resume) {
+        if (products) {
+          // dispatch(getProductInfo(products, productInfoResponse));
+          let filteredProducts = [];
+          let productlov: any = [];
+          let proKey: any = [];
+          if (products) {
+            proKey = Object.keys(productInfoResponse);
+            for (const elements of proKey) {
+              productlov = productInfoResponse[elements];
+              for (const elementj of productlov) {
+                if (elementj.product_type === products) {
+                  filteredProducts.push(elementj);
+                }
+              }
+            }
+            const flatFilteredArray = filteredProducts.flat();
+            console.log(flatFilteredArray)
+            if (flatFilteredArray && flatFilteredArray.length > 0) {
+              dispatch(urlParamAction.productDetails(flatFilteredArray));
+              const decodedUrl = decodeURIComponent(urlParams.search.replace('?', ''));
+              const splitUrlParams = decodedUrl.split("&");
+              console.log(splitUrlParams)
+              var product_type;
+              var campaign;
+              var premium;
+              // var cardType;
+              // var affiliation;
+              // var lang;
+              for (let i in splitUrlParams) {
+                if (splitUrlParams[i].split("=")[0] === 'products' || splitUrlParams[i].split("=")[0] === 'product') {
+                  product_type = splitUrlParams[i].split("=")[1]
+                }
+                if (splitUrlParams[i].split("=")[0] === 'campaign') {
+                  campaign = splitUrlParams[i].split("=")[1]
+                }
+                if (splitUrlParams[i].split("=")[0] === 'premium') {
+                  premium = splitUrlParams[i].split("=")[1]
+                }
+                // if (splitUrlParams[i].split("=")[0] === 'cardType') {
+                //   cardType = splitUrlParams[i].split("=")[1]
+                // }
+                // if (splitUrlParams[i].split("=")[0] === 'affiliation') {
+                //   affiliation = splitUrlParams[i].split("=")[1]
+                // }
+                // if (splitUrlParams[i].split("=")[0] === 'lang') {
+                //   lang = splitUrlParams[i].split("=")[1]
+                // }
+              }
+              let product = JSON.parse(JSON.stringify(flatFilteredArray));
+              product[0]["campaign"] = campaign;
+              product[0]["name"] = "personal-instalment-loan";
+              product[0]["company_category"] = "NA";
+              product[0]["premiumCode"] = premium;
+              product[0]["product_type"] = product_type;
+              delete product[0].product_description
+              console.log(product)
+              return Promise.resolve(product);
+            } else {
+              const error = {
+                response: {
+                  status: "error",
+                  statusText: "no response",
+                },
+              };
+              dispatch(dispatchError(error));
+            }
+          }
+        } else {
+          const error = {
+            response: {
+              status: "error",
+              statusText: "no response",
+            },
+          };
+          dispatch(dispatchError(error));
+          return Promise.reject();
+        }
+      }
+    })
+    .catch((error) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getRandomChallenge = (channelReference: any): any => {
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_GBA_RANDOM_CHALLANGE}`;
+  // let formConfigmetaData = JSON.parse(
+  //   JSON.stringify(store.getState().preApproval.formConfigmetaData)
+  // );
+  // let productData = formConfigmetaData?.products[0];
+
+  const payload = {
+    data: {
+      id: PreApprovalUtil.generateUUID,
+      type: "random-challenge",
+      attributes: {
+        mobile: store.getState().stages.userInput.applicants[0]?.mobile_number,
+        "relationship-no": channelReference,
+        created: new Date(),
+        "client-ip": "",
+        "status-code": "",
+        "error-message": "",
+        "base64-challenge": "",
+        modulus: "",
+        exponent: "",
+        "key-index": "",
+        "applicant-id": 1,
+      },
+      relationships: null,
+    },
+  };
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getGenerateOtp = (productData: any): any => {
+  const channel_reference_no: any =
+    productData.product_type !== null
+      ? getUrl.getChannelRefNo().channelRefNo !== null
+        ? getUrl.getChannelRefNo().channelRefNo
+        : store.getState().stages.stages[0].stageInfo.application
+          .channel_reference
+      : null;
+
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_GBA_GENERATE}`;
+  const payload = {
+    data: {
+      id: PreApprovalUtil.generateUUID,
+      type: "otp",
+      attributes: {
+        mobile: store.getState().stages.userInput.applicants[0]?.mobile_number,
+        "relationship-no": "0403148dd0c9a02024",
+        "product-type": productData?.product_type
+          ? productData.product_type
+          : "",
+        "product-category": productData?.product_category
+          ? productData.product_category
+          : "",
+        "sms-delivery": "yes",
+        "created-date": new Date(),
+      },
+      relationships: null,
+    },
+  };
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getVerifyOtp = (
+  otp: any,
+  randomChallengeData: any,
+  otpGenResponse: any,
+  channel_reference_no: any
+): any => {
+  let encryptedOtp = otp + "_-_" + randomChallengeData["base64-challenge"];
+  const encryptval = encrypt(
+    randomChallengeData["exponent"],
+    randomChallengeData["modulus"],
+    "",
+    encryptedOtp,
+    "OTP"
+  );
+
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_GBA_VERIFY}`;
+  let payload = {
+    data: {
+      id: PreApprovalUtil.generateUUID,
+      type: "verify-otp",
+      attributes: {
+        created: new Date(),
+        "otp-sn": otpGenResponse["otp-sn"],
+        "enc-otp": encryptval,
+        "key-index": randomChallengeData["key-index"],
+        "applicant-id": 1,
+        "relationship-no": otpGenResponse["relationship-no"],
+        "app-ref-no": "",
+      },
+      relationships: null,
+    },
+  };
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getEnquiryData = (
+  productData: any,
+  applicantsSelector: any,
+  channel_reference_no: any
+): any => {
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_ENQUIRY_DATA}`;
+  let payload = {
+    application: {
+      channel_reference: channel_reference_no,
+      application_reference: "",
+      alipay_ref_number: null,
+      request_id: null,
+      service_type: "AE",
+      country_code: "HK",
+      source_system_name: "3",
+      acquisition_channel: "D",
+      referral_id: "",
+      referral: "",
+      sourcing_id: null,
+      application_date: "",
+      application_status: null,
+      resume_flag: "N",
+    },
+    applicants: {
+      HKID_a_1: applicantsSelector.HKID,
+      passport_no_a_1: null,
+      date_of_birth_a_1: applicantsSelector.date_of_birth,
+      expiry_date_a_1: null,
+      country_of_issue_a_1: null,
+      client_sequence_no_a_1: "",
+      customer_seq_no: "",
+      affiliation_a_1: "2132",
+      card_type_a_1: "3268",
+    },
+    products: [productData],
+  };
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const getDedupeData = (channel_reference_no: any): any => {
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_DEDUPE_DATA}`;
+
+  let payload = JSON.parse(
+    JSON.stringify(store.getState().stages.stages[0].stageInfo)
+  );
+  let applicant = store.getState().stages.stages[0].stageInfo.applicants[0];
+  payload["applicants"] = JSON.parse(JSON.stringify(applicant));
+  payload.applicants['preimumMGM_resume_a_1'] = "HKPIL23PLSTP10undefined1258";
+  payload.applicants["HKID_a_1_final"] = payload.applicants.HKID_a_1;
+  payload.applicants["HKID_rp"] = payload.applicants.HKID_a_1 ? payload.applicants.HKID_a_1[0] + '-' + payload.applicants.HKID_a_1.substring(1, payload.applicants.HKID_a_1.length - 1) + '-' + payload.applicants.HKID_a_1[payload.applicants.HKID_a_1.length - 1] : "";
+  payload.applicants["product_description_a_1"] = "";
+  console.log(payload)
+
+  // let payload = dedupeDataPayload;
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+
+export const getOffer = (payload: any): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const channel_reference_no = stageSelector.stageInfo.application.channel_reference;
+
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_OFFER}`;
+
+  var currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
+  payload = JSON.parse(JSON.stringify(payload));
+  // var payload= offerPayload;
+  payload.stage.page_id = stageSelector.stageId;
+  payload.stage.stage_id = stageSelector.stageId.split("-")[0].toUpperCase();
+  payload.stage.stage_status = "incomplete";
+  payload.stage.workflow_stage_id = null;
+  payload.applicants = payload.applicants.length > 0 ? payload.applicants[0] : payload.applicants;
+  payload.client = {
+    "journey": "prelogin_ntc_or_ntp",
+    "auth-type": "manual",
+    "login-type": "prelogin"
+  }
+  if (stageSelector.stageId === CONSTANTS.STAGE_NAMES.ACD_1) {
+    payload["applicant_documents"] = [
+      {
+        applicant_sequence_number: null,
+        document_list: null,
+        email_id_change: null,
+        icdd_reference_no_availability: null,
+        journey_type: "NTB",
+        last_updated_credit_limit_date_flag: null,
+        mobile_no_change: null,
+        staff_category: null,
+      },
+    ]
+    delete payload.documents
+    delete payload.etb_account_details
+    delete payload.existing_address
+    payload["dedupeList"] = currentStageData.dedupeList;
+  }
+  if (payload.fieldMetaData) {
+    delete Object.assign(payload, {
+      ["fieldmetadata"]: payload["fieldMetaData"],
+    })["fieldMetaData"];
+  }
+  payload.products = stageSelector.stageInfo.products;
+
+
+  // let payload = dedupeDataPayload;
+
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload)
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const getOffer2 = (payload: any): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const channel_reference_no = stageSelector.stageInfo.application.channel_reference;
+
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_OFFER}`;
+
+  // var currentStageData= JSON.parse(JSON.stringify(getFormConfigPayload()));
+  payload = JSON.parse(JSON.stringify(payload));
+  // var payload= offerPayload;
+  payload.stage.page_id = stageSelector.stageId;
+  payload.stage.stage_id = stageSelector.stageId.split("-")[0].toUpperCase();
+  payload.stage.stage_status = "incomplete";
+  payload.customerDetails = null;
+  payload.application.service_type = stageSelector.stageId.replace("-", "").toUpperCase();
+  payload.applicants = payload.applicants.length > 0 ? payload.applicants[0] : payload.applicants;
+  payload.client = {
+    "journey": "prelogin_ntc_or_ntp",
+    "auth-type": "manual",
+    "login-type": "prelogin"
+  }
+  if (stageSelector.stageId === CONSTANTS.STAGE_NAMES.ACD_4) {
+    payload.applicants["business_est_date_a_1"] = payload.applicants["business_est_date_a_1"] ? payload.applicants["business_est_date_a_1"] : null;
+  }
+
+  if (payload.fieldMetaData) {
+    delete Object.assign(payload, {
+      ["fieldmetadata"]: payload["fieldMetaData"],
+    })["fieldMetaData"];
+  }
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload)
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response) => {
+
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const getOfferCalulated = (data: any): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const channel_reference_no = stageSelector.stageInfo.application.channel_reference;
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${process.env.REACT_APP_RTOB_FETCH_APR_DETAILS}`;
+
+  console.log(data)
+  var payload: any = {};
+  payload = {
+    channel_ref_number: stageSelector.stageInfo.application.channel_ref_number,
+    cos_ref_number: stageSelector.stageInfo.application.cos_ref_number,
+    application_reference: stageSelector.stageInfo.application.application_reference,
+    source_system_name: "02",
+  };
+  payload['requested_amount'] = data.requested_amount;
+  payload['requested_tenure'] = data.requested_tenure;
+
+  // let payload = dedupeDataPayload;
+
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference_no),
+    },
+    body: JSON.stringify(payload)
+  };
+
+  return axios
+    .post(url, JSON.stringify(payload), { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const getImagePreview = (channelReference: any, docId: any): any => {
+
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT}`
+
+
+  const url = `${baseUrl}${application}${channelReference}${endPoint}/${docId}.png`;
+  const options = {
+    method: "GET",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    // body:JSON.stringify(payload),
+  };
+  return axios
+    .get(url, { headers: options.headers, responseType: 'blob' })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
