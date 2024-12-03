@@ -167,3 +167,152 @@ describe("PreApprovalUtil", () => {
     });
   });
 });
+
+
+
+describe('securityCallDesider', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should handle bAuth case', () => {
+    const mockApplicationData = {
+      stages: {
+        stages: [
+          { stageInfo: JSON.stringify({ applicants: ['applicant1', 'applicant2'] }) },
+        ],
+      },
+    };
+
+    store.getState.mockReturnValue(mockApplicationData);
+    PreApprovalUtil.getApplicantFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('bAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getApplicantFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'bAuth',
+      'keyType',
+      ['field1', 'field2'],
+      ['applicant1', 'applicant2'],
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle aAuth case', () => {
+    const mockApplicationData = {
+      stages: {
+        stages: [
+          { stageInfo: JSON.stringify({ application: 'applicationData' }) },
+        ],
+      },
+    };
+
+    store.getState.mockReturnValue(mockApplicationData);
+    PreApprovalUtil.getApplicationFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('aAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getApplicationFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'aAuth',
+      'keyType',
+      ['field1', 'field2'],
+      'applicationData',
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle pAuth case', () => {
+    const mockApplicationData = {
+      stages: {
+        stages: [
+          { stageInfo: JSON.stringify({ products: ['product1'] }) },
+        ],
+      },
+    };
+
+    store.getState.mockReturnValue(mockApplicationData);
+    PreApprovalUtil.getProductFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('pAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getProductFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'pAuth',
+      'keyType',
+      ['field1', 'field2'],
+      'product1',
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle lAuth case', () => {
+    const mockApplicationData = {
+      stages: {
+        stages: [
+          { stageInfo: JSON.stringify({ lov_desc: 'lovDescription' }) },
+        ],
+      },
+    };
+
+    store.getState.mockReturnValue(mockApplicationData);
+    PreApprovalUtil.getLoveDescriptionFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('lAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getLoveDescriptionFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'lAuth',
+      'keyType',
+      ['field1', 'field2'],
+      'lovDescription',
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle missing authType', () => {
+    const mockApplicationData = {
+      stages: {
+        stages: [
+          { stageInfo: JSON.stringify({ applicants: ['applicant1'] }) },
+        ],
+      },
+    };
+
+    store.getState.mockReturnValue(mockApplicationData);
+
+    const result = securityCallDesider('unknownAuthType', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(result).toBeUndefined();
+  });
+
+  it('should handle undefined stageInfo gracefully', () => {
+    const mockApplicationData = {
+      stages: {
+        stages: [{}], // No stageInfo provided
+      },
+    };
+
+    store.getState.mockReturnValue(mockApplicationData);
+
+    const result = securityCallDesider('bAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(result).toBeUndefined(); // Handle missing stageInfo gracefully
+  });
+});
+
