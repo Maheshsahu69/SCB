@@ -154,3 +154,118 @@ jest.mock('./preApprovalUtils', () => ({
   getLoveDescriptionFields: jest.fn(),
   generateSecMd: jest.fn(),
 }));
+import store from 'path-to-store';
+import * as PreApprovalUtil from './preApprovalUtils';
+import { securityCallDesider } from './path-to-securityCallDesider';
+
+describe('securityCallDesider', () => {
+  beforeEach(() => {
+    jest.clearAllMocks(); // Clear mocks before each test
+  });
+
+  it('should handle bAuth case', () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ applicants: ['app1', 'app2'] }) }] },
+    });
+    PreApprovalUtil.getApplicantFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('bAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getApplicantFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'bAuth',
+      'keyType',
+      ['field1', 'field2'],
+      ['app1', 'app2'],
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle aAuth case', () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ application: ['appData'] }) }] },
+    });
+    PreApprovalUtil.getApplicationFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('aAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getApplicationFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'aAuth',
+      'keyType',
+      ['field1', 'field2'],
+      ['appData'],
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle pAuth case', () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ products: [['prod1']] }) }] },
+    });
+    PreApprovalUtil.getProductFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('pAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getProductFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'pAuth',
+      'keyType',
+      ['field1', 'field2'],
+      ['prod1'],
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle lAuth case', () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ lov_desc: 'lovDesc' }) }] },
+    });
+    PreApprovalUtil.getLoveDescriptionFields.mockReturnValue(['field1', 'field2']);
+    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
+
+    const result = securityCallDesider('lAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getLoveDescriptionFields).toHaveBeenCalled();
+    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
+      'lAuth',
+      'keyType',
+      ['field1', 'field2'],
+      'lovDesc',
+      'checkFieldWithValue'
+    );
+    expect(result).toBe('mockSecMd');
+  });
+
+  it('should handle unknown authType gracefully', () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ applicants: ['applicant'] }) }] },
+    });
+
+    const result = securityCallDesider('unknownAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(result).toBeUndefined();
+  });
+
+  it('should handle missing stageInfo gracefully', () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{}] }, // No stageInfo provided
+    });
+
+    const result = securityCallDesider('bAuth', 'keyType', 'checkFieldWithValue');
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(result).toBeUndefined();
+  });
+});
