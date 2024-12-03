@@ -1,1 +1,220 @@
+import axios from "axios";
+import MockAdapter from "axios-mock-adapter";
+import {
+  postSaveData,
+  postDocSaveData,
+  postBasicData,
+  postAditionalData,
+  postDocumemts,
+  postQRCodeZOLO,
+  postZOLOCheck,
+  postZolozAcknowledge,
+  postFinalAcknowledge,
+  postPdfPreview,
+  postTMXUserSession,
+  postFulFilmentData,
+} from "./yourFilePath"; // Adjust file path
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("../../../utils/store/store");
+jest.mock("../../../services/common-service");
+jest.mock("./preApprovalUtils");
+
+describe("API Utility Functions", () => {
+  let mockAxios;
+
+  beforeEach(() => {
+    mockAxios = new MockAdapter(axios);
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    mockAxios.restore();
+  });
+
+  const mockState = {
+    stages: {
+      stages: [
+        {
+          stageInfo: {
+            application: { channel_reference: "12345", application_reference: "app123" },
+            applicants: {
+              first_name_a_1: "John",
+              last_name_a_1: "Doe",
+              date_of_birth_a_1: "1990-01-01",
+              HKID_a_1: "AB123456",
+              product_type: "Loan",
+              product_category: "Personal",
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  store.getState.mockReturnValue(mockState);
+
+  PreApprovalUtil.getFormConfigPayload.mockReturnValue({
+    applicants: {},
+    application: {},
+  });
+
+  PreApprovalUtil.getAckMetaData.mockReturnValue("mock-metadata");
+
+  const mockResponse = { status: "success" };
+
+  test("postSaveData - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postSaveData();
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postSaveData - failure", async () => {
+    const mockError = { message: "Network Error" };
+    mockAxios.onPost(/mockURL/).reply(500, mockError);
+
+    await expect(postSaveData()).rejects.toThrow("Request failed with status code 500");
+
+    expect(dispatchError).toHaveBeenCalledWith(mockError);
+    expect(mockAxios.history.post.length).toBe(1);
+  });
+
+  test("postDocSaveData - success", async () => {
+    const documentData = [{ docId: "doc1", documentName: "document.pdf" }];
+    const transactionData = { transactionId: "txn123", result: { resultMessage: "success" } };
+
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postDocSaveData(documentData, transactionData);
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postDocSaveData - failure", async () => {
+    const documentData = [{ docId: "doc1", documentName: "document.pdf" }];
+    const transactionData = { transactionId: "txn123", result: { resultMessage: "success" } };
+    const mockError = { message: "Network Error" };
+
+    mockAxios.onPost(/mockURL/).reply(500, mockError);
+
+    await expect(postDocSaveData(documentData, transactionData)).rejects.toThrow("Request failed with status code 500");
+
+    expect(dispatchError).toHaveBeenCalledWith(mockError);
+    expect(mockAxios.history.post.length).toBe(1);
+  });
+
+  test("postBasicData - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postBasicData();
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postAditionalData - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postAditionalData();
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postDocumemts - success", async () => {
+    const file = new Blob(["file content"], { type: "application/pdf" });
+    const formData = new FormData();
+    formData.append("file", file);
+
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postDocumemts("12345", file);
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postQRCodeZOLO - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postQRCodeZOLO("12345", "HKID");
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postZOLOCheck - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postZOLOCheck("12345", "txn123", "HKID");
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postZolozAcknowledge - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postZolozAcknowledge("12345", [{ docId: "doc123" }]);
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postFinalAcknowledge - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postFinalAcknowledge("12345");
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postPdfPreview - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postPdfPreview("12345");
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postTMXUserSession - success", async () => {
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postTMXUserSession("12345");
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+
+  test("postFulFilmentData - success", async () => {
+    const payload = { applicants: [{ firstName: "John" }] };
+
+    mockAxios.onPost(/mockURL/).reply(200, mockResponse);
+
+    const result = await postFulFilmentData(payload);
+
+    expect(result.data).toEqual(mockResponse);
+    expect(mockAxios.history.post.length).toBe(1);
+    expect(dispatchError).not.toHaveBeenCalled();
+  });
+});
 
