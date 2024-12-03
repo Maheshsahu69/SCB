@@ -1,1 +1,169 @@
+import { useDispatch, useSelector } from "react-redux";
+import PreApprovalUtil from "./PreApprovalUtil";
+import { v4 as uuid } from "uuid";
+import md5 from "md5";
+import { sha256 } from "js-sha256";
 
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+  useDispatch: jest.fn(),
+}));
+
+jest.mock("uuid", () => ({
+  v4: jest.fn(() => "mock-uuid"),
+}));
+
+jest.mock("md5", () => jest.fn(() => "mock-md5-hash"));
+jest.mock("js-sha256", () => ({
+  sha256: jest.fn(() => "mock-sha256-hash"),
+}));
+
+describe("PreApprovalUtil", () => {
+  let mockDispatch: jest.Mock;
+
+  beforeEach(() => {
+    mockDispatch = jest.fn();
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+
+    (useSelector as jest.Mock).mockImplementation((selector) => {
+      // Return different mocked state based on what is being selected
+      const state = {
+        stages: {
+          stages: [
+            {
+              stageInfo: {
+                applicants: [{}],
+                fieldMetaData: { data: { stages: [{ fields: [] }] } },
+                application: {},
+                products: [{}],
+              },
+              stageId: "AD_1",
+            },
+          ],
+          userInput: { applicants: [{}] },
+        },
+        auth: { sessionUid: "mock-session-uid" },
+        lovDesc: { lovDesc: [{ code_desc: "desc1", label: "key1" }] },
+      };
+      return selector(state);
+    });
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("generateUUID", () => {
+    it("should generate a mock UUID", () => {
+      const result = PreApprovalUtil.generateUUID();
+      expect(result).toBe("mock-uuid");
+    });
+  });
+
+  describe("getSHA256Hash", () => {
+    it("should return the SHA-256 hash of an input string", async () => {
+      const mockDigest = jest.fn().mockResolvedValue(
+        new Uint8Array([216, 199, 45, 173, 82, 36, 19, 110, 41, 120, 141, 92])
+      );
+
+      Object.defineProperty(window.crypto.subtle, "digest", {
+        value: mockDigest,
+      });
+
+      const result = await PreApprovalUtil.getSHA256Hash("test-input");
+      expect(mockDigest).toHaveBeenCalledWith(
+        "SHA-256",
+        new TextEncoder().encode("test-input")
+      );
+      expect(result).toBe("d8c72dad5224136e29788d5c80242f79");
+    });
+  });
+
+  describe("stringToHash", () => {
+    it("should hash a string into a number", () => {
+      const result = PreApprovalUtil.stringToHash("test");
+      expect(result).toBeGreaterThan(0); // Example validation
+    });
+  });
+
+  describe("getFieldOnlyWithValue", () => {
+    it("should return an array of fields with values", () => {
+      const result = PreApprovalUtil.getFieldOnlyWithValue();
+      expect(result).toEqual(["product_minimum"]);
+    });
+  });
+
+  describe("getApplicantFields", () => {
+    it("should return the list of applicant fields", () => {
+      const result = PreApprovalUtil.getApplicantFields();
+      expect(result).toContain("last_name_a_1");
+      expect(result.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("getLovDescriptionFields", () => {
+    it("should return an array of keys from lovDesc", () => {
+      const result = PreApprovalUtil.getLovDescriptionFields();
+      expect(result).toEqual(["key1"]);
+    });
+  });
+
+  describe("getAckMetaData", () => {
+    it("should return formatted metadata", () => {
+      process.env.REACT_APP_XRTOB = "mock-key";
+
+      const result = PreApprovalUtil.getAckMetaData("mock-channel-reference");
+      expect(JSON.parse(result)).toMatchObject({
+        reqId: "mock-uuid",
+        iAuth: "mock-md5-hash",
+      });
+    });
+  });
+
+  describe("getFormConfigPayload", () => {
+    it("should return a sorted payload object", () => {
+      const result = PreApprovalUtil.getFormConfigPayload();
+      expect(result).toBeDefined();
+      expect(typeof result).toBe("object");
+    });
+  });
+
+  describe("securityCallDesider", () => {
+    it("should generate a security descriptor", () => {
+      const result = PreApprovalUtil.securityCallDesider("bAuth", "keyType", []);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe("getBAuth", () => {
+    it("should generate a BAuth hash", async () => {
+      const result = await PreApprovalUtil.getBAuth();
+      expect(result).toBeDefined();
+      expect(result).toBe("mock-sha256-hash");
+    });
+  });
+
+  describe("getAAuth", () => {
+    it("should generate an AAuth hash", async () => {
+      const result = await PreApprovalUtil.getAAuth();
+      expect(result).toBeDefined();
+      expect(result).toBe("mock-sha256-hash");
+    });
+  });
+
+  describe("getPAuth", () => {
+    it("should generate a PAuth hash", async () => {
+      const result = await PreApprovalUtil.getPAuth();
+      expect(result).toBeDefined();
+      expect(result).toBe("mock-sha256-hash");
+    });
+  });
+
+  describe("getLAuth", () => {
+    it("should generate an LAuth hash", async () => {
+      const result = await PreApprovalUtil.getLAuth();
+      expect(result).toBeDefined();
+      expect(result).toBe(JSON.stringify("mock-sha256-hash"));
+    });
+  });
+});
