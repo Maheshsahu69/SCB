@@ -1,0 +1,659 @@
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+import { adpayload } from "./payload";
+
+
+
+export const postSaveData = (): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const channelRefNo = stageSelector.stageInfo.application.channel_reference;
+  const saveUrl = `${application + channelRefNo}`;
+  let url = baseUrl + saveUrl;
+  let currentStageData = PreApprovalUtil.getFormConfigPayload();
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
+    },
+    body: JSON.stringify(currentStageData),
+  };
+  console.log(options);
+
+
+  return axios
+    .post(url, JSON.stringify(currentStageData), { headers: options.headers })
+    .then((response) => {
+      console.log(response);
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const postDocSaveData = (documentData: any, transactionData: any): any => {
+  const stageSelector = JSON.parse(
+    JSON.stringify(store.getState().stages.stages[0])
+  );
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const channelRefNo = stageSelector.stageInfo.application.channel_reference;
+  const saveUrl = `${application + channelRefNo}`;
+  let url = baseUrl + saveUrl;
+  let currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
+  currentStageData.applicants["ekycdocId"] = documentData[0].docId;
+  currentStageData.applicants["ekycdocumentName"] = documentData[0].documentName;
+  currentStageData.applicants["zoloz_transaction_id"] = transactionData.transactionId;
+  currentStageData.applicants["zoloz_value"] = transactionData.result.resultMessage;
+  currentStageData.applicants["work_type_a_1"] = "S001";
+  delete currentStageData.application.error;
+  delete currentStageData.application.response_action;
+  delete currentStageData.application.response_type;
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
+    },
+    body: JSON.stringify(currentStageData),
+  };
+  console.log(options);
+
+
+  return axios
+    .post(url, JSON.stringify(currentStageData), { headers: options.headers })
+    .then((response) => {
+      console.log(response);
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
+
+export const postBasicData = (): any => {
+  const stageSelector = JSON.parse(
+    JSON.stringify(store.getState().stages.stages[0])
+  );
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  // const additionalData = `${process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT}`;
+  const channelRefNo = stageSelector.stageInfo.application.channel_reference;
+  const basicData = `${process.env.REACT_APP_RTOB_BASIC_DATA_END_POINT}`;
+  const saveUrl = `${application + channelRefNo}`;
+  var url = baseUrl + saveUrl + basicData;
+  console.log(adpayload)
+  //var currentStageDataPayload= JSON.parse(JSON.stringify(bdPayload));
+  var currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
+
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
+    },
+    body: JSON.stringify(currentStageData),
+  };
+  console.log(options);
+
+
+  return axios
+    .post(url, JSON.stringify(currentStageData), { headers: options.headers })
+    .then((response: any) => {
+      console.log(response);
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postAditionalData = (): any => {
+  const stageSelector = JSON.parse(
+    JSON.stringify(store.getState().stages.stages[0])
+  );
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const additionalData = `${process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT}`;
+  const channelRefNo = stageSelector.stageInfo.application.channel_reference;
+  const saveUrl = `${application + channelRefNo}`;
+  var url = baseUrl + saveUrl + additionalData;
+  console.log(adpayload)
+  var currentStageDataPayload = JSON.parse(JSON.stringify(adpayload));
+  var currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
+  currentStageDataPayload.applicants = currentStageData.applicants;
+  currentStageDataPayload.fieldmetadata = currentStageData.fieldmetadata;
+  currentStageDataPayload.products = currentStageData.products;
+  currentStageDataPayload.stage = currentStageData.stage;
+  currentStageDataPayload.status = currentStageData.status;
+  currentStageDataPayload.applicant_documents = currentStageData.applicant_documents;
+  currentStageDataPayload.client = currentStageData.client;
+  currentStageDataPayload.dedupe = currentStageData.dedupe;
+  currentStageDataPayload.dedupeList = currentStageData.dedupeList;
+  currentStageDataPayload.etc_data = currentStageData.etc_data;
+  currentStageDataPayload.lov_desc = currentStageData.lov_desc;
+  currentStageDataPayload.oz_templates = currentStageData.oz_templates;
+  currentStageDataPayload.preApprovedData = currentStageData.preApprovedData;
+  currentStageDataPayload.preapproved = currentStageData.preapproved;
+  currentStageDataPayload.service_response = currentStageData.service_response;
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
+    },
+    body: JSON.stringify(currentStageDataPayload),
+  };
+  console.log(options);
+
+
+  return axios
+    .post(url, JSON.stringify(currentStageDataPayload), { headers: options.headers })
+    .then((response: any) => {
+      console.log(response);
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postDocumemts = (channelReference: any, file: any): any => {
+
+  let formdata = new FormData();
+
+  const documentJson: any = {
+    origin: "front-line-supporting-document",
+    documentCategoryCode: "R0005",
+    documentTypeCode: "A023",
+    applicantId: 1,
+    imageOrder: 5,
+    period: 0,
+    isWatermarkRequired: "N",
+    documentOptionSequence: "undefined",
+  };
+
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+
+  const url = baseUrl + application + channelReference + endPoint;
+
+  formdata.append("file", file, file.name);
+  formdata.append("documentJson", JSON.stringify(documentJson));
+  // const res = formdata.forEach((key: any, value: any) =>
+  //   console.log("---", key.name, value)
+  // );
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "multipart/form-data",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(formdata),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response: any) => {
+      return Promise.resolve(response);
+    })
+    .catch((error: any) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+
+export const postQRCodeZOLO = (channelReference: any, docType: any): any => {
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_QRCODE_SMART_HKID_END_POINT}`
+
+  const url = baseUrl + application + channelReference + endPoint;
+  const payload = {
+    docType: docType,
+    qrCodeFlag: "Y",
+    h5ModeConfig: {
+      completeCallbackUrl: "https://pt.sc.com/onboarding/hk/zolozThankYou.html?scbToken=" + channelReference + "&lang=en",
+      interruptCallbackUrl: "https://pt.sc.com/onboarding/hk/zoloz-error.html?scbToken=" + channelReference + "&lang=en",
+      locale: ""
+    }
+  }
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postZOLOCheck = (channelReference: any, transactionId: any, docType: any): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_ZOLO_CHECK_RESULT_END_POINT}`;
+
+  const url = baseUrl + application + channelReference + endPoint;
+  const payload = {
+    transactionId: transactionId,
+    isReturnImage: "Y",
+    first_name_a_1: stageSelector.applicants.first_name_a_1,
+    last_name_a_1: stageSelector.applicants.last_name_a_1,
+    date_of_birth_a_1: stageSelector.applicants.date_of_birth_a_1,
+    HKID_a_1: stageSelector.applicants.HKID_a_1,
+    product_type: stageSelector.applicants.product_type,
+    product_category: stageSelector.applicants.product_category,
+    hkid_type: docType,
+    cos_ref_number: stageSelector.application.cos_ref_number
+  }
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+
+// export const postAcknowledge = (channelReference: any): any => {
+
+//   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+//   const application =`${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+//   const endPoint = `${process.env.REACT_APP_RTOB_ACKNOWLEDGE_END_POINT}` 
+//   const documents =  `${process.env. REACT_APP_RTOB_DOCUMENTS_END_POINT}` 
+
+//   const url = baseUrl + application + channelReference +documents+ endPoint
+//     const payload={
+//       applicationRefNo: "HK20241111900057",
+//       documents:[{
+//             docId: "7d59d78392a369a2b41415b285951542357969b0c4e61c7d91b9505d79fc465b",
+//             country: "HK",
+//             documentStatus: "Accepted",
+//             appId: "041115563f21312024",
+//             documentCategoryCode: "R0001",
+//             errorDescription: null,
+//             errorCode: null,
+//             responseStatus: "SUCCESS",
+//             documentTypeCode: "A001",
+//             documentOptionSequence: "1",
+//             imageOrder: "1",
+//             applicantId: "1",
+//             period: 0,
+//             documentName: "HKID_Front_Page1731321390083",
+//             document_id: "7d59d78392a369a2b41415b285951542357969b0c4e61c7d91b9505d79fc465b",
+//             document_status: "Accepted",
+//             document_sequence_number: "1",
+//             uploaded_to_filenet: "Y",
+//             document_option_sequence: "1",
+//             document_category_code: "R0001",
+//             document_type_code: "A001",
+//             document_name: "HKID_Front_Page1731321390083.png"
+//         },
+//         {
+//             docId: "38d983dd5913639923530e85d262ab9a9c2498991a20e0b2d347423bbda85ec8",
+//             country: "HK",
+//             documentStatus: "Accepted",
+//             appId: "041115563f21312024",
+//             documentCategoryCode: "R0006",
+//             errorDescription: null,
+//             errorCode: null,
+//             responseStatus: "SUCCESS",
+//             documentTypeCode: "A039",
+//             documentOptionSequence: "1",
+//             imageOrder: "1",
+//             applicantId: "1",
+//             period: 0,
+//             documentName: "Selfie_Image1731321390121"
+//         }
+//     ],
+//     optionsSelected:[
+//       {
+//           applicantId: 1,
+//           options: [
+//               {
+//                   documentCategoryCode: "R0001",
+//                   documentTypeCode: "A001",
+//                   documentOptionSequence: "1"
+//               }
+//           ]
+//       }
+//   ],
+//   stage:"Zoloz_ACK"
+
+//   }
+
+//   const options = {
+//     method: "POST",
+//     url,
+//     headers: {
+//       "Content-Type":"application/json;charset=UTF-8",
+//       "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+//     },
+//     body:JSON.stringify(payload),
+//   };
+
+//   return axios
+//     .post(url, options.body, { headers: options.headers })
+//     .then((response:any) => {
+//       return Promise.resolve(response);
+//     })
+//     .catch((error:any) => {
+//       dispatchError(error);
+//       console.log("clientResponse", error);
+//       return Promise.reject(error);
+//     });
+// };
+
+export const postZolozAcknowledge = (channelReference: any, documentsList?: any): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+  const channel_reference = stageSelector.application.channel_reference
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_ACKNOWLEDGE_END_POINT}`;
+  const documents = `${process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT}`;
+
+  console.log(baseUrl)
+  console.log(application)
+  console.log(documents)
+  console.log(channel_reference)
+  console.log(endPoint)
+  const url = baseUrl + application + channel_reference + documents + endPoint;
+  url.replace('";', "");
+  console.log(url)
+  const payload = {
+    applicationRefNo: stageSelector.application.application_reference,
+    documents: documentsList,
+    optionsSelected: [
+      {
+        applicantId: 1,
+        options: [
+          {
+            documentCategoryCode: "R0001",
+            documentTypeCode: "A001",
+            documentOptionSequence: "1"
+          }
+        ]
+      }
+    ],
+    stage: "Zoloz_ACK"
+  }
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postFinalAcknowledge = (channelReference: any): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+  const channel_reference = stageSelector.application.channel_reference
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_ACKNOWLEDGE_END_POINT}`
+  const documents = `${process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT}`
+
+  const url = baseUrl + application + channel_reference + documents + endPoint;
+  url.replace('";', "");
+  const payload = {
+    applicationRefNo: stageSelector.application.application_reference,
+    documents: [],
+    optionsSelected: [
+      {
+        applicantId: 1,
+        options: []
+      }
+    ],
+    stage: "Final_ACK"
+  }
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postPdfPreview = (channelReference: any): any => {
+
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+  const channel_reference = stageSelector.application.channel_reference
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const dynamicDoc = `${process.env.REACT_APP_RTOB_DYNAMIC_DOCUMENT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_PDF_PREVIEW}`
+  console.log('channelReference--', channelReference)
+  console.log(baseUrl)
+  console.log(dynamicDoc)
+  console.log(endPoint)
+  // const url = baseUrl+dynamicDoc+channelReference+endPoint;
+  const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_DYNAMIC_DOCUMENT}${channel_reference}${process.env.REACT_APP_RTOB_PDF_PREVIEW}`;
+  url.replace('";', "");
+  console.log(url)
+  const payload = {
+    appInRefNumber: stageSelector.application.application_reference,
+    template_name: "ekyc_report",
+    action: "generate",
+    page_id: "HK_ALIPAY_AOF_ENG.thy",
+  };
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postTMXUserSession = (channelReference: any): any => {
+
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_VERIFY_TMX_USER_SESSION}`
+
+  const url = baseUrl + application + channelReference + endPoint
+  const payload = {
+    session_id_tmx: "0e741a59-94e9-4603-b3fd-b0139e14583d",
+    cos_ref_number: stageSelector.application.cos_ref_number,
+  };
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
+export const postFulFilmentData = (payload: any): any => {
+
+  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const channel_reference = stageSelector.stageInfo.application.channel_reference
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_FULFILMENT_DATA}`
+
+  const url = baseUrl + application + channel_reference + endPoint
+
+  payload = JSON.parse(JSON.stringify(payload));
+  // var payload= offerPayload;
+  console.log(stageSelector)
+  payload.stage.page_id = stageSelector.stageId;
+  payload.stage.workflow_stage_id = stageSelector.stageId.split("-")[0].toUpperCase();
+  payload.stage.stage_id = stageSelector.stageId.replace("-", "").toUpperCase();
+  payload.stage.stage_status = "incomplete";
+  payload.status_data = null;
+  payload.preapproved = null;
+  payload.stage.stage_params = {
+    "is_dedupe_required": false,
+    "current_applicant": 0,
+    "eb_status": null
+  };
+  payload.temp_login_data = null;
+  payload.service_response = null;
+  payload.application.service_type = stageSelector.stageId.replace("-", "").toUpperCase();
+  payload.application.alipay_ref_number = null;
+  payload.application.ext_acceptance_reference_number = null;
+  payload.application.ext_authentication_reference_number = null;
+  payload.application.stage_wise = null;
+  payload.application.version = null;
+  payload.application.source_system_name = '3';
+  payload.application.page_wise = null;
+  payload["applicant_bureau_details"] = null;
+  payload.applicants = payload.applicants.length > 0 ? payload.applicants[0] : payload.applicants;
+  payload.client = {
+    "journey": "prelogin_ntc_or_ntp",
+    "auth-type": "manual",
+    "login-type": "prelogin"
+  }
+  delete payload.application.page_status;
+  delete payload.application.is_save_to_pega;
+  delete payload.application.armcode;
+  delete payload.application.arm_code;
+  delete payload.application.journey_type_hk;
+  delete payload.application.is_td_with_casa;
+  delete payload.application.notification_required;
+  delete payload.application.sub_segment;
+  delete payload.application.segment;
+  delete payload.application.closing_id;
+  delete payload.application.error;
+  delete payload.application.response_type;
+  delete payload.application.response_action;
+  delete payload.applicants.client_pl_consent4_a_1;
+  delete payload.customerDetails;
+
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channel_reference),
+    },
+    body: JSON.stringify(payload),
+  };
+
+  return axios
+    .post(url, options.body, { headers: options.headers })
+    .then((response) => {
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      dispatchError(error);
+      console.log("clientResponse", error);
+      return Promise.reject(error);
+    });
+};
+
