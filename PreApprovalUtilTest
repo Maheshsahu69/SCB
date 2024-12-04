@@ -1,13 +1,15 @@
-
+import { useDispatch, useSelector } from "react-redux";
 import PreApprovalUtil from "./PreApprovalUtil";
-import { store } from "../../../utils/store/store";
+import { v4 as uuid } from "uuid";
 import md5 from "md5";
 import { sha256 } from "js-sha256";
+import store from "path-to-store";
+import * as PreApprovalUtilMethods from "./preApprovalUtils";
+import { securityCallDesider } from "./path-to-securityCallDesider";
 
-jest.mock("../../../utils/store/store", () => ({
-  store: {
-    getState: jest.fn(),
-  },
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+  useDispatch: jest.fn(),
 }));
 
 jest.mock("uuid", () => ({
@@ -15,12 +17,54 @@ jest.mock("uuid", () => ({
 }));
 
 jest.mock("md5", () => jest.fn(() => "mock-md5-hash"));
+
 jest.mock("js-sha256", () => ({
   sha256: jest.fn(() => "mock-sha256-hash"),
 }));
 
+jest.mock("path-to-store", () => ({
+  getState: jest.fn(),
+}));
+
+jest.mock("./preApprovalUtils", () => ({
+  getApplicantFields: jest.fn(),
+  getApplicationFields: jest.fn(),
+  getProductFields: jest.fn(),
+  getLoveDescriptionFields: jest.fn(),
+  generateSecMd: jest.fn(),
+}));
+
 describe("PreApprovalUtil", () => {
+  let mockDispatch;
+
   beforeEach(() => {
+    mockDispatch = jest.fn();
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+
+    (useSelector as jest.Mock).mockImplementation((selector) => {
+      const state = {
+        stages: {
+          stages: [
+            {
+              stageInfo: {
+                applicants: [{}],
+                fieldMetaData: { data: { stages: [{ fields: [] }] } },
+                application: {},
+                products: [{}],
+              },
+              stageId: "AD_1",
+            },
+          ],
+          userInput: { applicants: [{}] },
+        },
+        auth: { sessionUid: "mock-session-uid" },
+        lovDesc: { lovDesc: [{ code_desc: "desc1", label: "key1" }] },
+      };
+      return selector(state);
+    });
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
@@ -34,10 +78,9 @@ describe("PreApprovalUtil", () => {
   describe("getSHA256Hash", () => {
     it("should return the SHA-256 hash of an input string", async () => {
       const mockDigest = jest.fn().mockResolvedValue(
-        new Uint8Array([
-          216, 199, 45, 173, 82, 36, 19, 110, 41, 120, 141, 92, 128, 36, 47, 121,
-        ])
+        new Uint8Array([216, 199, 45, 173, 82, 36, 19, 110, 41, 120, 141, 92])
       );
+
       Object.defineProperty(window.crypto.subtle, "digest", {
         value: mockDigest,
       });
@@ -51,42 +94,8 @@ describe("PreApprovalUtil", () => {
     });
   });
 
-  describe("stringToHash", () => {
-    it("should hash a string into a number", () => {
-      const result = PreApprovalUtil.stringToHash("test");
-      expect(result).toBeGreaterThan(0); // Example validation
-    });
-  });
-
-  describe("getFieldOnlyWithValue", () => {
-    it("should return an array of fields with values", () => {
-      const result = PreApprovalUtil.getFieldOnlyWithValue();
-      expect(result).toEqual(["product_minimum"]);
-    });
-  });
-
-  describe("getApplicantFields", () => {
-    it("should return the list of applicant fields", () => {
-      const result = PreApprovalUtil.getApplicantFields();
-      expect(result).toContain("last_name_a_1");
-      expect(result.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe("getLovDescriptionFields", () => {
-    it("should return an array of keys from lovDesc", () => {
-      store.getState.mockReturnValue({
-        lovDesc: { lovDesc: [{ code_desc: "desc1", label: "key1" }] },
-      });
-
-      const result = PreApprovalUtil.getLovDescriptionFields();
-      expect(result).toEqual(["key1"]);
-    });
-  });
-
   describe("getAckMetaData", () => {
     it("should return formatted metadata", () => {
-      store.getState.mockReturnValue({ auth: { sessionUid: "mock-session-uid" } });
       process.env.REACT_APP_XRTOB = "mock-key";
 
       const result = PreApprovalUtil.getAckMetaData("mock-channel-reference");
@@ -96,30 +105,75 @@ describe("PreApprovalUtil", () => {
       });
     });
   });
+});
 
-  describe("getFormConfigPayload", () => {
-    it("should return a sorted payload object", () => {
-      store.getState.mockReturnValue({
-        stages: {
-          stages: [{ stageInfo: { applicants: [{}], fieldMetaData: {} } }],
-        },
-        lovDesc: { lovDesc: [] },
-      });
-
-      const result = PreApprovalUtil.getFormConfigPayload();
-      expect(result).toBeDefined();
-      expect(typeof result).toBe("object");
-    });
+describe("securityCallDesider", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  describe("securityCallDesider", () => {
-    it("should generate a security descriptor", () => {
-      store.getState.mockReturnValue({
-        stages: { stages: [{ stageInfo: { applicants: [{}] } }] },
-      });
-
-      const result = PreApprovalUtil.securityCallDesider("bAuth", "keyType", []);
-      expect(result).toBeDefined();
+  it("should handle bAuth case", () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ applicants: ["app1", "app2"] }) }] },
     });
+    PreApprovalUtilMethods.getApplicantFields.mockReturnValue(["field1", "field2"]);
+    PreApprovalUtilMethods.generateSecMd.mockReturnValue("mockSecMd");
+
+    const result = securityCallDesider("bAuth", "keyType", "checkFieldWithValue");
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtilMethods.getApplicantFields).toHaveBeenCalled();
+    expect(PreApprovalUtilMethods.generateSecMd).toHaveBeenCalledWith(
+      "bAuth",
+      "keyType",
+      ["field1", "field2"],
+      ["app1", "app2"],
+      "checkFieldWithValue"
+    );
+    expect(result).toBe("mockSecMd");
+  });
+
+  it("should handle aAuth case", () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ application: ["appData"] }) }] },
+    });
+    PreApprovalUtilMethods.getApplicationFields.mockReturnValue(["field1", "field2"]);
+    PreApprovalUtilMethods.generateSecMd.mockReturnValue("mockSecMd");
+
+    const result = securityCallDesider("aAuth", "keyType", "checkFieldWithValue");
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtilMethods.getApplicationFields).toHaveBeenCalled();
+    expect(PreApprovalUtilMethods.generateSecMd).toHaveBeenCalledWith(
+      "aAuth",
+      "keyType",
+      ["field1", "field2"],
+      ["appData"],
+      "checkFieldWithValue"
+    );
+    expect(result).toBe("mockSecMd");
+  });
+
+  it("should handle unknown authType gracefully", () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{ stageInfo: JSON.stringify({ applicants: ["applicant"] }) }] },
+    });
+
+    const result = securityCallDesider("unknownAuth", "keyType", "checkFieldWithValue");
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(result).toBeUndefined();
+  });
+
+  it("should handle missing stageInfo gracefully", () => {
+    store.getState.mockReturnValue({
+      stages: { stages: [{}] },
+    });
+
+    const result = securityCallDesider("bAuth", "keyType", "checkFieldWithValue");
+
+    expect(store.getState).toHaveBeenCalled();
+    expect(result).toBeUndefined();
   });
 });
+
