@@ -1,1 +1,161 @@
+test("should call getOffer2 and resolve with response", async () => {
+  // Mock the state
+  jest.spyOn(store, "getState").mockReturnValue({
+    stages: {
+      stages: [
+        {
+          stageId: "mockStageId",
+          stageInfo: {
+            application: {
+              channel_reference: "mockChannelRef",
+            },
+            products: [
+              {
+                product_type: "mockProductType",
+              },
+            ],
+          },
+        },
+      ],
+    },
+  });
 
+  const mockPayload = { someKey: "someValue" };
+  const mockResponse = { data: { offerDetails: "mockOfferDetails" }, status: 200 };
+
+  mockedAxios.post.mockResolvedValue(mockResponse);
+
+  const result = await getOffer2(mockPayload);
+
+  // Assertions
+  expect(result).toEqual(mockResponse);
+  expect(mockedAxios.post).toHaveBeenCalledWith(
+    expect.stringContaining("mockChannelRef"), // Ensure the correct endpoint is used
+    JSON.stringify({
+      ...mockPayload,
+      stage: {
+        page_id: "mockStageId",
+        stage_id: "MOCKSTAGEID",
+        stage_status: "incomplete",
+      },
+      applicants: expect.any(Object), // Ensure applicants field is present
+      client: expect.any(Object), // Ensure client field is present
+    }),
+    expect.objectContaining({
+      headers: expect.objectContaining({
+        "Content-Type": "application/json;charset=UTF-8",
+      }),
+    })
+  );
+});
+
+test("should handle error in getOffer2", async () => {
+  // Mock the state
+  jest.spyOn(store, "getState").mockReturnValue({
+    stages: {
+      stages: [
+        {
+          stageId: "mockStageId",
+          stageInfo: {
+            application: {
+              channel_reference: "mockChannelRef",
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  const mockPayload = { someKey: "someValue" };
+  const mockError = new Error("Offer2 API error");
+
+  mockedAxios.post.mockRejectedValue(mockError);
+
+  await expect(getOffer2(mockPayload)).rejects.toThrow("Offer2 API error");
+
+  // Ensure dispatchError is called
+  expect(commonService.dispatchError).toHaveBeenCalledWith(mockError);
+});
+
+
+test("should call getOfferCalulated and resolve with response", async () => {
+  // Mock the state
+  jest.spyOn(store, "getState").mockReturnValue({
+    stages: {
+      stages: [
+        {
+          stageInfo: {
+            application: {
+              channel_reference: "mockChannelRef",
+              cos_ref_number: "mockCosRef",
+              application_reference: "mockAppRef",
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  const mockData = {
+    requested_amount: 10000,
+    requested_tenure: 12,
+  };
+  const mockResponse = { data: { calculatedOffer: "mockCalculatedOffer" }, status: 200 };
+
+  mockedAxios.post.mockResolvedValue(mockResponse);
+
+  const result = await getOfferCalulated(mockData);
+
+  // Assertions
+  expect(result).toEqual(mockResponse);
+  expect(mockedAxios.post).toHaveBeenCalledWith(
+    expect.stringContaining("mockChannelRef"), // Ensure the correct endpoint is used
+    JSON.stringify({
+      channel_ref_number: "mockChannelRef",
+      cos_ref_number: "mockCosRef",
+      application_reference: "mockAppRef",
+      source_system_name: "02",
+      requested_amount: 10000,
+      requested_tenure: 12,
+    }),
+    expect.objectContaining({
+      headers: expect.objectContaining({
+        "Content-Type": "application/json;charset=UTF-8",
+      }),
+    })
+  );
+});
+
+
+
+test("should handle error in getOfferCalulated", async () => {
+  // Mock the state
+  jest.spyOn(store, "getState").mockReturnValue({
+    stages: {
+      stages: [
+        {
+          stageInfo: {
+            application: {
+              channel_reference: "mockChannelRef",
+              cos_ref_number: "mockCosRef",
+              application_reference: "mockAppRef",
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  const mockData = {
+    requested_amount: 10000,
+    requested_tenure: 12,
+  };
+  const mockError = new Error("OfferCalulated API error");
+
+  mockedAxios.post.mockRejectedValue(mockError);
+
+  await expect(getOfferCalulated(mockData)).rejects.toThrow("OfferCalulated API error");
+
+  // Ensure dispatchError is called
+  expect(commonService.dispatchError).toHaveBeenCalledWith(mockError);
+});
