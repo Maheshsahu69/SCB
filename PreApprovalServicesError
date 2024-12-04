@@ -1,1 +1,86 @@
 
+test("should handle error in getData", async () => {
+  mockedAxios.get = jest.fn().mockRejectedValue(new Error("Network Error"));
+  await expect(getData("URL")).rejects.toThrow("Network Error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getPDFData", async () => {
+  mockedAxios.get = jest.fn().mockRejectedValue(new Error("PDF fetch error"));
+  await expect(getPDFData("URL")).rejects.toThrow("PDF fetch error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getDataFormConfig", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Form config error"));
+  const mockDispatch = jest.fn();
+  await expect(getDataFormConfig(payloadFormConfig)(mockDispatch)).rejects.toThrow("Form config error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getSessionByPreLogin", async () => {
+  mockedAxios.request = jest.fn().mockRejectedValue(new Error("Session error"));
+  await expect(getSessionByPreLogin()).rejects.toThrow("Session error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getProductMetaDataInfo", async () => {
+  mockedAxios.request = jest.fn().mockRejectedValue(new Error("Product metadata error"));
+  const mockDispatch = jest.fn();
+  await expect(getProductMetaDataInfo("urlParams")(mockDispatch)).rejects.toThrow("Product metadata error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getRandomChallenge", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Random challenge error"));
+  await expect(getRandomChallenge("23432423432")).rejects.toThrow("Random challenge error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getGenerateOtp", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Generate OTP error"));
+  await expect(getGenerateOtp("payload")).rejects.toThrow("Generate OTP error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getVerifyOtp", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Verify OTP error"));
+  await expect(getVerifyOtp("otp", "challenge", "genResponse", "channelRef")).rejects.toThrow("Verify OTP error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getEnquiryData", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Enquiry data error"));
+  await expect(getEnquiryData("productData", "applicantsSelector", "channelRef")).rejects.toThrow("Enquiry data error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getDedupeData", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Dedupe data error"));
+  await expect(getDedupeData("channelRef")).rejects.toThrow("Dedupe data error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getOffer", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Offer error"));
+  await expect(getOffer("payload")).rejects.toThrow("Offer error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getOffer2", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Offer2 error"));
+  await expect(getOffer2("payload")).rejects.toThrow("Offer2 error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getOfferCalulated", async () => {
+  mockedAxios.post = jest.fn().mockRejectedValue(new Error("Offer calculated error"));
+  await expect(getOfferCalulated({ requested_amount: 1000, requested_tenure: 12 })).rejects.toThrow("Offer calculated error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
+
+test("should handle error in getImagePreview", async () => {
+  mockedAxios.get = jest.fn().mockRejectedValue(new Error("Image preview error"));
+  await expect(getImagePreview("channelReference", "docId")).rejects.toThrow("Image preview error");
+  expect(commonService.dispatchError).toHaveBeenCalled();
+});
