@@ -12,6 +12,7 @@ import { getStageName } from "../../dashboard/fields/stage.utils";
 import { stagesAction } from "../../../utils/store/stages-slice";
 import { stages } from "./stageInfo";
 import { preApprovalAction } from "../store/preApproval-slice";
+import { getUrl } from "../../../utils/common/change.utils";
 
 jest.mock("axios", () => ({
   __esModule: false
@@ -115,26 +116,14 @@ describe("call PIL service", () => {
     const result = await getSessionByPreLogin();
     expect(result).toEqual(mockRespose);
   });
-
-
-
   test("should call ProductMetaDataInfo", async () => {
-    console.log("1");
+    jest.spyOn(getUrl, 'getParameterByName');
+    const mockRespose = { data: { products: 'PIL' }, status: 200 }
     const mockedAxios = axios as jest.Mocked<typeof axios>;
-    console.log("2");
-    mockedAxios.request = jest.fn().mockResolvedValueOnce(mockRespose);
-    console.log("3");
-    // const data = await getProductMetaDataInfo('urlparam')(mockDispatch)
-    // console.log("4"+JSON.stringify("data8",data));
-    // expect(axios.request).toHaveBeenCalled();
-    // expect(data).toEqual(mockRespose);
-  
+    mockedAxios.request = jest.fn().mockResolvedValue(mockRespose);
+    const data = await getProductMetaDataInfo('urlparam')(mockDispatch)
+    expect(axios.request).toHaveBeenCalled();
   });
-
-
-
-
-
   test("should call getRandomChallenge", async () => {
 
     mockedAxios.post = jest.fn().mockResolvedValue(mockRespose);
@@ -175,11 +164,10 @@ describe("call PIL service", () => {
     console.log("Result" + JSON.stringify(result));
     expect(result).toEqual(mockRespose);
   });
-
-
-
-
 });
+
+
+
 
 
 
