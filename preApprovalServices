@@ -45,10 +45,14 @@ export const getPDFData = (URLdata: any) => {
             type: "application/octet-stream",
           });
         }
+        const isSafari = /^((?!chrome|andriod).)*safari/i.test(navigator.userAgent);
+        if(isSafari){
+          blob = new Blob([response.data], { type: "application/pdf" });
+        }
         const dataURL = window.URL.createObjectURL(blob);
          return Promise.resolve(dataURL);
       } else {
-        console.log(response);
+        // console.log(response);
       }
     })
     .catch((error: any) => {
@@ -57,7 +61,7 @@ export const getPDFData = (URLdata: any) => {
     });
 };
 export const getDataFormConfig = (formPayload: any): any => {
-  const channelReference = store.getState().urlParam.applicationDetails.channelRefNo;
+  const channelReference = store.getState()?.urlParam.applicationDetails.channelRefNo;
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
   const endpoint = `${process.env.REACT_APP_RTOB_FORM_CONFIG}`;
   const url = baseUrl + endpoint;
@@ -70,13 +74,13 @@ export const getDataFormConfig = (formPayload: any): any => {
     },
     body: JSON.stringify(formPayload),
   };
-  console.log("lin1");
+  // console.log("lin1");
 
   return (dispatch: AppDispatch) =>
     axios
       .post(url, JSON.stringify(formPayload), { headers: options.headers })
       .then((response: any) => {
-        console.log("lin2");
+        // console.log("lin2");
         if (response.status === 200) {
           dispatch(preApprovalAction.setFormConfigMetaData(response.data));
           let stageData = Object.assign({}, response.data);
@@ -98,11 +102,11 @@ export const getDataFormConfig = (formPayload: any): any => {
               CONSTANTS.STAGE_NAMES.PD_1,
               formPayload.application.journey_type
             );
-            newStageData = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
-            newStageData.fieldMetaData = response.data.fieldmetadata;
+            newStageData = JSON.parse(JSON.stringify(store.getState()?.stages?.stages?.[0]?.stageInfo));
+            newStageData.fieldMetaData = response?.data?.fieldmetadata;
           }
           else {
-            isBdStage = response.data.stage.page_id;
+            isBdStage = response?.data?.stage?.page_id;
           }
 
           if (formPayload) {
@@ -123,7 +127,7 @@ export const getDataFormConfig = (formPayload: any): any => {
 
           stateUrl(isBdStage);
           dispatch(lovRequests(stageData, isBdStage));
-          console.log("response--" + response);
+          // console.log("response--" + response);
           return Promise.resolve(response);
         }
       })
@@ -251,7 +255,7 @@ export const getProductMetaDataInfo = (urlParams: any): any => {
               product[0]["premiumCode"] = premium;
               product[0]["product_type"] = product_type;
               delete product[0].product_description
-              console.log(product)
+              // console.log(product)
               return Promise.resolve(product);
             } else {
               const error = {
@@ -294,7 +298,7 @@ export const getRandomChallenge = (channelReference: any): any => {
       id: PreApprovalUtil.generateUUID,
       type: "random-challenge",
       attributes: {
-        mobile: store.getState().stages.userInput.applicants[0]?.mobile_number,
+        mobile: store.getState()?.stages.userInput.applicants[0]?.mobile_number,
         "relationship-no": channelReference,
         created: new Date(),
         "client-ip": "",
@@ -334,9 +338,9 @@ export const getRandomChallenge = (channelReference: any): any => {
 export const getGenerateOtp = (productData: any): any => {
   const channel_reference_no: any =
     productData.product_type !== null
-      ? getUrl.getChannelRefNo().channelRefNo !== null
-        ? getUrl.getChannelRefNo().channelRefNo
-        : store.getState().stages.stages[0].stageInfo.application
+      ? getUrl.getChannelRefNo()?.channelRefNo !== null
+        ? getUrl.getChannelRefNo()?.channelRefNo
+        : store.getState()?.stages.stages?.[0]?.stageInfo?.application
           .channel_reference
       : null;
 
@@ -346,7 +350,7 @@ export const getGenerateOtp = (productData: any): any => {
       id: PreApprovalUtil.generateUUID,
       type: "otp",
       attributes: {
-        mobile: store.getState().stages.userInput.applicants[0]?.mobile_number,
+        mobile: store.getState()?.stages.userInput.applicants[0]?.mobile_number,
         "relationship-no": "0403148dd0c9a02024",
         "product-type": productData?.product_type
           ? productData.product_type
@@ -500,15 +504,15 @@ export const getDedupeData = (channel_reference_no: any): any => {
   const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_DEDUPE_DATA}`;
 
   let payload = JSON.parse(
-    JSON.stringify(store.getState().stages.stages[0].stageInfo)
+    JSON.stringify(store.getState().stages.stages?.[0]?.stageInfo ||{})
   );
-  let applicant = store.getState().stages.stages[0].stageInfo.applicants[0];
+  let applicant = store.getState()?.stages?.stages?.[0]?.stageInfo?.applicants[0] || {};
   payload["applicants"] = JSON.parse(JSON.stringify(applicant));
   payload.applicants['preimumMGM_resume_a_1'] = "HKPIL23PLSTP10undefined1258";
   payload.applicants["HKID_a_1_final"] = payload.applicants.HKID_a_1;
   payload.applicants["HKID_rp"] = payload.applicants.HKID_a_1 ? payload.applicants.HKID_a_1[0] + '-' + payload.applicants.HKID_a_1.substring(1, payload.applicants.HKID_a_1.length - 1) + '-' + payload.applicants.HKID_a_1[payload.applicants.HKID_a_1.length - 1] : "";
   payload.applicants["product_description_a_1"] = "";
-  console.log(payload)
+  payload["dedupeList"] = {};
 
   // let payload = dedupeDataPayload;
 
@@ -536,8 +540,8 @@ export const getDedupeData = (channel_reference_no: any): any => {
 
 
 export const getOffer = (payload: any): any => {
-  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
-  const channel_reference_no = stageSelector.stageInfo.application.channel_reference;
+  const stageSelector = JSON.parse(JSON.stringify(store.getState()?.stages.stages[0]));
+  const channel_reference_no = stageSelector?.stageInfo?.application?.channel_reference;
 
   const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_OFFER}`;
 
@@ -577,7 +581,7 @@ export const getOffer = (payload: any): any => {
       ["fieldmetadata"]: payload["fieldMetaData"],
     })["fieldMetaData"];
   }
-  payload.products = stageSelector.stageInfo.products;
+  payload.products = stageSelector?.stageInfo?.products;
 
 
   // let payload = dedupeDataPayload;
@@ -606,16 +610,16 @@ export const getOffer = (payload: any): any => {
 };
 
 export const getOffer2 = (payload: any): any => {
-  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
-  const channel_reference_no = stageSelector.stageInfo.application.channel_reference;
+  const stageSelector = JSON.parse(JSON.stringify(store.getState()?.stages.stages[0]));
+  const channel_reference_no = stageSelector?.stageInfo?.application?.channel_reference;
 
   const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${channel_reference_no}${process.env.REACT_APP_RTOB_OFFER}`;
 
   // var currentStageData= JSON.parse(JSON.stringify(getFormConfigPayload()));
   payload = JSON.parse(JSON.stringify(payload));
   // var payload= offerPayload;
-  payload.stage.page_id = stageSelector.stageId;
-  payload.stage.stage_id = stageSelector.stageId.split("-")[0].toUpperCase();
+  payload.stage.page_id = stageSelector?.stageId;
+  payload.stage.stage_id = stageSelector?.stageId?.split("-")[0].toUpperCase();
   payload.stage.stage_status = "incomplete";
   payload.customerDetails = null;
   payload.application.service_type = stageSelector.stageId.replace("-", "").toUpperCase();
@@ -658,7 +662,7 @@ export const getOffer2 = (payload: any): any => {
 };
 
 export const getOfferCalulated = (data: any): any => {
-  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const stageSelector = JSON.parse(JSON.stringify(store.getState()?.stages.stages[0]));
   const channel_reference_no = stageSelector.stageInfo.application.channel_reference;
   const url = `${process.env.REACT_APP_RTOB_BASE_URL}${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}${process.env.REACT_APP_RTOB_FETCH_APR_DETAILS}`;
 
