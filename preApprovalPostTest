@@ -385,3 +385,73 @@ describe("postSaveData", () => {
     expect(console.log).toHaveBeenCalledWith("clientResponse", mockError);
   });
 });
+
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+import { postSaveData } from "./yourComponentFile";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getFormConfigPayload: jest.fn(),
+  getAckMetaData: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+describe("postSaveData", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.REACT_APP_RTOB_BASE_URL = "http://baseurl.com";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application/";
+    store.getState.mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              application: {
+                channel_reference: "testChannelRef",
+              },
+            },
+          },
+        ],
+      },
+    });
+    PreApprovalUtil.getFormConfigPayload.mockReturnValue({ key: "value" });
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mockAckMetaData");
+  });
+
+  it("should make a successful POST request and resolve the response", async () => {
+    const mockResponse = { data: "mockResponse" };
+    axios.post.mockResolvedValue(mockResponse);
+
+    const result = await postSaveData();
+
+    expect(axios.post).toHaveBeenCalledWith(
+      "http://baseurl.com/application/testChannelRef",
+      JSON.stringify({ key: "value" }),
+      expect.objectContaining({
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+          "Sc-Client-Context": "mockAckMetaData",
+        },
+      })
+    );
+    expect(result).toEqual(mockResponse);
+  });
+
+  it("should catch an error and call dispatchError", async () => {
+    const mockError = new Error("mockError");
+    axios.post.mockRejectedValue(mockError);
+
+    await expect(postSaveData()).rejects.toThrow("mockError");
+    expect(dispatchError).toHaveBeenCalledWith(mockError);
+  });
+});
