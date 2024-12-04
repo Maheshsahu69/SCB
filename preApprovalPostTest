@@ -292,3 +292,96 @@ describe("postSaveData", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockError);
   });
 });
+
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+import { postSaveData } from "./yourComponentFile";
+
+jest.mock("axios");
+jest.spyOn(store, "getState");
+jest.spyOn(PreApprovalUtil, "getFormConfigPayload");
+jest.spyOn(PreApprovalUtil, "getAckMetaData");
+jest.spyOn(global.console, "log"); // For logging during the tests
+
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+describe("postSaveData", () => {
+  const mockStages = [
+    {
+      stageInfo: {
+        application: {
+          channel_reference: "testChannelRef",
+        },
+      },
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks(); // Clear all mocks to ensure a clean test environment
+    process.env.REACT_APP_RTOB_BASE_URL = "http://baseurl.com";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application/";
+    store.getState.mockReturnValue({ stages: { stages: mockStages } });
+    PreApprovalUtil.getFormConfigPayload.mockReturnValue({ key: "value" });
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mockAckMetaData");
+  });
+
+  it("should make a successful POST request and resolve the response", async () => {
+    const mockResponse = { data: "mockResponse" };
+    axios.post.mockResolvedValue(Promise.resolve(mockResponse)); // Use Promises explicitly
+
+    const result = await postSaveData();
+
+    // Verify function calls
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getFormConfigPayload).toHaveBeenCalled();
+    expect(PreApprovalUtil.getAckMetaData).toHaveBeenCalledWith("testChannelRef");
+
+    // Verify axios call
+    expect(axios.post).toHaveBeenCalledWith(
+      "http://baseurl.com/application/testChannelRef",
+      JSON.stringify({ key: "value" }),
+      {
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+          "Sc-Client-Context": "mockAckMetaData",
+        },
+      }
+    );
+
+    // Verify result
+    expect(result).toBe(mockResponse);
+
+    // Verify logging
+    expect(console.log).toHaveBeenCalledWith({
+      method: "POST",
+      url: "http://baseurl.com/application/testChannelRef",
+      headers: {
+        "Content-Type": "application/json;charset=UTF-8",
+        "Sc-Client-Context": "mockAckMetaData",
+      },
+      body: JSON.stringify({ key: "value" }),
+    });
+  });
+
+  it("should catch an error and call dispatchError", async () => {
+    const mockError = new Error("mockError");
+    axios.post.mockRejectedValue(Promise.reject(mockError)); // Use Promises explicitly
+
+    await expect(postSaveData()).rejects.toThrow("mockError");
+
+    // Verify function calls
+    expect(store.getState).toHaveBeenCalled();
+    expect(PreApprovalUtil.getFormConfigPayload).toHaveBeenCalled();
+    expect(PreApprovalUtil.getAckMetaData).toHaveBeenCalledWith("testChannelRef");
+
+    // Verify dispatchError call
+    expect(dispatchError).toHaveBeenCalledWith(mockError);
+
+    // Verify logging
+    expect(console.log).toHaveBeenCalledWith("clientResponse", mockError);
+  });
+});
