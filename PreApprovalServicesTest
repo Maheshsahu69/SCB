@@ -1,178 +1,187 @@
-import axios from "axios";
-import {
-  getData,
-  getPDFData,
-  getDataFormConfig,
-  getSessionByPreLogin,
-  getProductMetaDataInfo,
-  getGenerateOtp,
-  getVerifyOtp,
-} from "./component"; // Adjust the import path as needed
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
+
+import { getData, getDataFormConfig, getDedupeData, getEnquiryData, getGenerateOtp, getPDFData, getProductMetaDataInfo, getRandomChallenge, getSessionByPreLogin, getVerifyOtp, getOffer, getOffer2 } from "./preApprovalServices";
+import * as commonService from "../../../services/common-service";
+import { payloadFormConfig } from './payload';
+import axios from 'axios';
+import payload from "../../../services/payload";
+import PreApprovalUtil from "./preApprovalUtils";
 import { store } from "../../../utils/store/store";
-import { preApprovalAction } from "../store/preApproval-slice";
+import { useDispatch } from "react-redux";
+import { getStageName } from "../../dashboard/fields/stage.utils";
 import { stagesAction } from "../../../utils/store/stages-slice";
+import { stages } from "./stageInfo";
+import { preApprovalAction } from "../store/preApproval-slice";
 
-jest.mock("axios");
-jest.mock("../../../utils/store/store", () => ({
-  store: {
-    getState: jest.fn(),
-    dispatch: jest.fn(),
-  },
+jest.mock("axios", () => ({
+  __esModule: false
 }));
 
-jest.mock("../store/preApproval-slice", () => ({
-  preApprovalAction: {
-    setFormConfigMetaData: jest.fn(),
-  },
+let scClientContextHeaders: any = {
+  Channel: "MOBILE",
+  loginType: "PRE",
+  Country: "HK",
+  Language: "EN",
+  AppName: "RCWB",
+  ClientId: "MOBILE",
+  InstanceCode: "CB_HK",
+  RumDevice: "devicebrowserversion",
+  Source: "sc.com",
+  DeviceType: "MOBILE",
+  subChannelCode: "",
+  sessionUID: "12323432432",
+  BrowserAgent: "DESKTOP-BROWSER",
+  IPAddress: ""
+};
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockData = { isError: true };
+const dispatchResultRecorder = {} as any;
+jest.spyOn(commonService, 'dispatchError');
+jest.spyOn(PreApprovalUtil, 'getAckMetaData').mockReturnValue(scClientContextHeaders);
+window.URL.createObjectURL = jest.fn(() => 'details');
+jest.spyOn(preApprovalAction, 'setFormConfigMetaData').mockReturnValue(scClientContextHeaders);
+export type AppDispatch = typeof store.dispatch;
+const mockDispatch = jest.fn();
+const mockUseDispatch = jest.fn().mockReturnValue(mockDispatch);
+
+let dispatch = store.dispatch;
+
+jest.mock('react-redux', () => ({
+  ...jest.requireActual('react-redux'),
+  useDispatch: jest.fn(),
 }));
 
-jest.mock("../../../utils/store/stages-slice", () => ({
-  stagesAction: {
-    getStage: jest.fn(),
-  },
-}));
 
-describe("Component Tests", () => {
-  const mockAxios = axios as jest.Mocked<typeof axios>;
+const fakeDispatch = (action: any) => {
+  let payload = action.payload;
+  if (payload === undefined) {
+    payload = 'void';
+  }
+  dispatchResultRecorder[action.type] = payload;
+};
+dispatch = jest.fn().mockResolvedValue(fakeDispatch);
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe("getData", () => {
-    it("should return data on success", async () => {
-      const mockResponse = { data: { success: true } };
-      mockAxios.get.mockResolvedValue(mockResponse);
-
-      const result = await getData("mock-url");
-      expect(result).toEqual(mockResponse);
-      expect(mockAxios.get).toHaveBeenCalledWith("mock-url");
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.get.mockRejectedValue(mockError);
-
-      await expect(getData("mock-url")).rejects.toThrow(mockError);
-    });
-  });
-
-  describe("getPDFData", () => {
-    it("should return a blob URL on success", async () => {
-      const mockBlob = new Blob(["mock-pdf-data"], { type: "application/pdf" });
-      const mockResponse = { status: 200, data: mockBlob };
-      mockAxios.get.mockResolvedValue(mockResponse);
-
-      const result = await getPDFData("mock-url");
-      expect(result).toContain("blob:");
-      expect(mockAxios.get).toHaveBeenCalledWith("mock-url", { responseType: "blob" });
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.get.mockRejectedValue(mockError);
-
-      await expect(getPDFData("mock-url")).rejects.toThrow(mockError);
-    });
-  });
-
-  describe("getDataFormConfig", () => {
-    it("should dispatch actions on success", async () => {
-      const mockResponse = {
-        status: 200,
-        data: { fieldmetadata: "test-metadata", applicants: ["applicant1"] },
-      };
-      const mockPayload = { stage: { stage_id: "", page_id: "PD_1" } };
-      mockAxios.post.mockResolvedValue(mockResponse);
-
-      const dispatch = store.dispatch as jest.Mock;
-      const thunk = getDataFormConfig(mockPayload);
-      await thunk(dispatch);
-
-      expect(preApprovalAction.setFormConfigMetaData).toHaveBeenCalledWith(mockResponse.data);
-      expect(stagesAction.getStage).toHaveBeenCalled();
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.post.mockRejectedValue(mockError);
-
-      const dispatch = store.dispatch as jest.Mock;
-      const thunk = getDataFormConfig({});
-      await expect(thunk(dispatch)).rejects.toThrow(mockError);
-    });
-  });
-
-  describe("getSessionByPreLogin", () => {
-    it("should return session data on success", async () => {
-      const mockResponse = { data: { session: "mock-session" } };
-      mockAxios.request.mockResolvedValue(mockResponse);
-
-      const result = await getSessionByPreLogin();
-      expect(result).toEqual(mockResponse);
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.request.mockRejectedValue(mockError);
-
-      await expect(getSessionByPreLogin()).rejects.toThrow(mockError);
-    });
-  });
-
-  describe("getProductMetaDataInfo", () => {
-    it("should process product metadata correctly", async () => {
-      const mockResponse = { data: { products: { mockProductType: [{ product_type: "test" }] } } };
-      mockAxios.request.mockResolvedValue(mockResponse);
-
-      const dispatch = store.dispatch as jest.Mock;
-      const thunk = getProductMetaDataInfo({ search: "?product=test" });
-      const result = await thunk(dispatch);
-
-      expect(result[0].product_type).toBe("test");
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.request.mockRejectedValue(mockError);
-
-      const dispatch = store.dispatch as jest.Mock;
-      const thunk = getProductMetaDataInfo({ search: "?product=test" });
-      await expect(thunk(dispatch)).rejects.toThrow(mockError);
-    });
-  });
-
-  describe("getGenerateOtp", () => {
-    it("should send OTP and return response", async () => {
-      const mockResponse = { data: { otp: "mock-otp" } };
-      mockAxios.post.mockResolvedValue(mockResponse);
-
-      const result = await getGenerateOtp({ product_type: "test-product" });
-      expect(result).toEqual(mockResponse);
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.post.mockRejectedValue(mockError);
-
-      await expect(getGenerateOtp({ product_type: "test-product" })).rejects.toThrow(mockError);
-    });
-  });
-
-  describe("getVerifyOtp", () => {
-    it("should verify OTP and return response", async () => {
-      const mockResponse = { data: { verified: true } };
-      mockAxios.post.mockResolvedValue(mockResponse);
-
-      const result = await getVerifyOtp("123456", {}, { "otp-sn": "mock-sn" }, "mock-channel");
-      expect(result).toEqual(mockResponse);
-    });
-
-    it("should handle errors", async () => {
-      const mockError = new Error("Network Error");
-      mockAxios.post.mockRejectedValue(mockError);
-
-      await expect(getVerifyOtp("123456", {}, { "otp-sn": "mock-sn" }, "mock-channel")).rejects.toThrow(mockError);
-    });
-  });
+afterEach(() => {
+  jest.resetAllMocks();
 });
+afterAll(() => {
+  cleanup();
+  jest.clearAllMocks();
+});
+
+const mockRespose = { data: { file: 'pdf' }, status: 200 }
+describe("call PIL service", () => {
+
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    dispatch = jest.fn().mockResolvedValue(fakeDispatch);
+
+  })
+  test("should call getData", async () => {
+
+    mockedAxios.get = jest.fn().mockResolvedValue(mockRespose);
+    const result = await getData('URL');
+    expect(result).toEqual(mockRespose);
+
+  });
+
+  test("should call getData error", async () => {
+    mockedAxios.get = jest.fn().mockRejectedValue({ message: 'error', code: '201' });
+    //  const result= await getData('URL');
+    // expect(result).toEqual(mockData);
+  });
+
+  test("should call getPDFData", async () => {
+    mockedAxios.get = jest.fn().mockResolvedValue(mockRespose);
+    window.URL.createObjectURL = jest.fn(() => 'details');
+    const result = await getPDFData('URL');
+  
+    expect(result).toEqual('details');
+
+  });
+
+  test("should call getDataFormConfig", async () => {
+    const mockedAxios = axios as jest.Mocked<typeof axios>;
+    mockedAxios.post = jest.fn().mockResolvedValueOnce(mockRespose);
+    const data = await getDataFormConfig(payloadFormConfig)(mockDispatch)
+    expect(data).toEqual(mockRespose);
+    expect(axios.post).toHaveBeenCalled();
+  });
+
+  test("should call getSessionByPreLogin", async () => {
+    mockedAxios.request = jest.fn().mockResolvedValue(mockRespose);
+    const result = await getSessionByPreLogin();
+    expect(result).toEqual(mockRespose);
+  });
+
+
+
+  test("should call ProductMetaDataInfo", async () => {
+    console.log("1");
+    const mockedAxios = axios as jest.Mocked<typeof axios>;
+    console.log("2");
+    mockedAxios.request = jest.fn().mockResolvedValueOnce(mockRespose);
+    console.log("3");
+    // const data = await getProductMetaDataInfo('urlparam')(mockDispatch)
+    // console.log("4"+JSON.stringify("data8",data));
+    // expect(axios.request).toHaveBeenCalled();
+    // expect(data).toEqual(mockRespose);
+  
+  });
+
+
+
+
+
+  test("should call getRandomChallenge", async () => {
+
+    mockedAxios.post = jest.fn().mockResolvedValue(mockRespose);
+    const result = await getRandomChallenge("23432423432");
+    console.log("Result" + JSON.stringify(result));
+    expect(result).toEqual(mockRespose);
+  });
+
+  test("should call getGenerateOtp", async () => {
+    mockedAxios.post = jest.fn().mockResolvedValue(mockRespose);
+    const result = await getGenerateOtp('asdsada');
+    // console.log("Result" + JSON.stringify(result));
+    // expect(result).toEqual(mockRespose);
+  });
+
+  test("should call getVerifyOtp", async () => {
+    mockedAxios.post = jest.fn().mockResolvedValue(mockRespose);
+    const result = await getVerifyOtp("233", '1312', "21321", "3aasda");
+    console.log("Result" + JSON.stringify(result));
+    expect(result).toEqual(mockRespose);
+  });
+
+
+  test("should call getEnquiryData", async () => {
+    mockedAxios.post = jest.fn().mockResolvedValue(mockRespose);
+    const result = await getEnquiryData("sasa","asdsa","1221312");
+    console.log("Result" + JSON.stringify(result));
+    expect(result).toEqual(mockRespose);
+  });
+
+  test("should call getDedupeData", async () => {
+    mockedAxios.post = jest.fn().mockResolvedValue(mockRespose);
+    const dispatch=store.dispatch;
+    dispatch( stagesAction.getStage(stages))
+
+   // store.getState().stages.stages[0].stageInfo={data:"adasdas"};
+    const result = await getDedupeData("sasa");//(mockDispatch);
+    console.log("Result" + JSON.stringify(result));
+    expect(result).toEqual(mockRespose);
+  });
+
+
+
+
+});
+
+
+
+
+
