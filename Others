@@ -251,3 +251,112 @@ describe("postBasicData", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
   });
 });
+
+import { postZOLOCheck } from "./yourFile";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postZOLOCheck", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              applicants: {
+                first_name_a_1: "John",
+                last_name_a_1: "Doe",
+                date_of_birth_a_1: "1990-01-01",
+                HKID_a_1: "A1234567",
+                product_type: "CreditCard",
+                product_category: "Platinum",
+              },
+              application: {
+                cos_ref_number: "COS123456",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+  });
+
+  it("should call axios.post with correct arguments and resolve", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_ZOLO_CHECK_RESULT_END_POINT = "/zolo-check-endpoint/";
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const channelReference = "mocked_channel_ref";
+    const transactionId = "txn123456";
+    const docType = "HKID";
+
+    const result = await postZOLOCheck(channelReference, transactionId, docType);
+
+    const expectedUrl = "https://mock-base-url/application-endpoint/mocked_channel_ref/zolo-check-endpoint/";
+    const expectedPayload = {
+      transactionId: "txn123456",
+      isReturnImage: "Y",
+      first_name_a_1: "John",
+      last_name_a_1: "Doe",
+      date_of_birth_a_1: "1990-01-01",
+      HKID_a_1: "A1234567",
+      product_type: "CreditCard",
+      product_category: "Platinum",
+      hkid_type: "HKID",
+      cos_ref_number: "COS123456",
+    };
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, JSON.stringify(expectedPayload), {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_ZOLO_CHECK_RESULT_END_POINT = "/zolo-check-endpoint/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    const channelReference = "mocked_channel_ref";
+    const transactionId = "txn123456";
+    const docType = "HKID";
+
+    await expect(postZOLOCheck(channelReference, transactionId, docType)).rejects.toThrow(
+      "mocked_error"
+    );
+
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
