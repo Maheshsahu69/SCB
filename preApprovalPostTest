@@ -455,3 +455,133 @@ describe("postSaveData", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockError);
   });
 });
+
+
+import { postSaveData, postDocSaveData, postBasicData, postAditionalData } from "./yourComponentFile";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  getState: jest.fn(() => ({
+    stages: {
+      stages: [
+        {
+          stageInfo: {
+            application: {
+              channel_reference: "test_channel_ref",
+              application_reference: "test_application_ref",
+            },
+          },
+        },
+      ],
+    },
+  })),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getFormConfigPayload: jest.fn(() => ({ applicants: {}, application: {} })),
+  getAckMetaData: jest.fn(() => "mocked_meta_data"),
+}));
+
+describe("API Functions", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("should successfully call postSaveData and resolve", async () => {
+    const mockedResponse = { data: "success" };
+    (axios.post as jest.Mock).mockResolvedValue(mockedResponse);
+
+    const result = await postSaveData();
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("test_channel_ref"),
+      expect.any(String),
+      { headers: expect.any(Object) }
+    );
+    expect(result).toEqual(mockedResponse);
+  });
+
+  test("should handle error in postSaveData", async () => {
+    const mockedError = new Error("API Error");
+    (axios.post as jest.Mock).mockRejectedValue(mockedError);
+
+    await expect(postSaveData()).rejects.toThrow("API Error");
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+
+  test("should successfully call postDocSaveData with document data", async () => {
+    const mockedResponse = { data: "document_saved" };
+    const documentData = [{ docId: "doc1", documentName: "docName" }];
+    const transactionData = { transactionId: "txn123", result: { resultMessage: "Success" } };
+
+    (axios.post as jest.Mock).mockResolvedValue(mockedResponse);
+
+    const result = await postDocSaveData(documentData, transactionData);
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("test_channel_ref"),
+      expect.stringContaining('"ekycdocId":"doc1"'),
+      { headers: expect.any(Object) }
+    );
+    expect(result).toEqual(mockedResponse);
+  });
+
+  test("should handle error in postDocSaveData", async () => {
+    const mockedError = new Error("Document Save Error");
+    (axios.post as jest.Mock).mockRejectedValue(mockedError);
+
+    await expect(postDocSaveData([], {})).rejects.toThrow("Document Save Error");
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+
+  test("should successfully call postBasicData", async () => {
+    const mockedResponse = { data: "basic_data_saved" };
+    (axios.post as jest.Mock).mockResolvedValue(mockedResponse);
+
+    const result = await postBasicData();
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("test_channel_ref"),
+      expect.any(String),
+      { headers: expect.any(Object) }
+    );
+    expect(result).toEqual(mockedResponse);
+  });
+
+  test("should handle error in postBasicData", async () => {
+    const mockedError = new Error("Basic Data Error");
+    (axios.post as jest.Mock).mockRejectedValue(mockedError);
+
+    await expect(postBasicData()).rejects.toThrow("Basic Data Error");
+  });
+
+  test("should successfully call postAditionalData", async () => {
+    const mockedResponse = { data: "additional_data_saved" };
+    (axios.post as jest.Mock).mockResolvedValue(mockedResponse);
+
+    const result = await postAditionalData();
+
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.stringContaining("test_channel_ref"),
+      expect.any(String),
+      { headers: expect.any(Object) }
+    );
+    expect(result).toEqual(mockedResponse);
+  });
+
+  test("should handle error in postAditionalData", async () => {
+    const mockedError = new Error("Additional Data Error");
+    (axios.post as jest.Mock).mockRejectedValue(mockedError);
+
+    await expect(postAditionalData()).rejects.toThrow("Additional Data Error");
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
+
+
