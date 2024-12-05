@@ -360,3 +360,124 @@ describe("postZOLOCheck", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
   });
 });
+
+
+import { postZoloAcknowledge } from "./yourFile";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postZoloAcknowledge", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              application: {
+                channel_reference: "mocked_channel_ref",
+                application_reference: "mocked_application_ref",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+  });
+
+  it("should call axios.post with correct arguments and resolve", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT = "/documents-endpoint/";
+    process.env.REACT_APP_RTOB_ACKNOWLEDGE_END_POINT = "/acknowledge-endpoint/";
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const channelReference = "mocked_channel_ref";
+    const documentsList = [
+      {
+        docId: "doc123",
+        documentName: "testDocument.pdf",
+        documentStatus: "Accepted",
+      },
+    ];
+
+    const result = await postZoloAcknowledge(channelReference, documentsList);
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/documents-endpoint/acknowledge-endpoint/";
+    const expectedPayload = {
+      applicationRefNo: "mocked_application_ref",
+      documents: documentsList,
+      optionsSelected: [
+        {
+          applicantId: 1,
+          options: [
+            {
+              documentCategoryCode: "R0001",
+              documentTypeCode: "A001",
+              documentOptionSequence: "1",
+            },
+          ],
+        },
+      ],
+      stage: "Zoloz_ACK",
+    };
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, JSON.stringify(expectedPayload), {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT = "/documents-endpoint/";
+    process.env.REACT_APP_RTOB_ACKNOWLEDGE_END_POINT = "/acknowledge-endpoint/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    const channelReference = "mocked_channel_ref";
+    const documentsList = [
+      {
+        docId: "doc123",
+        documentName: "testDocument.pdf",
+        documentStatus: "Accepted",
+      },
+    ];
+
+    await expect(postZoloAcknowledge(channelReference, documentsList)).rejects.toThrow(
+      "mocked_error"
+    );
+
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
