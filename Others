@@ -1417,3 +1417,162 @@ describe("postAditionalData", () => {
 
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
  
+import { postAditionalData } from "./yourFile";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+import { adpayload } from "./payload";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+  getADFormConfigPayload: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+jest.mock("./payload", () => ({
+  adpayload: jest.fn(() => ({
+    applicants: [],
+    fieldmetadata: {},
+    products: [],
+    stage: {},
+    status: {},
+    applicant_documents: [],
+    client: {},
+    dedupe: {},
+    dedupeList: [],
+    etc_data: {},
+    lov_desc: {},
+    oz_templates: [],
+    preApprovedData: {},
+    preapproved: {},
+    service_response: {},
+  })),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postAditionalData", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              application: {
+                channel_reference: "mocked_channel_ref",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+  });
+
+  it("should call axios.post with correct arguments and resolve when payload is an object", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT = "/additional-data/";
+
+    // Mock payload as object
+    PreApprovalUtil.getADFormConfigPayload.mockReturnValueOnce({
+      applicants: [],
+      application: {},
+    });
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const result = await postAditionalData();
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/additional-data/";
+    const expectedPayload = JSON.stringify({
+      ...adpayload(),
+      applicants: [],
+      application: {},
+    });
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, expectedPayload, {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should call axios.post with correct arguments and resolve when payload is a JSON string", async () => {
+    // Mock payload as JSON string
+    PreApprovalUtil.getADFormConfigPayload.mockReturnValueOnce(
+      JSON.stringify({
+        applicants: [],
+        application: {},
+      })
+    );
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const result = await postAditionalData();
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/additional-data/";
+    const expectedPayload = JSON.stringify({
+      ...adpayload(),
+      applicants: [],
+      application: {},
+    });
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, expectedPayload, {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should handle invalid JSON returned by getADFormConfigPayload", async () => {
+    PreApprovalUtil.getADFormConfigPayload.mockReturnValueOnce("{invalidJSON}");
+
+    await expect(postAditionalData()).rejects.toThrow(
+      "Failed to parse getADFormConfigPayload: Invalid JSON string"
+    );
+  });
+
+  it("should handle undefined or null return value from getADFormConfigPayload", async () => {
+    PreApprovalUtil.getADFormConfigPayload.mockReturnValueOnce(undefined);
+
+    await expect(postAditionalData()).rejects.toThrow(
+      "getADFormConfigPayload returned undefined or null"
+    );
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT = "/additional-data/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    await expect(postAditionalData()).rejects.toThrow("mocked_error");
+
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
