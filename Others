@@ -579,3 +579,80 @@ describe("postFinalAcknowledge", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
   });
 });
+
+
+
+import { postQRCodeZOLO } from "./yourFile";
+import axios from "axios";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("axios");
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postQRCodeZOLO", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+  });
+
+  it("should call axios.post with correct arguments and resolve", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_QRCODE_SMART_HKID_END_POINT = "/qrcode-endpoint/";
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const channelReference = "mocked_channel_ref";
+    const docType = "HKID";
+
+    const result = await postQRCodeZOLO(channelReference, docType);
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/qrcode-endpoint/";
+    const expectedPayload = {
+      docType: "HKID",
+      qrCodeFlag: "Y",
+      h5ModeConfig: {
+        completeCallbackUrl:
+          "https://pt.sc.com/onboarding/hk/zolozThankYou.html?scbToken=mocked_channel_ref&lang=en",
+        interruptCallbackUrl:
+          "https://pt.sc.com/onboarding/hk/zoloz-error.html?scbToken=mocked_channel_ref&lang=en",
+        locale: "",
+      },
+    };
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, JSON.stringify(expectedPayload), {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_QRCODE_SMART_HKID_END_POINT = "/qrcode-endpoint/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    const channelReference = "mocked_channel_ref";
+    const docType = "HKID";
+
+    await expect(postQRCodeZOLO(channelReference, docType)).rejects.toThrow("mocked_error");
+
+   
