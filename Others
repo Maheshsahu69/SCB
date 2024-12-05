@@ -1281,3 +1281,64 @@ describe("postBasicData", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
   });
 });
+
+import { postAditionalData } from "./yourFile";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+import { adpayload } from "./payload";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+  getFormConfigPayload: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+jest.mock("./payload", () => ({
+  adpayload: jest.fn(() => ({
+    applicants: [],
+    fieldmetadata: {},
+    products: [],
+    stage: {},
+    status: {},
+    applicant_documents: [],
+    client: {},
+    dedupe: {},
+    dedupeList: [],
+    etc_data: {},
+    lov_desc: {},
+    oz_templates: [],
+    preApprovedData: {},
+    preapproved: {},
+    service_response: {},
+  })),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postAditionalData", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              application: {
+                channel_reference: "mocked_channel_ref",
+              },
+            },
+          },
+        ],
+      },
+    });
+
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta
