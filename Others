@@ -1341,4 +1341,79 @@ describe("postAditionalData", () => {
       },
     });
 
-    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+    PreApprovalUtil.getFormConfigPayload.mockReturnValue({
+      applicants: [{ id: "applicant-id" }],
+      fieldmetadata: {},
+      products: [],
+      stage: {},
+      status: {},
+      applicant_documents: [],
+      client: {},
+      dedupe: {},
+      dedupeList: [],
+      etc_data: {},
+      lov_desc: {},
+      oz_templates: [],
+      preApprovedData: {},
+      preapproved: {},
+      service_response: {},
+    });
+  });
+
+  it("should call axios.post with correct arguments and resolve", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT = "/additional-data/";
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const result = await postAditionalData();
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/additional-data/";
+    const currentStageData = PreApprovalUtil.getFormConfigPayload();
+    const expectedPayload = {
+      ...adpayload(),
+      applicants: currentStageData.applicants,
+      fieldmetadata: currentStageData.fieldmetadata,
+      products: currentStageData.products,
+      stage: currentStageData.stage,
+      status: currentStageData.status,
+      applicant_documents: currentStageData.applicant_documents,
+      client: currentStageData.client,
+      dedupe: currentStageData.dedupe,
+      dedupeList: currentStageData.dedupeList,
+      etc_data: currentStageData.etc_data,
+      lov_desc: currentStageData.lov_desc,
+      oz_templates: currentStageData.oz_templates,
+      preApprovedData: currentStageData.preApprovedData,
+      preapproved: currentStageData.preapproved,
+      service_response: currentStageData.service_response,
+    };
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, JSON.stringify(expectedPayload), {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT = "/additional-data/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    await expect(postAditionalData()).rejects.toThrow("mocked_error");
+
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+ 
