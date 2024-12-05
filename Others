@@ -1104,3 +1104,90 @@ describe("postAditionalData", () => {
   });
 });
 });
+
+
+
+import { postDocumemts } from "./yourFile";
+import axios from "axios";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("axios");
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postDocumemts", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+  });
+
+  it("should call axios.post with correct arguments and resolve", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT = "/documents-endpoint/";
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const channelReference = "mocked_channel_ref";
+    const file = new File(["dummy content"], "testDocument.pdf", { type: "application/pdf" });
+
+    const result = await postDocumemts(channelReference, file);
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/documents-endpoint/";
+
+    // Check that the `axios.post` is called with a FormData object
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, expect.any(FormData), {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        "Sc-Client-Context": "mocked_ack_meta_data",
+      },
+    });
+
+    // Ensure the result matches the mocked response
+    expect(result).toEqual(mockedResponse);
+
+    // Check FormData contents
+    const formData = new FormData();
+    formData.append("file", file, "testDocument.pdf");
+    formData.append(
+      "documentJson",
+      JSON.stringify({
+        origin: "front-line-supporting-document",
+        documentCategoryCode: "R0005",
+        documentTypeCode: "A023",
+        applicantId: 1,
+        imageOrder: 5,
+        period: 0,
+        isWatermarkRequired: "N",
+        documentOptionSequence: "undefined",
+      })
+    );
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT = "/documents-endpoint/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    const channelReference = "mocked_channel_ref";
+    const file = new File(["dummy content"], "testDocument.pdf", { type: "application/pdf" });
+
+    await expect(postDocumemts(channelReference, file)).rejects.toThrow("mocked_error");
+
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
