@@ -833,3 +833,134 @@ describe("postTMXUserSession", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
   });
 });
+
+
+
+
+import { postFulFilmentData } from "./yourFile";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./preApprovalUtils";
+import { dispatchError } from "../../../services/common-service";
+
+jest.mock("axios");
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getAckMetaData: jest.fn(),
+}));
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+describe("postFulFilmentData", () => {
+  beforeEach(() => {
+    mockedAxios.post.mockReset();
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              application: {
+                channel_reference: "mocked_channel_ref",
+              },
+            },
+            stageId: "stage-id-1",
+          },
+        ],
+      },
+    });
+
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_ack_meta_data");
+  });
+
+  it("should call axios.post with correct arguments and resolve", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_FULFILMENT_DATA = "/fulfilment-data/";
+
+    const mockedResponse = { data: "mocked_response" };
+    mockedAxios.post.mockResolvedValueOnce(mockedResponse);
+
+    const payload = {
+      applicants: [{ id: "applicant-id-1" }],
+      application: { id: "application-id-1" },
+      stage: {},
+    };
+
+    const result = await postFulFilmentData(payload);
+
+    const expectedUrl =
+      "https://mock-base-url/application-endpoint/mocked_channel_ref/fulfilment-data/";
+    const expectedHeaders = {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": "mocked_ack_meta_data",
+    };
+
+    const expectedPayload = JSON.stringify({
+      ...payload,
+      stage: {
+        page_id: "stage-id-1",
+        workflow_stage_id: "STAGE",
+        stage_id: "STAGEID1",
+        stage_status: "incomplete",
+        stage_params: {
+          is_dedupe_required: false,
+          current_applicant: 0,
+          eb_status: null,
+        },
+      },
+      status_data: null,
+      preapproved: null,
+      temp_login_data: null,
+      service_response: null,
+      application: {
+        ...payload.application,
+        service_type: "STAGEID1",
+        alipay_ref_number: null,
+        ext_acceptance_reference_number: null,
+        ext_authentication_reference_number: null,
+        stage_wise: null,
+        version: null,
+        source_system_name: "3",
+        page_wise: null,
+      },
+      client: {
+        journey: "prelogin_ntc_or_ntp",
+        auth_type: "manual",
+        login_type: "prelogin",
+      },
+    });
+
+    expect(mockedAxios.post).toHaveBeenCalledWith(expectedUrl, expectedPayload, {
+      headers: expectedHeaders,
+    });
+    expect(result).toEqual(mockedResponse);
+  });
+
+  it("should handle axios.post rejection and call dispatchError", async () => {
+    // Mock environment variables
+    process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+    process.env.REACT_APP_RTOB_APPLICATION_END_POINT = "/application-endpoint/";
+    process.env.REACT_APP_RTOB_FULFILMENT_DATA = "/fulfilment-data/";
+
+    const mockedError = new Error("mocked_error");
+    mockedAxios.post.mockRejectedValueOnce(mockedError);
+
+    const payload = {
+      applicants: [{ id: "applicant-id-1" }],
+      application: { id: "application-id-1" },
+      stage: {},
+    };
+
+    await expect(postFulFilmentData(payload)).rejects.toThrow("mocked_error");
+
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
