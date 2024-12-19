@@ -1,0 +1,225 @@
+import React, { useState } from "react";
+import "./colour-Identity-Proof.scss";
+import Carousel from "../carousel/carousel";
+import { useDispatch } from "react-redux";
+
+import banner1 from "../images-du/illustration-03@3x.png";
+import banner2 from "../images-du/illustration-06@3x.png";
+import banner3 from "../images-du/illustration-05@3x.png";
+import banner4 from "../images-du/illustration-02@3x.png";
+import banner5 from "../images-du/illustration-01@3x.png";
+import banner6 from "../images-du/illustration-04@3x.png";
+import { getUrl } from "../../../../../utils/common/change.utils";
+import { CONSTANTS } from "../../../../../utils/common/constants";
+import { dispatchLoader } from "../../../../../services/common-service";
+
+const ColorIdentityProof: React.FC<any> = ({
+  setShowIncomeProof,
+  setShowQRCodePage,
+  callQRCodeAPI,
+  HKIDVersion,
+  HKIDVersionValue,
+  setHKIDVersion,
+  setHKIDVersionValue,
+  setShowContinueBtn
+}) => {
+  const headerText = "HKID Verification & Face Recognition";
+  const headerNote = "Powered by Zoloz";
+  const radioBtnText = "Please select the version of the HKID you were issued";
+  const copyRights = "© Standard Chartered Bank (HK) Limited";
+  const hknotes = "Note: HKID Verification & Face Recognition are run by SCB. Your data will not be accessed by any third party.";
+  const language = getUrl.getLanguageInfo("lang")
+  // const images: any = [banner1, banner2, banner3, banner4, banner5, banner6];
+  const images: any = [
+    {banner:banner1, step:"Step 1", stepText:"Scan the QR code with a mobile phone"},
+    {banner:banner2, step:"Step 2", stepText:"Remove card holder and place it on a flat surface under adequate lighting"},
+    {banner:banner3, step:"Step 3", stepText:"Capture ID from above and align the edges with the rectangular frames"},
+    {banner:banner4, step:"Step 4", stepText:"Tilt mobile phone about 30-degree and capture from aside"},
+    {banner:banner5, step:"Step 5", stepText:"Remove accessories and face mask and place full face in the circular frame and blink once as instructed"},
+    {banner:banner6, step:"Step 6", stepText:"Return to desktop browser and click “Submit” to continue"},
+ ]
+ const [isAutoSlide, setIsAutoSlide]=useState(false);
+  const dispatch = useDispatch();
+
+  const handleRadioBtnHKID = (item: any) => {
+    console.log(item, "label:---------------")
+    const label = item.CODE_DESC;
+    const value = item.CODE_VALUE;
+    setHKIDVersionValue(value);
+    setHKIDVersion(label);
+    // setIsAutoSlide(false);
+    // if (value === "Smart HKID" || "New Smart HKID") {
+     
+    
+    // } else if (value === "New Smart HKID") {
+    // }
+  };
+  const closeFileUpload = () => {
+    setShowIncomeProof("");
+    setShowQRCodePage(false);
+    setShowContinueBtn(false);
+  };
+  const okBtnClick = async() => {
+    dispatch(dispatchLoader(true));
+   
+    await setShowIncomeProof("Income Proof");
+
+    if (HKIDVersion === "Smart HKID") {
+       setShowQRCodePage(true);
+       callQRCodeAPI("Smart HKID");
+    } else if (HKIDVersion === "New Smart HKID") {
+        setShowQRCodePage(true);
+        callQRCodeAPI("New Smart HKID");
+    }
+  };
+
+  const lovData = language === CONSTANTS.LANG_EN ? [
+    {
+      "CODE_VALUE": "08520000001",
+      "CODE_DESC": "Smart HKID"
+    },
+    {
+      "CODE_VALUE": "08520000002",
+      "CODE_DESC": "New Smart HKID"
+    }
+  ] : [
+    {
+      "CODE_VALUE": "08520000001",
+      "CODE_DESC": "智能身份證"
+    },
+    {
+      "CODE_VALUE": "08520000002",
+      "CODE_DESC": "新智能身份證"
+    }
+  ];
+
+  return (
+    <>
+      <div className="document-view">
+        <div className="main-container">
+          <section className="hkid-docPage">
+            <p className="hkid-header">{headerText}</p>
+            <span className="header-note">{headerNote}</span>
+            <div className="radio-btn-section">
+              <label className="floatlabel">
+                <span className="textbox-label">
+                  <b>{radioBtnText}</b>
+                </span>
+              </label>
+              <div className="rto-form-component-hk">
+                <div className="radioOptions">
+                  {lovData.map((item: any, index: any) => {
+                    return (
+                      <fieldset
+                        key={index}
+                        className={
+                          HKIDVersionValue === item.CODE_VALUE
+                            ? "smart-hkid-fieldset1-selected"
+                            : "smart-hkid-fieldset1"
+                        }
+                      >
+                        <input
+                          role="radio"
+                          id="smart-hkid"
+                          type="radio"
+                          value="Smart HKID"
+                          name="hkid_type"
+                          className="radio-btn"
+                          onChange={() => handleRadioBtnHKID(item)}
+                        />
+                        <label className="radio-button-lbl">{item.CODE_DESC}</label>
+                      </fieldset>
+                    )
+                  })}
+                  {/* <fieldset
+                  className={
+                    HKIDVersion === "Smart HKID"
+                      ? "smart-hkid-fieldset1-selected"
+                      : "smart-hkid-fieldset1"
+                  }
+                >
+                  <input
+                    role="radio"
+                    id="smart-hkid"
+                    type="radio"
+                    value="Smart HKID"
+                    name="hkid_type"
+                    className="radio-btn"
+                    onChange={(e) => handleRadioBtnHKID(e)}
+                  />
+                  <label className="radio-button-lbl">Smart HKID</label>
+                </fieldset>
+                <fieldset
+                  className={
+                    HKIDVersion === "New Smart HKID"
+                      ? "smart-hkid-fieldset2-selected"
+                      : "smart-hkid-fieldset2"
+                  }
+                >
+                  <input
+                    role="radio"
+                    id="new-smart-hkid"
+                    type="radio"
+                    value="New Smart HKID"
+                    name="hkid_type"
+                    className="radio-btn"
+                    onChange={(e) => handleRadioBtnHKID(e)}
+                  />
+                  <label className="radio-button-lbl">New Smart HKID</label>
+                </fieldset> */}
+                </div>
+              </div>
+            </div>
+            <div className="hkid-prepare-points">
+              <div className="desktop-img">
+                <Carousel
+                  image={images}
+                  position={"absolute"}
+                  top={"3em"}
+                  left={"15%"}
+                  right={"15%"}
+                  arginLeft={"0%"}
+                  marginTop={"0%"}
+                  isAutoSlide
+                  
+                />
+              </div>
+            </div>
+            <div className="hkid-notes">{hknotes}</div>
+            <div className="hk-copy-rights">
+              <p>{copyRights}</p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div className="footer footer-set">
+        {
+          <div
+            role="button"
+            className="back"
+            onClick={closeFileUpload}>
+            <span className="arrow"></span>
+            Back
+          </div>
+        }
+        <button
+          role="button"
+          title="Colour Identity Proof"
+          type="submit"
+          className={
+            !HKIDVersion ? `continue form-invalid` : `continue form-valid`
+          }
+          onClick={okBtnClick}
+          disabled={HKIDVersion === ""}
+        >
+          Continue
+        </button>
+      </div>
+    </>
+
+
+  );
+};
+
+export default ColorIdentityProof;
