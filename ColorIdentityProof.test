@@ -1,0 +1,124 @@
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
+import ColorIdentityProof from './ColorIdentityProof'; // Adjust the import path if necessary
+import { Provider } from 'react-redux';
+import { store } from '../../store'; // Assuming you have a Redux store
+
+jest.mock('../../services/common-service', () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+jest.mock('../../../../../utils/common/change.utils', () => ({
+  getUrl: {
+    getLanguageInfo: jest.fn().mockReturnValue('en'),
+  },
+}));
+
+describe('ColorIdentityProof', () => {
+  const mockSetShowIncomeProof = jest.fn();
+  const mockSetShowQRCodePage = jest.fn();
+  const mockCallQRCodeAPI = jest.fn();
+  const mockSetHKIDVersion = jest.fn();
+  const mockSetHKIDVersionValue = jest.fn();
+  const mockSetShowContinueBtn = jest.fn();
+
+  beforeEach(() => {
+    render(
+      <Provider store={store}>
+        <ColorIdentityProof
+          setShowIncomeProof={mockSetShowIncomeProof}
+          setShowQRCodePage={mockSetShowQRCodePage}
+          callQRCodeAPI={mockCallQRCodeAPI}
+          HKIDVersion=""
+          HKIDVersionValue=""
+          setHKIDVersion={mockSetHKIDVersion}
+          setHKIDVersionValue={mockSetHKIDVersionValue}
+          setShowContinueBtn={mockSetShowContinueBtn}
+        />
+      </Provider>
+    );
+  });
+
+  test('renders the component correctly', () => {
+    expect(screen.getByText('HKID Verification & Face Recognition')).toBeInTheDocument();
+    expect(screen.getByText('Powered by Zoloz')).toBeInTheDocument();
+    expect(screen.getByText('Please select the version of the HKID you were issued')).toBeInTheDocument();
+    expect(screen.getByText('© Standard Chartered Bank (HK) Limited')).toBeInTheDocument();
+  });
+
+  test('displays the correct radio buttons for HKID versions', () => {
+    const smartHKIDRadio = screen.getByLabelText('Smart HKID');
+    const newSmartHKIDRadio = screen.getByLabelText('New Smart HKID');
+    
+    expect(smartHKIDRadio).toBeInTheDocument();
+    expect(newSmartHKIDRadio).toBeInTheDocument();
+  });
+
+  test('selecting a radio button updates the state', async () => {
+    const smartHKIDRadio = screen.getByLabelText('Smart HKID');
+    fireEvent.click(smartHKIDRadio);
+
+    await waitFor(() => {
+      expect(mockSetHKIDVersion).toHaveBeenCalledWith('Smart HKID');
+      expect(mockSetHKIDVersionValue).toHaveBeenCalledWith('08520000001');
+    });
+  });
+
+  test('Continue button is disabled when no HKID version is selected', () => {
+    const continueBtn = screen.getByRole('button', { name: 'Continue' });
+    expect(continueBtn).toBeDisabled();
+  });
+
+  test('Continue button is enabled when an HKID version is selected', async () => {
+    const smartHKIDRadio = screen.getByLabelText('Smart HKID');
+    fireEvent.click(smartHKIDRadio);
+
+    const continueBtn = screen.getByRole('button', { name: 'Continue' });
+    expect(continueBtn).toBeEnabled();
+  });
+
+  test('clicking continue triggers the correct API call for Smart HKID', async () => {
+    const smartHKIDRadio = screen.getByLabelText('Smart HKID');
+    fireEvent.click(smartHKIDRadio);
+
+    const continueBtn = screen.getByRole('button', { name: 'Continue' });
+    fireEvent.click(continueBtn);
+
+    await waitFor(() => {
+      expect(mockSetShowIncomeProof).toHaveBeenCalledWith('Income Proof');
+      expect(mockSetShowQRCodePage).toHaveBeenCalledWith(true);
+      expect(mockCallQRCodeAPI).toHaveBeenCalledWith('Smart HKID');
+    });
+  });
+
+  test('clicking continue triggers the correct API call for New Smart HKID', async () => {
+    const newSmartHKIDRadio = screen.getByLabelText('New Smart HKID');
+    fireEvent.click(newSmartHKIDRadio);
+
+    const continueBtn = screen.getByRole('button', { name: 'Continue' });
+    fireEvent.click(continueBtn);
+
+    await waitFor(() => {
+      expect(mockSetShowIncomeProof).toHaveBeenCalledWith('Income Proof');
+      expect(mockSetShowQRCodePage).toHaveBeenCalledWith(true);
+      expect(mockCallQRCodeAPI).toHaveBeenCalledWith('New Smart HKID');
+    });
+  });
+
+  test('displays carousel images', () => {
+    const images = [
+      { banner: 'banner1', step: 'Step 1', stepText: 'Scan the QR code with a mobile phone' },
+      { banner: 'banner2', step: 'Step 2', stepText: 'Remove card holder and place it on a flat surface under adequate lighting' },
+      { banner: 'banner3', step: 'Step 3', stepText: 'Capture ID from above and align the edges with the rectangular frames' },
+      { banner: 'banner4', step: 'Step 4', stepText: 'Tilt mobile phone about 30-degree and capture from aside' },
+      { banner: 'banner5', step: 'Step 5', stepText: 'Remove accessories and face mask and place full face in the circular frame and blink once as instructed' },
+      { banner: 'banner6', step: 'Step 6', stepText: 'Return to desktop browser and click “Submit” to continue' },
+    ];
+
+    // Check that carousel images and steps are rendered
+    images.forEach(image => {
+      expect(screen.getByText(image.step)).toBeInTheDocument();
+      expect(screen.getByText(image.stepText)).toBeInTheDocument();
+    });
+  });
+});
