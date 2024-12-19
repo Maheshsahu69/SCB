@@ -1,0 +1,209 @@
+import React from 'react';
+import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import DocumentUploadSRC2 from './DocumentUploadSRC2';
+import { useDispatch, useSelector } from 'react-redux';
+import { preApprovalAction } from '../../../../preApproval/store/preApproval-slice';
+import { postDocuments, postZOLOCheck, postZolozAcknowledge } from '../../../../preApproval/services/preApprovalPostServices';
+import { dispatchLoader } from '../../../../../services/common-service';
+
+// Mocking Redux hooks and services
+jest.mock('react-redux', () => ({
+  useDispatch: jest.fn(),
+  useSelector: jest.fn(),
+}));
+
+jest.mock('../../../../preApproval/services/preApprovalPostServices', () => ({
+  postDocuments: jest.fn(),
+  postZOLOCheck: jest.fn(),
+  postZolozAcknowledge: jest.fn(),
+}));
+
+jest.mock('../../../../../services/common-service', () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+describe('DocumentUploadSRC2', () => {
+  const mockDispatch = jest.fn();
+  const setShowIncomeProof = jest.fn();
+  const setDocumentCount = jest.fn();
+  const documentCount = 0;
+  const changeSuccessState = jest.fn();
+  const showQRCodePage = false;
+  const setShowQRCodePage = jest.fn();
+  const setChangeIconColorIdentityProof = jest.fn();
+  const showUploadFileSuccess = false;
+  const setShowUploadFileSuccess = jest.fn();
+  const channel_reference = 'test-channel';
+  const HKIDQRCodeData = { transactionId: 'test-id', qrCode: 'test-qrcode' };
+  const setHKIDVersion = jest.fn();
+  const HKIDVersionValue = 'test-version';
+  const setShowContinueBtn = jest.fn();
+  const setDocumentData = jest.fn();
+  const setZolozDocumentData = jest.fn();
+  const setSucsess = jest.fn();
+  const success = false;
+  const setChangeIconIncomeProof = jest.fn();
+  const changeIconIncomeProof = false;
+
+  beforeEach(() => {
+    useDispatch.mockReturnValue(mockDispatch);
+    useSelector.mockImplementation((callback) =>
+      callback({
+        stages: { stages: [{ stageInfo: {} }] },
+        preApproval: { incomeProofDocumentUpload: [] },
+      })
+    );
+    postDocuments.mockResolvedValue({ statusText: 'Accepted', data: {} });
+    postZOLOCheck.mockResolvedValue({ data: { documents: [{ docId: 'test-doc' }] } });
+    postZolozAcknowledge.mockResolvedValue({ data: [{ responseStatus: 'Success' }] });
+    dispatchLoader.mockReturnValue(null);
+  });
+
+  test('should render the component correctly', () => {
+    render(
+      <DocumentUploadSRC2
+        setShowIncomeProof={setShowIncomeProof}
+        setDocumentCount={setDocumentCount}
+        documentCount={documentCount}
+        changeSuccessState={changeSuccessState}
+        showQRCodePage={showQRCodePage}
+        setShowQRCodePage={setShowQRCodePage}
+        setChangeIconColorIdentityProof={setChangeIconColorIdentityProof}
+        showUploadFileSuccess={showUploadFileSuccess}
+        setShowUploadFileSuccess={setShowUploadFileSuccess}
+        channel_reference={channel_reference}
+        HKIDQRCodeData={HKIDQRCodeData}
+        setHKIDVersion={setHKIDVersion}
+        HKIDVersionValue={HKIDVersionValue}
+        setShowContinueBtn={setShowContinueBtn}
+        setDocumentData={setDocumentData}
+        setZolozDocumentData={setZolozDocumentData}
+        setSucsess={setSucsess}
+        success={success}
+        setChangeIconIncomeProof={setChangeIconIncomeProof}
+        changeIconIncomeProof={changeIconIncomeProof}
+      />
+    );
+    expect(screen.getByText('Income Proof')).toBeInTheDocument();
+  });
+
+  test('should display success modal when success is true', async () => {
+    render(
+      <DocumentUploadSRC2
+        setShowIncomeProof={setShowIncomeProof}
+        setDocumentCount={setDocumentCount}
+        documentCount={documentCount}
+        changeSuccessState={changeSuccessState}
+        showQRCodePage={showQRCodePage}
+        setShowQRCodePage={setShowQRCodePage}
+        setChangeIconColorIdentityProof={setChangeIconColorIdentityProof}
+        showUploadFileSuccess={showUploadFileSuccess}
+        setShowUploadFileSuccess={setShowUploadFileSuccess}
+        channel_reference={channel_reference}
+        HKIDQRCodeData={HKIDQRCodeData}
+        setHKIDVersion={setHKIDVersion}
+        HKIDVersionValue={HKIDVersionValue}
+        setShowContinueBtn={setShowContinueBtn}
+        setDocumentData={setDocumentData}
+        setZolozDocumentData={setZolozDocumentData}
+        setSucsess={setSucsess}
+        success={true}
+        setChangeIconIncomeProof={setChangeIconIncomeProof}
+        changeIconIncomeProof={changeIconIncomeProof}
+      />
+    );
+    fireEvent.click(screen.getByText('Submit'));
+    await waitFor(() => expect(postZOLOCheck).toHaveBeenCalled());
+    expect(screen.getByText('Success')).toBeInTheDocument();
+  });
+
+  test('should handle file upload correctly', async () => {
+    render(
+      <DocumentUploadSRC2
+        setShowIncomeProof={setShowIncomeProof}
+        setDocumentCount={setDocumentCount}
+        documentCount={documentCount}
+        changeSuccessState={changeSuccessState}
+        showQRCodePage={showQRCodePage}
+        setShowQRCodePage={setShowQRCodePage}
+        setChangeIconColorIdentityProof={setChangeIconColorIdentityProof}
+        showUploadFileSuccess={showUploadFileSuccess}
+        setShowUploadFileSuccess={setShowUploadFileSuccess}
+        channel_reference={channel_reference}
+        HKIDQRCodeData={HKIDQRCodeData}
+        setHKIDVersion={setHKIDVersion}
+        HKIDVersionValue={HKIDVersionValue}
+        setShowContinueBtn={setShowContinueBtn}
+        setDocumentData={setDocumentData}
+        setZolozDocumentData={setZolozDocumentData}
+        setSucsess={setSucsess}
+        success={success}
+        setChangeIconIncomeProof={setChangeIconIncomeProof}
+        changeIconIncomeProof={changeIconIncomeProof}
+      />
+    );
+    const fileInput = screen.getByLabelText('Upload');
+    fireEvent.change(fileInput, {
+      target: { files: [new File(['dummy content'], 'test-image.png', { type: 'image/png' })] },
+    });
+    await waitFor(() => expect(postDocuments).toHaveBeenCalled());
+  });
+
+  test('should handle click continue button and trigger OK action', () => {
+    render(
+      <DocumentUploadSRC2
+        setShowIncomeProof={setShowIncomeProof}
+        setDocumentCount={setDocumentCount}
+        documentCount={documentCount}
+        changeSuccessState={changeSuccessState}
+        showQRCodePage={showQRCodePage}
+        setShowQRCodePage={setShowQRCodePage}
+        setChangeIconColorIdentityProof={setChangeIconColorIdentityProof}
+        showUploadFileSuccess={showUploadFileSuccess}
+        setShowUploadFileSuccess={setShowUploadFileSuccess}
+        channel_reference={channel_reference}
+        HKIDQRCodeData={HKIDQRCodeData}
+        setHKIDVersion={setHKIDVersion}
+        HKIDVersionValue={HKIDVersionValue}
+        setShowContinueBtn={setShowContinueBtn}
+        setDocumentData={setDocumentData}
+        setZolozDocumentData={setZolozDocumentData}
+        setSucsess={setSucsess}
+        success={success}
+        setChangeIconIncomeProof={setChangeIconIncomeProof}
+        changeIconIncomeProof={changeIconIncomeProof}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+    expect(setDocumentCount).toHaveBeenCalledWith(1);
+  });
+
+  test('should show modal when tips link is clicked', () => {
+    render(
+      <DocumentUploadSRC2
+        setShowIncomeProof={setShowIncomeProof}
+        setDocumentCount={setDocumentCount}
+        documentCount={documentCount}
+        changeSuccessState={changeSuccessState}
+        showQRCodePage={showQRCodePage}
+        setShowQRCodePage={setShowQRCodePage}
+        setChangeIconColorIdentityProof={setChangeIconColorIdentityProof}
+        showUploadFileSuccess={showUploadFileSuccess}
+        setShowUploadFileSuccess={setShowUploadFileSuccess}
+        channel_reference={channel_reference}
+        HKIDQRCodeData={HKIDQRCodeData}
+        setHKIDVersion={setHKIDVersion}
+        HKIDVersionValue={HKIDVersionValue}
+        setShowContinueBtn={setShowContinueBtn}
+        setDocumentData={setDocumentData}
+        setZolozDocumentData={setZolozDocumentData}
+        setSucsess={setSucsess}
+        success={success}
+        setChangeIconIncomeProof={setChangeIconIncomeProof}
+        changeIconIncomeProof={changeIconIncomeProof}
+      />
+    );
+    fireEvent.click(screen.getByText('here'));
+    expect(screen.getByText('Tips for uploading')).toBeInTheDocument();
+  });
+});
