@@ -1,0 +1,590 @@
+import React, { useState, useEffect } from "react";
+import "./document-upload-scr2.scss";
+import { useDispatch, useSelector } from "react-redux";
+import { preApprovalAction } from  "../../../../preApproval/store/preApproval-slice";
+
+import Modal from "../modals/tipsModal/tips-modal";
+import PopupModel from "../../../../../shared/components/popup-model/popup-model";
+
+import Carousel from "../carousel/carousel";
+import banner1 from "../images-du/illustration-03@3x.png";
+import banner2 from "../images-du/illustration-06@3x.png";
+import banner3 from "../images-du/illustration-05@3x.png";
+import banner4 from "../images-du/illustration-02@3x.png";
+import banner5 from "../images-du/illustration-01@3x.png";
+import banner6 from "../images-du/illustration-04@3x.png";
+import ImagePreviewModal from "../modals/imagePreviewModal/image-preview-modal";
+
+import { getImagePreview } from "../../../../preApproval/services/preApprovalServices";
+
+import {
+  postDocuments,
+  postPdfPreview,
+  postZOLOCheck,
+  postZolozAcknowledge,
+} from "../../../../preApproval/services/preApprovalPostServices";
+
+import AlertModel from "../../../../preApproval/alertModal/alert-modal";
+import { dispatchLoader } from "../../../../../services/common-service";
+import { StoreModel } from "../../../../../utils/model/common-model";
+import { store } from "../../../../../utils/store/store";
+const DocumentUploadSRC2: React.FC<any> = ({
+  setShowIncomeProof,
+  setDocumentCount,
+  documentCount,
+  changeSuccessState,
+  showQRCodePage,
+  setShowQRCodePage,
+  setChangeIconColorIdentityProof,
+  showUploadFileSuccess,
+  setShowUploadFileSuccess,
+  channel_reference,
+  HKIDQRCodeData,
+  setHKIDVersion,
+  HKIDVersionValue,
+  setShowContinueBtn,
+  setDocumentData,
+  setZolozDocumentData,
+  setSucsess,
+  success,
+  setChangeIconIncomeProof,
+  changeIconIncomeProof,
+}) => {
+  const dispatch = useDispatch();
+  const footeContent =
+    "File format should be in JPG or PNG. The individual file size must not exceed 5MB. Click";
+  const copyRights = "© Standard Chartered Bank (HK) Limited";
+  // const images: any = [banner1, banner2, banner3, banner4];
+  const images: any = [
+    {
+      banner: banner1,
+      step: "Step 1",
+      stepText: "Scan the QR code with a mobile phone",
+    },
+    {
+      banner: banner2,
+      step: "Step 2",
+      stepText:
+        "Remove card holder and place it on a flat surface under adequate lighting",
+    },
+    {
+      banner: banner3,
+      step: "Step 3",
+      stepText:
+        "Capture ID from above and align the edges with the rectangular frames",
+    },
+    {
+      banner: banner4,
+      step: "Step 4",
+      stepText: "Tilt mobile phone about 30-degree and capture from aside",
+    },
+    {
+      banner: banner5,
+      step: "Step 5",
+      stepText:
+        "Remove accessories and face mask and place full face in the circular frame and blink once as instructed",
+    },
+    {
+      banner: banner6,
+      step: "Step 6",
+      stepText: "Return to desktop browser and click “Submit” to continue",
+    },
+  ];
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState(false);
+  const [imgeURL, setImageURL] = useState("");
+  const [name, setName] = useState("");
+  const [files, setFiles] = useState<any>([]);
+  const [openSuccessModal, setOpenSuccessModal] = useState(false);
+  const [validImageSizeModel, setValidImageSizeModel] = useState(false);
+  //const [showSpinner, setShowSpinner] = useState(true);
+  const [continueBtnVisiblity, setContinueBtnVisiblity] = useState(false);
+  const stageSelector = useSelector(
+    (state: StoreModel) => state.stages.stages[0].stageInfo
+  );
+  const filesSelector = useSelector(
+    (state: StoreModel) => state.preApproval.incomeProofDocumentUpload
+  );
+  const docName = useSelector((state: any) => {
+    return state?.preApproval?.documentZoloCheckRes?.data?.documents[0]
+      ?.documentName;
+  });
+  // const docStatus = useSelector((state: any) => {
+  //   return state?.preApproval?.documentZoloCheckRes?.data?.documents[0]
+  //     ?.documentStatus;
+  // });
+  const imgUrl = useSelector((state: any) => {
+    return state?.preApproval?.imgPrevURL;
+  });
+
+  useEffect(() => {
+    dispatch(dispatchLoader(false));
+
+    var isMobile = false;
+    if (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      )
+    ) {
+      isMobile = true;
+    }
+    console.log(isMobile);
+  }, []);
+
+  const closeFileUpload = () => {
+    setShowIncomeProof("");
+    setShowQRCodePage(false);
+    setHKIDVersion("");
+    setShowContinueBtn(false);
+  };
+
+  const handleUploadFile = async (e: any) => {
+    const filename = e.target.files[0].name;
+    const filesize = `${(e.target.files[0].size / (1024 * 1012)).toFixed(2)}MB`;
+    const file = e.target.files[0];
+    const maxSize = 5 * 1024 * 1024; //5MB in bytes
+
+    if (file.size > maxSize) {
+      setValidImageSizeModel(true);
+
+      return;
+    }
+    try {
+      await dispatch(dispatchLoader(true));
+      const response = await postDocuments(
+        channel_reference,
+        e.target.files[0]
+      );
+      const tempData = {
+        file: file,
+        filename: filename,
+        filesize: filesize,
+        ...response.data,
+      };
+
+      if (response.statusText === "Accepted") {
+        dispatch(preApprovalAction.setIncomeProofDocumentUpload(tempData));
+      }
+      await dispatch(dispatchLoader(false));
+    } catch (err) {
+      console.log("err:", err);
+    }
+  };
+  const okBtnClick = (e: any) => {
+    const { title } = e.target;
+
+    if (title === "Colour Identity Proof") {
+      setShowIncomeProof("");
+      setDocumentCount(documentCount + 1);
+      setShowQRCodePage(false);
+      setChangeIconColorIdentityProof(false);
+    } else if (title === "Income Proof") {
+      setContinueBtnVisiblity(true);
+      setDocumentCount(documentCount + 1);
+      setShowIncomeProof("");
+      // changeSuccessState(false);
+      // setHKIDVersion("");
+      setChangeIconIncomeProof(false);
+      setSucsess(true);
+    }
+    setHKIDVersion("");
+    setShowContinueBtn(false);
+  };
+
+  const handleDelete = (docId: any) => {
+    dispatch(preApprovalAction.setDeleteIncomeProofDocument(docId));
+  };
+  const handleRefresh = (fileID: any, index: any) => { };
+
+  const callModal = () => {
+    setIsModalOpen(true);
+  };
+
+  const callSubmit = async () => {
+    try {
+      // setShowSpinner(true);
+      dispatch(dispatchLoader(true));
+      var transactionId = HKIDQRCodeData.transactionId;
+      var docType = HKIDVersionValue;
+      var document_type_code =
+        stageSelector.applicant_documents[0]?.document_list[0]
+          ?.document_options[0]?.document_types[0]?.document_type_code;
+      const zoloCheckResponse = await postZOLOCheck(
+        channel_reference,
+        transactionId,
+        docType
+      );
+      const documents = zoloCheckResponse?.data?.documents || [];
+      const docId = documents[0]?.docId;
+      setZolozDocumentData(documents[0]);
+      const docFilter = documents.filter(
+        (item: any) => item.document_type_code === document_type_code
+      );
+
+      //Update state with ZOLO check response
+      dispatch(preApprovalAction.setDocumentZoloCheckRes(zoloCheckResponse));
+
+      //Achnowledge the post
+      const acknowledgeResponse = await postZolozAcknowledge(
+        channel_reference,
+        documents
+      );
+      const resStatus = acknowledgeResponse?.data?.[0]?.responseStatus;
+
+      if (resStatus === "Success") {
+        setOpenSuccessModal(true);
+        setShowUploadFileSuccess(true);
+
+        //Fetch and handle image preview
+        const imagePreviewResponse = await getImagePreview(
+          channel_reference,
+          docId
+        );
+        const blob = imagePreviewResponse?.data;
+        const imgObjURL = URL.createObjectURL(blob);
+
+        dispatch(preApprovalAction.setImgPrevURL(imgObjURL));
+        if (imagePreviewResponse.status === 200) {
+          //PDF Preview
+          const pdfPreviewRes = await postPdfPreview(channel_reference);
+          if (pdfPreviewRes.status >= 200 && pdfPreviewRes.status < 300) {
+            if (pdfPreviewRes.data.statusCode.toUpperCase() === "OK") {
+              setDocumentData(pdfPreviewRes.data.documents);
+              //   setShowSpinner(false);
+              dispatch(dispatchLoader(false));
+            }
+          } else {
+            dispatch(dispatchLoader(false));
+          }
+        }
+      }
+    } catch (error) {
+      console.log("error:", error);
+    }
+  };
+
+  const openImagePreview = (img: any, name: any) => {
+    setImageURL(img);
+    setName(name);
+    setImagePreview(true);
+  };
+
+  const successModalClose = () => {
+    setOpenSuccessModal(false);
+  };
+
+  const modelClose = () => {
+    setValidImageSizeModel(false);
+  };
+
+  return (
+    <>
+      <div className={"document-view"}>
+        {
+          <PopupModel displayPopup={openSuccessModal}>
+            <AlertModel alertType="Success" goBack={successModalClose} />
+          </PopupModel>
+        }
+
+        {validImageSizeModel && (
+          <PopupModel displayPopup={validImageSizeModel}>
+            <AlertModel alertType={"invalideimagesize"} goBack={modelClose} />
+          </PopupModel>
+        )}
+        {imagePreview && (
+          <ImagePreviewModal
+            imgeURL={imgeURL}
+            name={name}
+            imagePreview={imagePreview}
+            setImagePreview={setImagePreview}
+          />
+        )}
+        {!showQRCodePage && (
+          <>
+            <Modal isModalOpen={isModalOpen} setIsModalOpen={setIsModalOpen} />
+            <div className="container">
+              <div className="uploadHkDocument">
+                <p className="doc-close" onClick={closeFileUpload}>
+                  <span className="doc-close-btn"></span>
+                  CLOSE
+                </p>
+                <p className="hk-proof-name">Income Proof</p>
+              </div>
+              {filesSelector?.map((item: any, index: any) => {
+                return (
+                  <div className="upload-btn1" key={index}>
+                    <div className="thumbnail-img-container">
+                      <a>
+                        <img
+                          data-testid="image-preview-id"
+                          src={URL.createObjectURL(item.file)}
+                          alt={item.filename}
+                          onClick={() =>
+                            openImagePreview(
+                              URL.createObjectURL(item.file),
+                              item.filename
+                            )
+                          }
+                        ></img>
+                      </a>
+                    </div>
+                    <div className="container-image">
+                      <div className="uploading-doc-name">
+                        <span className="span-file-name">{item.filename}</span>
+                        <div className="progress-text-icon"></div>
+                        {item.documentStatus === "UPLOADED" && (
+                          <div
+                            className="trash-icon"
+                            onClick={() => {
+                              handleDelete(item.docId);
+                            }}
+                          ></div>
+                        )}
+                        {item.documentStatus === "Upload failed" && (
+                          <div
+                            className="retry-icon"
+                            onClick={() => {
+                              handleRefresh(item.docId, index);
+                            }}
+                          ></div>
+                        )}
+                      </div>
+                      <div
+                        className={
+                          item.documentStatus === "UPLOADED"
+                            ? "uploaded"
+                            : "retry-uploaded"
+                        }
+                      ></div>
+                      <div
+                        className={
+                          item.documentStatus === "UPLOADED"
+                            ? "tick-mark"
+                            : "no-tick-mark"
+                        }
+                      >
+                        {item.documentStatus === "UPLOADED"
+                          ? `${"Upload completed"} !`
+                          : `${item.documentStatus} Retry?`}
+                      </div>
+                      <div className="fileSizeDetails">
+                        <span>{item.filesize}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="upload-btn-section">
+                <input
+                  className="upload-input-file"
+                  id="file-upload"
+                  type="file"
+                  accept=".jpg, .png"
+                  onChange={(e) => handleUploadFile(e)}
+                  multiple
+                />
+                <label htmlFor="file-upload" className="upload-btn">
+                  <span className="upload-img"></span>
+                  Upload
+                </label>
+              </div>
+              <div className="document-footer">
+                <div className="footer-banner">
+                  <div className="footer-content">
+                    <p className="sec-2">
+                      {" "}
+                      {footeContent}
+                      <span className="tipsLink" onClick={callModal}>
+                        {" "}
+                        here{" "}
+                      </span>{" "}
+                      on tips for uploading
+                    </p>
+                  </div>
+                  <span className="images"></span>
+                </div>
+              </div>
+              <div className="hk-copy-rights">
+                <p>{copyRights}</p>
+              </div>
+
+              {/* This is for Income Proof Section */}
+              {/* {HKIDVersionValue !== "Identity Proof" && ( */}
+              <div className="footer footer-set">
+                {" "}
+                {
+                  <div title="back-btn-upload-doc1" className="back" onClick={closeFileUpload}>
+                    <span className="arrow"></span> Back
+                  </div>
+                }
+                <button
+                  role="button"
+                  title="Income Proof"
+                  type="submit"
+                  className={
+                    filesSelector?.length === 0
+                      ? `continue form-invalid`
+                      : `continue form-valid`
+                  }
+                  onClick={(e) => okBtnClick(e)}
+                  disabled={filesSelector?.length === 0}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {showQRCodePage && HKIDQRCodeData?.qrCode && (
+          <>
+            <div className="container">
+              <div className="uploadHkDocument">
+                <p className="doc-close" onClick={closeFileUpload}>
+                  <span className="doc-close-btn"></span>
+                  CLOSE
+                </p>
+                <p className="hk-proof-name">Colour Identity Proof</p>
+              </div>
+              <div className="qrMainLayOut">
+                {!showUploadFileSuccess && (
+                  <>
+                    {" "}
+                    <div className="qrCodeContent">
+                      <div className="desktop-img">
+                        <Carousel
+                          image={images}
+                          position={"absolute"}
+                          top={"3em"}
+                          left={"-4%"}
+                          right={"55%"}
+                          marginLeft={"20%"}
+                          marginTop={"8%"}
+                        />
+                      </div>
+                    </div>
+                    <div className="qrImageSection">
+                      <img
+                        src={`data:image/png;base64,${HKIDQRCodeData?.qrCode}`}
+                        alt="ORError"
+                      />
+                      <div className="qrSubmitButton">
+                        <label
+                          role="button"
+                          title="submit-button"
+                          className="upload-btn"
+                          onClick={callSubmit}
+                        >
+                          <span className="upload-img"></span>
+                          Submit
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {
+                  //onClick={()=>openImagePreview(item.imgurl, item.filename)}
+                  showUploadFileSuccess && (
+                    <>
+                      <div className="upload-btn1" key={"index"}>
+                        <div className="thumbnail-img-container">
+                          <a>
+                            <img
+                              title="image-preview"
+                              src={imgUrl}
+                              onClick={() => openImagePreview(imgUrl, docName)}
+                            ></img>
+                          </a>
+                        </div>
+                        <div className="container-image">
+                          <div className="uploading-doc-name">
+                            <span className="span-file-name">{docName}</span>
+                            <div className="progress-text-icon"></div>
+                          </div>
+
+                          <div
+                            className={
+                              "Upload completed" === "Upload completed"
+                                ? // docStatus==="UPLOADED"
+                                "uploaded"
+                                : "retry-uploaded"
+                            }
+                          ></div>
+                          <div
+                            className={
+                              "Upload completed" === "Upload completed"
+                                ? "tick-mark"
+                                : "no-tick-mark"
+                            }
+                          >
+                            Upload completed
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )
+                }
+              </div>
+              <div className="hk-copy-rights">
+                <p>{copyRights}</p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+      {/* This is for Colour Identity Proof Section */}
+      {continueBtnVisiblity && (
+        <div className="footer footer-set">
+          {
+            <div className="back" onClick={closeFileUpload}>
+              <span className="arrow"></span> Back
+            </div>
+          }
+          <button
+            data-testid="submit"
+            role="button"
+            title="Colour Identity Proof"
+            type="submit"
+            className={
+              !showUploadFileSuccess
+                ? `continue form-invalid`
+                : `continue form-valid`
+            }
+            onClick={(e) => okBtnClick(e)}
+            disabled={!showUploadFileSuccess}
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+      {/* This is for QRCode Screen Continue Button */}
+      {showQRCodePage && (
+        <div className="footer footer-set">
+          {
+            <div className="back" onClick={closeFileUpload}>
+              <span className="arrow"></span> Back
+            </div>
+          }
+          <button
+            role="button"
+            title="Colour Identity Proof"
+            type="submit"
+            className={
+              !showUploadFileSuccess
+                ? `continue form-invalid`
+                : `continue form-valid`
+            }
+            onClick={(e) => okBtnClick(e)}
+            disabled={!showUploadFileSuccess}
+          >
+            Continue
+          </button>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default DocumentUploadSRC2;
