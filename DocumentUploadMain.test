@@ -1,0 +1,126 @@
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import "@testing-library/jest-dom";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import DucumentUploadMainSCR from "./DucumentUploadMainSCR";
+import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
+import { stagesAction } from "../../../../../utils/store/stages-slice";
+import { postQRCodeZOLO, postFinalAcknowledge, postTMXUserSession, postDocSaveData } from "../../../../preApproval/services/preApprovalPostServices";
+
+// Mock store setup
+const mockStore = configureStore([]);
+const initialState = {
+  stages: {
+    stages: [
+      {
+        stageInfo: {
+          applicant_documents: [
+            {
+              document_list: [
+                { document_category: "Colour Identity Proof" },
+              ],
+            },
+          ],
+          application: {
+            channel_reference: "12345",
+          },
+        },
+      },
+    ],
+  },
+  preApproval: {
+    incomeProofDocumentUpload: [],
+  },
+};
+
+// Mock external service calls
+jest.mock("../../../../preApproval/services/preApprovalPostServices", () => ({
+  postQRCodeZOLO: jest.fn(),
+  postTMXUserSession: jest.fn(),
+  postFinalAcknowledge: jest.fn(),
+  postDocSaveData: jest.fn(),
+}));
+
+jest.mock("../../../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+  dispatchLoader: jest.fn(),
+}));
+
+describe("DucumentUploadMainSCR", () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore(initialState);
+    store.dispatch = jest.fn();
+  });
+
+  test("renders the component with initial state", () => {
+    render(
+      <Provider store={store}>
+        <DucumentUploadMainSCR />
+      </Provider>
+    );
+
+    expect(screen.getByText("Please upload the following documents:")).toBeInTheDocument();
+    expect(screen.getByText("Please provide the following documents")).toBeInTheDocument();
+    expect(screen.getByText("© Standard Chartered Bank (HK) Limited")).toBeInTheDocument();
+  });
+
+  test("calls openUploadHKdialog when a document category is clicked", () => {
+    render(
+      <Provider store={store}>
+        <DucumentUploadMainSCR />
+      </Provider>
+    );
+
+    const docCategory = screen.getByText("Colour Identity Proof");
+    fireEvent.click(docCategory);
+
+    expect(screen.queryByText("Income Proof")).not.toBeInTheDocument();
+  });
+
+  test("renders Income Proof view when showIncomeProof is 'Income Proof'", () => {
+    render(
+      <Provider store={store}>
+        <DucumentUploadMainSCR />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText("Colour Identity Proof"));
+    expect(screen.getByText("Uploading your documents")).toBeInTheDocument();
+  });
+
+  test("calls nextStage function when 'Continue' button is clicked", async () => {
+    postTMXUserSession.mockResolvedValue({ status: 200, data: { review_status: "pass" } });
+    postFinalAcknowledge.mockResolvedValue({ status: 202 });
+    postDocSaveData.mockResolvedValue({});
+
+    render(
+      <Provider store={store}>
+        <DucumentUploadMainSCR />
+      </Provider>
+    );
+
+    const continueButton = screen.getByRole("button", { name: /Continue/i });
+    fireEvent.click(continueButton);
+
+    await waitFor(() => expect(postTMXUserSession).toHaveBeenCalled());
+    await waitFor(() => expect(postFinalAcknowledge).toHaveBeenCalled());
+    await waitFor(() => expect(postDocSaveData).toHaveBeenCalled());
+  });
+
+  test("handles errors gracefully when API call fails", async () => {
+    postQRCodeZOLO.mockRejectedValue(new Error("API Error"));
+
+    render(
+      <Provider store={store}>
+        <DucumentUploadMainSCR />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText("Colour Identity Proof"));
+
+    await waitFor(() => expect(store.dispatch).toHaveBeenCalled());
+  });
+});
