@@ -115,3 +115,121 @@ describe('nextStage function', () => {
         expect(dispatch).toHaveBeenCalledWith(dispatchLoader(false));
     });
 });
+
+
+
+
+
+
+
+import {
+  postSaveData,
+  postDocSaveData,
+  postBasicData,
+  postAditionalData,
+  postDocuments,
+  postQRCodeZOLO,
+  postZOLOCheck,
+  postZolozAcknowledge,
+  postFinalAcknowledge,
+  postPdfPreview,
+  postTMXUserSession,
+  postFulFilmentData,
+} from "./preApprovalPostServices";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import { dispatchError } from "../../../services/common-service";
+import PreApprovalUtil from "./preApprovalUtils";
+
+jest.mock("./payload", () => ({
+  adpayload: jest.fn(() => ({
+    applicants: [],
+    fieldmetadata: {},
+    products: [],
+    stage: {},
+    status: {},
+    applicant_documents: [],
+    client: {},
+    dedupe: {},
+    dedupeList: [],
+    etc_data: {},
+    lov_desc: {},
+    oz_templates: [],
+    preApprovedData: {},
+    preapproved: {
+      incomeProofDocumentUploadP:[{}],
+    },
+    service_response: {},
+  }
+      
+  )),
+}));
+
+jest.mock("axios");
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+const mockDispatch = jest.fn();
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+jest.mock("axios", () => ({
+  __esModule: true,
+}));
+jest.mock("../../../services/common-service", 
+() => ({
+  dispatchError: jest.fn(),
+}));
+jest.mock("./preApprovalUtils", () => ({
+  getFormConfigPayload: jest.fn(() => ({ applicants: {}, application: {} })),
+  getAckMetaData: jest.fn(() => "mocked_meta_data"),
+  getADFormConfigPayload: jest.fn(),
+  generateUUID: jest.fn(),
+}));
+
+jest.mock("axios", () => ({
+  post: jest.fn(),
+}));
+describe("API Functions", () => {
+  beforeEach(() => {
+    (axios.post as jest.Mock).mockReset();
+
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              application: {
+                channel_reference: "test_channel_ref",
+                application_reference: "test_application_ref",
+                applicatnt_documents: [
+                  {
+                    documentzoloCheckRes: "mocked_zolo_check_res",
+                  },
+                ],
+              },
+            },
+            preApproval:{
+              incomeProofDocumentUploadP:[{
+                
+              }]
+            }
+          },
+        ],
+      },
+      preApproval: {
+        documentZoloCheckRes: "mocked_documentZoloCheckRes",
+      },
+    });
+  });
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("should successfully call postSaveData and resolve", async () => {
+    const mockedResponse = { data: "success" };
+    mockedAxios.post = jest.fn().mockResolvedValue(mockedResponse);
+    const result = await postSaveData();
+    expect(result).toEqual(mockedResponse);
+    expect(axios.post).toHaveBeenCalled();
+  });
