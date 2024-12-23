@@ -272,3 +272,97 @@ export const postSaveData = (): any => {
       return Promise.reject(error);
     });
 };
+
+
+
+
+
+import { postSaveData } from "./preApprovalPostServices";
+import axios from "axios";
+import { store } from "../../../utils/store/store";
+import { dispatchError } from "../../../services/common-service";
+import PreApprovalUtil from "./preApprovalUtils";
+
+jest.mock("axios");
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+jest.mock("../../../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+
+jest.mock("../../../services/common-service", () => ({
+  dispatchError: jest.fn(),
+}));
+
+jest.mock("./preApprovalUtils", () => ({
+  getFormConfigPayload: jest.fn(),
+  getAckMetaData: jest.fn(),
+}));
+
+describe("postSaveData", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    // Mock store state
+    (store.getState as jest.Mock).mockReturnValue({
+      stages: {
+        stages: [
+          {
+            stageId: "FFD_1",
+            stageInfo: {
+              application: {
+                channel_reference: "mock_channel_ref",
+              },
+              applicant_documents: [{ doc1: "mock_doc" }],
+            },
+          },
+        ],
+      },
+    });
+
+    // Mock PreApprovalUtil methods
+    PreApprovalUtil.getFormConfigPayload.mockReturnValue({
+      someKey: "someValue",
+    });
+    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_meta_data");
+  });
+
+  test("should successfully call postSaveData and resolve", async () => {
+    const mockedResponse = { data: "success" };
+    mockedAxios.post.mockResolvedValue(mockedResponse);
+
+    const result = await postSaveData();
+
+    expect(result).toEqual(mockedResponse);
+    expect(axios.post).toHaveBeenCalledWith(
+      expect.any(String), // URL
+      JSON.stringify({
+        someKey: "someValue",
+        applicant_documents: [{ doc1: "mock_doc" }],
+      }), // Payload
+      {
+        headers: {
+          "Content-Type": "application/json;charset=UTF-8",
+          "Sc-Client-Context": "mocked_meta_data",
+        },
+      }
+    );
+  });
+
+  test("should handle JSON.parse error gracefully", async () => {
+    PreApprovalUtil.getFormConfigPayload.mockReturnValue(undefined);
+
+    await expect(postSaveData()).rejects.toThrow(SyntaxError);
+    expect(dispatchError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  test("should call dispatchError on axios POST failure", async () => {
+    const mockedError = new Error("Mocked POST Error");
+    mockedAxios.post.mockRejectedValue(mockedError);
+
+    await expect(postSaveData()).rejects.toThrow("Mocked POST Error");
+    expect(dispatchError).toHaveBeenCalledWith(mockedError);
+  });
+});
