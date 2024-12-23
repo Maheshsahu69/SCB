@@ -233,3 +233,42 @@ describe("API Functions", () => {
     expect(result).toEqual(mockedResponse);
     expect(axios.post).toHaveBeenCalled();
   });
+
+
+
+
+export const postSaveData = (): any => {
+  const stageSelector = JSON.parse(JSON.stringify(store.getState()?.stages?.stages?.[0]));
+  const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const channelRefNo = stageSelector?.stageInfo?.application?.channel_reference;
+  const saveUrl = `${application + channelRefNo}`;
+  let url = baseUrl + saveUrl;
+  let currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
+  if(stageSelector.stageId === CONSTANTS.STAGE_NAMES.FFD_1 || stageSelector.stageId === CONSTANTS.STAGE_NAMES.FFD_2) {
+    currentStageData["applicant_documents"]= stageSelector.stageInfo.applicant_documents
+  }
+  const options = {
+    method: "POST",
+    url,
+    headers: {
+      "Content-Type": "application/json;charset=UTF-8",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
+    },
+    body: JSON.stringify(currentStageData),
+  };
+  console.log(options);
+
+
+  return axios
+    ?.post(url, JSON.stringify(currentStageData), { headers: options.headers })
+    .then((response) => {
+      console.log("inside post call====",response);
+      return Promise.resolve(response);
+    })
+    .catch((error) => {
+      console.log("clientResponse", error);
+      dispatchError(error);
+      return Promise.reject(error);
+    });
+};
