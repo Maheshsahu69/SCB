@@ -1,19 +1,24 @@
-import axios from "axios";
 import { store } from "../../../utils/store/store";
 import PreApprovalUtil from "./preApprovalUtils";
 import { dispatchError } from "../../../services/common-service";
 import { adpayload } from "./payload";
-
+import { CONSTANTS } from "../../../utils/common/constants";
+import axios from "axios";
+import { StoreModel } from "../../../utils/model/common-model";
+import { useSelector } from "react-redux";
 
 
 export const postSaveData = (): any => {
-  const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0]));
+  const stageSelector = JSON.parse(JSON.stringify(store.getState()?.stages?.stages?.[0]));
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
   const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
-  const channelRefNo = stageSelector.stageInfo.application.channel_reference;
+  const channelRefNo = stageSelector?.stageInfo?.application?.channel_reference;
   const saveUrl = `${application + channelRefNo}`;
   let url = baseUrl + saveUrl;
-  let currentStageData = PreApprovalUtil.getFormConfigPayload();
+  let currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload() ||{}));
+  if(stageSelector.stageId === CONSTANTS.STAGE_NAMES.FFD_1 || stageSelector.stageId === CONSTANTS.STAGE_NAMES.FFD_2) {
+    currentStageData["applicant_documents"]= stageSelector.stageInfo.applicant_documents
+  }
   const options = {
     method: "POST",
     url,
@@ -27,9 +32,9 @@ export const postSaveData = (): any => {
 
 
   return axios
-    .post(url, JSON.stringify(currentStageData), { headers: options.headers })
+    ?.post(url, JSON.stringify(currentStageData), { headers: options.headers })
     .then((response) => {
-      console.log(response);
+      console.log("inside post call====",response);
       return Promise.resolve(response);
     })
     .catch((error) => {
@@ -39,10 +44,20 @@ export const postSaveData = (): any => {
     });
 };
 
-export const postDocSaveData = (documentData: any, transactionData: any): any => {
+export const postDocSaveData = (documentData: any, transactionData: any, zolozDocumentData:any): any => {
+
   const stageSelector = JSON.parse(
     JSON.stringify(store.getState().stages.stages[0])
   );
+  const docSelector = JSON.parse(
+    JSON.stringify(store.getState().preApproval.documentZoloCheckRes)
+  );
+  var document_type_code = stageSelector.stageInfo.applicant_documents[0]?.document_list[0]?.document_options[0]?.document_types[0]?.document_type_code;
+  const documents = docSelector?.documents || [];
+  console.log(documents)
+  const docDetails = documents.filter((item:any)=> item.document_type_code === document_type_code);
+  console.log(docDetails)
+  console.log(zolozDocumentData)
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
 
   const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
@@ -58,6 +73,117 @@ export const postDocSaveData = (documentData: any, transactionData: any): any =>
   delete currentStageData.application.error;
   delete currentStageData.application.response_action;
   delete currentStageData.application.response_type;
+  const documentsSelector = JSON.parse(JSON.stringify(store.getState().preApproval.incomeProofDocumentUpload||{}));
+  let documentsList:any= [];
+  for(let i in documentsSelector) {
+    let item={
+      "document_status": "Accepted",
+      "document_name": documentsSelector[i].filename,
+      "period": "",
+      "orientation": "landscape",
+      "fileSize": documentsSelector[i].file.size,
+      "document_id": documentsSelector[i].docId,
+      "document_sequence_number": documentsSelector[i].imageOrder,
+      "uploaded_to_filenet": "Y",
+      "document_option_sequence": null,
+      "document_category_code": documentsSelector[i].documentCategoryCode,
+      "document_type_code": documentsSelector[i].documentTypeCode,
+      "docLength": documentsSelector[i].imageOrder
+  }
+    documentsList.push(item)
+  }
+  
+  currentStageData.applicant_documents= [
+    {
+        "document_list": [
+            {
+                "document_category": "Colour Identity Proof",
+                "document_category_code": "R0001",
+                "min_options_req": "1",
+                "document_category_visible": null,
+                "document_category_seq": null,
+                "document_options": [
+                    {
+                        "document_option_sequence": "1",
+                        "document_option_selected": "N",
+                        "document_types": [
+                            {
+                                "document_requested_stage": null,
+                                "document_type": "HKID Copy",
+                                "document_type_code": "A001",
+                                "document_sub_type": null,
+                                "no_of_periods": null,
+                                "id_expiry": null,
+                                "id_number": null,
+                                "uploaded_documents": [
+                                    {
+                                        "docId": zolozDocumentData.docId,
+                                        "country": "HK",
+                                        "documentStatus": "Accepted",
+                                        "appId": zolozDocumentData.appId,
+                                        "documentCategoryCode": zolozDocumentData.documentCategoryCode,
+                                        "errorDescription": null,
+                                        "errorCode": null,
+                                        "responseStatus": zolozDocumentData.responseStatus,
+                                        "documentTypeCode": zolozDocumentData.documentTypeCode,
+                                        "documentOptionSequence": zolozDocumentData.documentOptionSequence,
+                                        "imageOrder": zolozDocumentData.imageOrder,
+                                        "applicantId": zolozDocumentData.applicantId,
+                                        "period": zolozDocumentData.period,
+                                        "documentName": zolozDocumentData.documentName,
+                                        "document_id": zolozDocumentData.document_id,
+                                        "document_status": "Accepted",
+                                        "document_sequence_number": "1",
+                                        "uploaded_to_filenet": "Y",
+                                        "document_option_sequence": "1",
+                                        "document_category_code": "R0001",
+                                        "document_type_code": "A001",
+                                        "document_name": zolozDocumentData.documentName+".png",
+                                        "docLength": 1
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "applicant_sequence_number": 1
+            },
+            {
+              "document_category": "Income Proof",
+              "document_category_code": "R0005",
+              "min_options_req": "1",
+              "document_category_visible": null,
+              "document_category_seq": null,
+              "document_options": [
+                  {
+                      "document_option_sequence": "1",
+                      "document_option_selected": "N",
+                      "document_types": [
+                          {
+                            "document_requested_stage": null,
+                            "document_type": "3-month Income proof",
+                            "document_type_code": "A023",
+                            "document_sub_type": null,
+                            "no_of_periods": null,
+                            "id_expiry": null,
+                            "id_number": null,
+                            "uploaded_documents": documentsList
+                          }
+                      ]
+                  }
+              ],
+              "applicant_sequence_number": 1
+          }
+        ],
+        "applicant_sequence_number": 1,
+        "journey_type": "NTB",
+        "icdd_reference_no_availability": null,
+        "email_id_change": null,
+        "mobile_no_change": null,
+        "last_updated_credit_limit_date_flag": null,
+        "staff_category": null
+    }
+  ]
 
   const options = {
     method: "POST",
@@ -133,25 +259,9 @@ export const postAditionalData = (): any => {
   const additionalData = `${process.env.REACT_APP_RTOB_ADDITIONAL_DATA_END_POINT}`;
   const channelRefNo = stageSelector.stageInfo.application.channel_reference;
   const saveUrl = `${application + channelRefNo}`;
-  var url = baseUrl + saveUrl + additionalData;
-  console.log(adpayload)
-  var currentStageDataPayload = JSON.parse(JSON.stringify(adpayload));
-  var currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
-  currentStageDataPayload.applicants = currentStageData.applicants;
-  currentStageDataPayload.fieldmetadata = currentStageData.fieldmetadata;
-  currentStageDataPayload.products = currentStageData.products;
-  currentStageDataPayload.stage = currentStageData.stage;
-  currentStageDataPayload.status = currentStageData.status;
-  currentStageDataPayload.applicant_documents = currentStageData.applicant_documents;
-  currentStageDataPayload.client = currentStageData.client;
-  currentStageDataPayload.dedupe = currentStageData.dedupe;
-  currentStageDataPayload.dedupeList = currentStageData.dedupeList;
-  currentStageDataPayload.etc_data = currentStageData.etc_data;
-  currentStageDataPayload.lov_desc = currentStageData.lov_desc;
-  currentStageDataPayload.oz_templates = currentStageData.oz_templates;
-  currentStageDataPayload.preApprovedData = currentStageData.preApprovedData;
-  currentStageDataPayload.preapproved = currentStageData.preapproved;
-  currentStageDataPayload.service_response = currentStageData.service_response;
+  var url = baseUrl + saveUrl + additionalData; 
+  var currentStageData= JSON.parse(JSON.stringify(PreApprovalUtil.getADFormConfigPayload()));
+  console.log(currentStageData)
 
   const options = {
     method: "POST",
@@ -160,13 +270,13 @@ export const postAditionalData = (): any => {
       "Content-Type": "application/json;charset=UTF-8",
       "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
     },
-    body: JSON.stringify(currentStageDataPayload),
+    body: JSON.stringify(currentStageData),
   };
   console.log(options);
 
 
   return axios
-    .post(url, JSON.stringify(currentStageDataPayload), { headers: options.headers })
+    .post(url, JSON.stringify(currentStageData), { headers: options.headers })
     .then((response: any) => {
       console.log(response);
       return Promise.resolve(response);
@@ -178,20 +288,22 @@ export const postAditionalData = (): any => {
     });
 };
 
-export const postDocumemts = (channelReference: any, file: any): any => {
-
-  let formdata = new FormData();
-
+export const postDocuments = (channelReference: any, file: any): any => {
+  const imageOrder = JSON.parse(JSON.stringify(store.getState().preApproval.incomeProofDocumentUpload));
+  
+  console.log("store:----", store.getState())
   const documentJson: any = {
     origin: "front-line-supporting-document",
     documentCategoryCode: "R0005",
     documentTypeCode: "A023",
     applicantId: 1,
-    imageOrder: 5,
+    imageOrder: imageOrder?.length + 1,
     period: 0,
-    isWatermarkRequired: "N",
+    isWatermarkRequired: "Y",
     documentOptionSequence: "undefined",
   };
+
+  console.log("----",  "imageOrder :",imageOrder);
 
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
   const endPoint = `${process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT}`;
@@ -199,11 +311,10 @@ export const postDocumemts = (channelReference: any, file: any): any => {
 
   const url = baseUrl + application + channelReference + endPoint;
 
-  formdata.append("file", file, file.name);
-  formdata.append("documentJson", JSON.stringify(documentJson));
-  // const res = formdata.forEach((key: any, value: any) =>
-  //   console.log("---", key.name, value)
-  // );
+
+  let data = new FormData();
+  data.append("file", file);
+  data.append("documentJson", JSON.stringify(documentJson));
 
   const options = {
     method: "POST",
@@ -212,21 +323,24 @@ export const postDocumemts = (channelReference: any, file: any): any => {
       "Content-Type": "multipart/form-data",
       "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
     },
-    body: JSON.stringify(formdata),
+    body: JSON.stringify(data),
   };
+const docaxios = axios.create({
+    headers: options.headers,
+  });
 
-  return axios
-    .post(url, options.body, { headers: options.headers })
-    .then((response: any) => {
-      return Promise.resolve(response);
-    })
-    .catch((error: any) => {
-      dispatchError(error);
-      console.log("clientResponse", error);
-      return Promise.reject(error);
-    });
-};
+   return docaxios
+   .post(url, data, options)
+   .then((response: any) => {
+          return Promise.resolve(response);
+        })
+        .catch((error: any) => {
+          dispatchError(error);
+          console.log("clientResponse", error);
+          return Promise.reject(error);
+        });
 
+  }
 
 export const postQRCodeZOLO = (channelReference: any, docType: any): any => {
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
@@ -456,6 +570,16 @@ export const postZolozAcknowledge = (channelReference: any, documentsList?: any)
 
 export const postFinalAcknowledge = (channelReference: any): any => {
   const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
+  const docSelector = JSON.parse(JSON.stringify(store.getState().preApproval.incomeProofDocumentUpload));
+  let documentsList:any= [];
+  for(let i in docSelector) {
+    delete docSelector[i].file;
+    delete docSelector[i].filename;
+    delete docSelector[i].filesize;
+    docSelector[i]["documentStatus"]= "Accepted";
+    documentsList.push(docSelector[i])
+  }
+  console.log('documentsList',documentsList)
   const channel_reference = stageSelector.application.channel_reference
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
   const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
@@ -466,7 +590,7 @@ export const postFinalAcknowledge = (channelReference: any): any => {
   url.replace('";', "");
   const payload = {
     applicationRefNo: stageSelector.application.application_reference,
-    documents: [],
+    documents: documentsList,
     optionsSelected: [
       {
         applicantId: 1,
@@ -547,15 +671,15 @@ export const postTMXUserSession = (channelReference: any): any => {
   const stageSelector = JSON.parse(JSON.stringify(store.getState().stages.stages[0].stageInfo));
 
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
-  const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
-  const endPoint = `${process.env.REACT_APP_RTOB_VERIFY_TMX_USER_SESSION}`
+  const application =`${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_VERIFY_TMX_USER_SESSION}` 
 
-  const url = baseUrl + application + channelReference + endPoint
-  const payload = {
-    session_id_tmx: "0e741a59-94e9-4603-b3fd-b0139e14583d",
-    cos_ref_number: stageSelector.application.cos_ref_number,
-  };
-
+  const url = baseUrl + application + channelReference+ endPoint
+    const payload = {
+      session_id_tmx: PreApprovalUtil.generateUUID(),
+      cos_ref_number: stageSelector.application.cos_ref_number,
+    };
+ 
   const options = {
     method: "POST",
     url,
@@ -614,6 +738,14 @@ export const postFulFilmentData = (payload: any): any => {
   payload.application.page_wise = null;
   payload["applicant_bureau_details"] = null;
   payload.applicants = payload.applicants.length > 0 ? payload.applicants[0] : payload.applicants;
+  payload.applicants["repayment_account_bank_code_a_1"]= payload.applicants.oth_bank_name_a_1;
+  payload.applicants["repayment_account_number_a_1"]= payload.applicants.oth_bank_number_a_1;
+  payload.applicants["draw_down_amount_a_1"]= payload.applicants.requested_loan_amount_a_1;
+  payload.applicants["repayment_oth_bank_name_a_1"]= null;
+  payload.applicants["repayment_oth_bank_number_a_1"]= null;
+  payload.applicants["repayment_scb_bank_number_a_1"]= null;
+  payload.applicants["repayment_select_account_a_1"]= null;
+  // payload.applicants["net-disbursement-amount"]= payload.applicants.requested_loan_amount_a_1;
   payload.client = {
     "journey": "prelogin_ntc_or_ntp",
     "auth-type": "manual",
@@ -656,4 +788,6 @@ export const postFulFilmentData = (payload: any): any => {
       return Promise.reject(error);
     });
 };
+
+
 
