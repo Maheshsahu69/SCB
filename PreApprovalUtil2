@@ -1,271 +1,860 @@
-import { useDispatch, useSelector } from "react-redux";
-import PreApprovalUtil from "./PreApprovalUtil";
 import { v4 as uuid } from "uuid";
+import { store } from "../../../utils/store/store";
 import md5 from "md5";
 import { sha256 } from "js-sha256";
+import { getUrl } from "../../../utils/common/change.utils";
+import { CONSTANTS } from "../../../utils/common/constants";
+import { getStageName } from "../../dashboard/fields/stage.utils";
+import { resAddressEng } from "../../dashboard/review-page/review-page.utils";
+import { sortByAscendingOrder } from "../../../services/common-service";
 
-jest.mock("react-redux", () => ({
-  useSelector: jest.fn(),
-  useDispatch: jest.fn(),
-}));
+const PreApprovalUtil: any = {
+  generateUUID: () => {
+    return uuid(); //--> UUID logic has to be included
+  },
 
-jest.mock("uuid", () => ({
-  v4: jest.fn(() => "mock-uuid"),
-}));
+  getSHA256Hash: async (input: any) => {
+    const textAsBuffer = new TextEncoder().encode(input);
+    const hashBuffer = await window.crypto.subtle.digest(
+      "SHA-256",
+      textAsBuffer
+    );
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hash = hashArray
+      .map((item) => item.toString(16).padStart(2, "0"))
+      .join("");
+    console.log(hash);
+    return hash;
+  },
 
-jest.mock("md5", () => jest.fn(() => "mock-md5-hash"));
-jest.mock("js-sha256", () => ({
-  sha256: jest.fn(() => "mock-sha256-hash"),
-}));
+  stringToHash: (string: any) => {
+    return string.split("").reduce((hash: any, char: any) => {
+      return char.charCodeAt(0) + (hash << 6) + (hash << 16) - hash;
+    }, 0);
+  },
 
-describe("PreApprovalUtil", () => {
-  let mockDispatch: jest.Mock;
+  getFieldOnlyWithValue: () => {
+    var checkFieldWithValue = ["product_minimum"];
+    return checkFieldWithValue;
+  },
+  getApplicantFields: () => {
+    var applicantArrayList = [
+      "last_name_a_1",
+      "first_name_a_1",
+      "id type_a_1",
+      "note_a_1",
+      "HKID_a_1",
+      "passport_no_a_1",
+      "country_of_issue_a_1",
+      "expiry_date_a_1",
+      "date_of_birth_a_1",
+      "mobile_number_a_1",
+      "email_a_1",
+      "loan_purpose_a_1",
+      "requested_loan_amount_a_1",
+      "requested_loan_tenor_a_1",
+      "best_offer_loan_tenor",
+      "res_room_flat_a_1",
+      "res_floor_a_1",
+      "res_block_a_1",
+      "res_building_estate_a_1",
+      "res_name_of_Street_a_1",
+      "res_district_a_1",
+      "res_city_a_1",
+      "res_country_a_1",
+      "home_country_code_a_1",
+      "home_phone_number_a_1",
+      "nationality_a_1",
+      "gender_a_1",
+      "place_of_birth_a_1",
+      "purpose_of_account_a_1",
+      "mgm_referral_code_a_1",
+      "mgm_flag_a_1",
+      "education_level_a_1",
+      "work_type_a_1",
+      "nature_of_employer_a_1",
+      "occupation_a_1",
+      "currency_a_1",
+      "currency_pl_a_1",
+      "annual_income_a_1",
+      "annual_income_pl_a_1",
+      "office_country_code_a_1",
+      "office_phone_number_a_1",
+      "name_of_employer_a_1",
+      "off_room_flat_a_1",
+      "off_floor_a_1",
+      "off_block_a_1",
+      "off_building_estate_a_1",
+      "off_name_of_Street_a_1",
+      "off_district_a_1",
+      "off_city_a_1",
+      "off_country_a_1",
+      "office_address_a_1",
+      "mailing_address_rwb_a_1",
+      "embossed_name_a_1",
+      "loan_products_other_a_1",
+      "other_loans_a_1",
+      "monthly_installment_mortgage_payment_a_1",
+      "total_outstanding_other_loan_amount_a_1",
+      "total_outstanding_other_monthly_payment_a_1",
+      "referral_pl_a_1",
+      "referral_a_1",
+      "referral_third_party_a_1",
+      "referral_third_party_PL_a_1",
+      "related_party_a_1",
+      "name_of_related_person_a_1",
+      "relationship_of_related_person_a_1",
+      "atm_service_a_1",
+      "credit_limit_extension_a_1",
+      "marketing_questionaires_a_1",
+      "marketing_email_a_1",
+      "marketing_mobile_message_a_1",
+      "marketing_post_a_1",
+      "marketing_phone_others_a_1",
+      "marketing_phone_all_a_1",
+      "direct_marketing_opt_out_a_1",
+    ];
+    return applicantArrayList;
+  },
 
-  beforeEach(() => {
-    mockDispatch = jest.fn();
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+  getApplicationFields: () => {
+    var applicationArray = ["application_reference", "cos_ref_number"];
+    return applicationArray;
+  },
 
-    (useSelector as jest.Mock).mockImplementation((selector) => {
-      // Return different mocked state based on what is being selected
-      const state = {
-        stages: {
-          stages: [
-            {
-              stageInfo: {
-                applicants: [{}],
-                fieldMetaData: { data: { stages: [{ fields: [] }] } },
-                application: {},
-                products: [{}],
-              },
-              stageId: "AD_1",
-            },
-          ],
-          userInput: { applicants: [{}] },
-        },
-        auth: { sessionUid: "mock-session-uid" },
-        lovDesc: { lovDesc: [{ code_desc: "desc1", label: "key1" }] },
+  getOfferFields: () => {
+    var offerArray = [
+      "offer_status",
+      "approved_amount",
+      "approved_amount_currency",
+      "approved_tenor",
+      "apr",
+      "repaymentAmount",
+      "flatRate",
+      "bestOffer",
+    ];
+    return offerArray;
+  },
+
+  getProductFields: () => {
+    var productArray = [
+      "campaign",
+      "product_category",
+      "product_type",
+      "product_minimum",
+    ];
+    return productArray;
+  },
+
+  getLovDescriptionFields: () => {
+    let lovDesc = JSON.parse(
+      JSON.stringify(store?.getState()?.lovDesc?.lovDesc)
+    );
+    let lovDescData: any = {};
+    for (let i in lovDesc) {
+      if (lovDesc[i].code_desc !== "") {
+        lovDescData[lovDesc[i].label] = lovDesc[i].code_desc;
+      }
+    }
+    // var lovList:any = Object.keys(applicationdata.lov_desc);
+    // Object.keys(applicationdata.lov_desc).forEach(applicationdata.lov_desc, function (value, key) {
+    //   lovList.push(key);
+    // });
+    return Object.keys(lovDescData);
+  },
+
+  securityCallDesider: (
+    authType: any,
+    keyType: any,
+    checkFieldWithValue: any
+  ) => {
+    let applicationdata = JSON.parse(
+      JSON.stringify(store.getState().stages.stages[0].stageInfo)
+    );
+    var authArr;
+    var appDataArr;
+    switch (authType) {
+      case "bAuth":
+        authArr = PreApprovalUtil.getApplicantFields();
+        appDataArr = applicationdata.applicants;
+        return PreApprovalUtil.generateSecMd(
+          authType,
+          keyType,
+          authArr,
+          appDataArr,
+          checkFieldWithValue
+        );
+      case "aAuth":
+        authArr = PreApprovalUtil.getApplicationFields();
+        appDataArr = applicationdata.application;
+        return PreApprovalUtil.generateSecMd(
+          authType,
+          keyType,
+          authArr,
+          appDataArr,
+          checkFieldWithValue
+        );
+      case "pAuth":
+        authArr = PreApprovalUtil.getProductFields();
+        appDataArr = applicationdata.products[0];
+        return PreApprovalUtil.generateSecMd(
+          authType,
+          keyType,
+          authArr,
+          appDataArr,
+          checkFieldWithValue
+        );
+      case "lAuth":
+        authArr = PreApprovalUtil.getLovDescriptionFields();
+        appDataArr = applicationdata.lov_desc;
+        return PreApprovalUtil.generateSecMd(
+          authType,
+          keyType,
+          authArr,
+          appDataArr,
+          checkFieldWithValue
+        );
+    }
+  },
+
+  generateSecMd: (
+    authType: any,
+    keyType: any,
+    authArr: any,
+    appDataArr: any,
+    checkFieldWithValue: any
+  ) => {
+    let applicationdata = JSON.parse(
+      JSON.stringify(store.getState()?.stages?.stages?.[0]?.stageInfo)
+    );
+    var auth_key = "key";
+    var auth_value: any;
+    if (
+      authType === "bAuth" ||
+      authType === "lAuth" ||
+      authType === "aAuth" ||
+      authType === "oAuth1" ||
+      authType === "oAuth2" ||
+      authType === "oAuth3" ||
+      authType === "oAuth4"
+    ) {
+      auth_value = applicationdata?.application?.["channel_reference"];
+    } else {
+      auth_value = "";
+    }
+    if (!keyType) {
+      authArr.forEach(function (value: any, key: any) {
+        if (appDataArr && appDataArr[value]) {
+          auth_value = auth_value + appDataArr[value];
+        } else if (checkFieldWithValue.indexOf(value) === -1) {
+          auth_value = auth_value + null;
+        }
+      });
+    } else {
+      let result = Object.keys(appDataArr).map((key) => ({
+        key: appDataArr[key],
+      }));
+      result.forEach(function (value: any, key: any) {
+        if (authArr.indexOf(key) !== -1) {
+          auth_key = keyType ? auth_key + "," + key : "";
+          if (value) {
+            auth_value = auth_value + value;
+          } else if (checkFieldWithValue.indexOf(key) === -1) {
+            auth_value = auth_value + null;
+            applicationdata.applicants[key] = null;
+          }
+        }
+      });
+    }
+    applicationdata.applicants[keyType] = keyType
+      ? auth_key.slice(4, auth_key.length)
+      : "";
+    return auth_value;
+  },
+
+  getBAuth: async () => {
+    var checkFieldWithValue = PreApprovalUtil.getFieldOnlyWithValue();
+    var value: any = await PreApprovalUtil.getSHA256Hash(
+      PreApprovalUtil.securityCallDesider(
+        "bAuth",
+        "bauth_key",
+        checkFieldWithValue
+      )
+    ).then((result: any) => result);
+    console.log(value);
+    return value;
+  },
+  getAAuth: async () => {
+    var checkFieldWithValue = PreApprovalUtil.getFieldOnlyWithValue();
+    var value: any = await PreApprovalUtil.getSHA256Hash(
+      PreApprovalUtil.securityCallDesider("aAuth", "", checkFieldWithValue)
+    ).then((result: any) => result);
+    console.log(value);
+    return value;
+  },
+  getPAuth: async () => {
+    var checkFieldWithValue = PreApprovalUtil.getFieldOnlyWithValue();
+    var value: any = await PreApprovalUtil.getSHA256Hash(
+      PreApprovalUtil.securityCallDesider("pAuth", "", checkFieldWithValue)
+    ).then((result: any) => result);
+    console.log(value);
+    return value;
+  },
+  getLAuth: async () => {
+    var checkFieldWithValue = PreApprovalUtil.getFieldOnlyWithValue();
+    var value: any = await PreApprovalUtil.getSHA256Hash(
+      PreApprovalUtil.securityCallDesider(
+        "lAuth",
+        "lauth_key",
+        checkFieldWithValue
+      )
+    ).then((result: any) => result);
+    console.log(value);
+    return JSON.stringify(value);
+  },
+
+  getAckMetaData: (channelReference: any) => {
+    const md5Hsh = process.env.REACT_APP_XRTOB + channelReference;
+    const MD5_ = md5(md5Hsh);
+    return JSON.stringify({
+      reqId: PreApprovalUtil.generateUUID(),
+      Channel: "MOBILE",
+      loginType: "PRE",
+      Country: "HK",
+      Language: "EN",
+      AppName: "RCWB",
+      ClientId: "MOBILE",
+      InstanceCode: "CB_SG",
+      RumDevice: "devicebrowserversion",
+      Source: "sc.com",
+      DeviceType: "MOBILE",
+      subChannelCode: "",
+      iAuth: MD5_,
+      sessionUID: store.getState()?.auth.sessionUid,
+      BrowserAgent: "DESKTOP-BROWSER",
+      IPAddress: "",
+      ENV: "UAT",
+    });
+  },
+
+  getAckMetaDataStageLevel: async (channelReference: any) => {
+    const md5Hsh = process.env.REACT_APP_XRTOB + channelReference;
+    const MD5_ = await PreApprovalUtil.getSHA256Hash(md5Hsh);
+
+    //var checkFieldWithValue = PreApprovalUtil.getFieldOnlyWithValue();
+    // var aAuth = sha256(PreApprovalUtil.securityCallDesider('aAuth', '', checkFieldWithValue));
+    // var bAuth = sha256(PreApprovalUtil.securityCallDesider('bAuth', 'bauth_key', checkFieldWithValue));
+    // var pAuth = sha256(PreApprovalUtil.securityCallDesider('pAuth', '', checkFieldWithValue));
+    // var lAuth = sha256(PreApprovalUtil.securityCallDesider('lAuth', 'lauth_key', checkFieldWithValue));
+
+    let sessiionId: any = store.getState()?.auth?.sessionUid;
+
+    return JSON.stringify({
+      reqId: PreApprovalUtil.generateUUID(),
+      Channel: "MOBILE",
+      loginType: "PRE",
+      Country: "HK",
+      Language: "EN",
+      AppName: "RCWB",
+      ClientId: "MOBILE",
+      InstanceCode: "CB_SG",
+      RumDevice: "devicebrowserversion",
+      Source: "sc.com",
+      DeviceType: "MOBILE",
+      subChannelCode: "",
+      iAuth: MD5_,
+      sessionUID: store.getState()?.auth?.sessionUid,
+      BrowserAgent: "DESKTOP-BROWSER",
+      IPAddress: "",
+      ENV: "UAT",
+      // bAuth:bAuth,
+      // aAuth:aAuth,
+      // pAuth:pAuth,
+      // lAuth:lAuth,
+      bAuth: "c4ed660d8c8a3d80d2aa70872614227533b67af92cf51862070f53f637b455ac",
+      aAuth: "36bd9193b2a85d1dd898400dd6b0ec07616f9096a4493e74672da296a3660981",
+      pAuth: "6280d305cb4e1bf8372a0605ce7a46d39c515536613b095bbccb83117dd63383",
+      lAuth: "31ae6047c45ab48de761072a15bbb0a1878d6aa420e2f206da3fff1f314bc32e",
+      authorization: sha256(sessiionId + getUrl.getChannelRefNo().channelRefNo),
+    });
+  },
+
+  getADFormConfigPayload: () => {
+    let formConfigmetaData = JSON.parse(
+      JSON.stringify(store.getState().stages.stages[0].stageInfo)
+    );
+    let payload = JSON.parse(
+      JSON.stringify(store.getState().stages.stages[0].stageInfo)
+    );
+    let applicant = JSON.parse(
+      JSON.stringify(store.getState().stages.stages[0].stageInfo.applicants[0])
+    );
+    let stages = JSON.parse(JSON.stringify(store.getState().stages));
+    let lovDescSelector = JSON.parse(JSON.stringify(store.getState().lovDesc));
+    console.log(lovDescSelector);
+    let res_city_desc_a_1 = lovDescSelector.lovDesc.filter(
+      (item: any) => item.label === "res_city"
+    );
+    let off_city_desc_a_1 = lovDescSelector.lovDesc.filter(
+      (item: any) => item.label === "off_city"
+    );
+    payload["applicants"] = applicant;
+    let satVal = "85699042071517936981847841370641500068";
+    payload.applicants["adobe_ecid"] = satVal;
+
+    payload.applicants["preimumMGM_resume_a_1"] = "HKPIL23PLSTP10undefined1258";
+
+    let formFields = "";
+    var fName = formConfigmetaData.fieldMetaData.data.stages[0].fields;
+    for (let i in fName) {
+      if (
+        fName[i].component_type === "Text" ||
+        fName[i].component_type === "emailDomain" ||
+        fName[i].component_type === "Phone" ||
+        fName[i].component_type === "Date" ||
+        fName[i].component_type === "HKID" ||
+        fName[i].component_type === "short-text"
+      ) {
+        console.log("formFields---", formFields);
+        console.log("logical_field_name----", fName[i].logical_field_name);
+        formFields = formFields + fName[i].logical_field_name + "_a_1,";
+      }
+    }
+    let userValues = JSON.parse(
+      JSON.stringify(store.getState().stages.userInput.applicants[0])
+    );
+    let bauth_key = "";
+    for (let keys in userValues) {
+      bauth_key = bauth_key + keys + "_a_1,";
+    }
+    payload.applicants["bauth_key"] = bauth_key;
+    payload.applicants["lauth_key"] = "";
+    payload.applicants["product_description_a_1"] =
+      "STANDARD CHARTERED PERSONAL INSTALMENT LOAN";
+    payload.applicants["HKID_a_1_final"] = payload.applicants.HKID_a_1;
+    payload.applicants["HKID_rp"] = payload.applicants.HKID_a_1
+      ? payload.applicants.HKID_a_1[0] +
+        "-" +
+        payload.applicants.HKID_a_1.substring(
+          1,
+          payload.applicants.HKID_a_1.length - 1
+        ) +
+        "-" +
+        payload.applicants.HKID_a_1[payload.applicants.HKID_a_1.length - 1]
+      : "";
+
+    let lovDesc = JSON.parse(JSON.stringify(store.getState().lovDesc.lovDesc));
+    console.log(lovDesc);
+    let lauth_key = "";
+    let lovDescData: any = {};
+    for (let i in lovDesc) {
+      if (lovDesc[i].code_desc !== "") {
+        lovDescData[lovDesc[i].label + "_a_1_desc"] = lovDesc[i].code_desc;
+        lauth_key =
+          lauth_key === ""
+            ? lauth_key + lovDesc[i].label + "_a_1_desc"
+            : lauth_key + "," + lovDesc[i].label + "_a_1_desc";
+      }
+    }
+    console.log(lovDescData);
+    payload["lov_desc"] = {};
+    if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.AD_1) {
+      payload.application["application_status"] = "Success";
+      payload.application["authentication_flag"] = null;
+      delete payload.application.is_save_to_pega;
+      delete payload.application.page_status;
+    }
+    if (
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.AD_1 ||
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1
+    ) {
+      payload["lov_desc"] = lovDescData;
+      payload.applicants["lauth_key"] = lauth_key;
+      payload.application.acquisition_channel = "D";
+      payload.application.source_system_name = "3";
+      payload.application.request_id = null;
+      //delete armcode//
+      delete payload.application.armcode;
+      delete payload.application.arm_code;
+      delete payload.application.journey_type_hk;
+      delete payload.application.is_td_with_casa;
+      delete payload.application.notification_required;
+      delete payload.application.sub_segment;
+      delete payload.application.segment;
+      delete payload.application.closing_id;
+      delete payload.application.service_type;
+      delete payload.application.error;
+      delete payload.application.response_type;
+      delete payload.application.response_action;
+      delete payload.applicants.client_pl_consent4_a_1;
+      payload.application["alipay_ref_number"] = null;
+      payload.application["form_type"] = null;
+      payload.application["application_status"] = null;
+      payload.application["stage_wise"] = null;
+      payload.application["ext_authentication_reference_number"] = null;
+      payload.application["ext_acceptance_reference_number"] = null;
+      payload.application["page_wise"] = "yes";
+      payload.application["version"] = "";
+      payload.applicants["premium_a_1"] = "1258";
+      payload.applicants["affiliation_a_1"] = "2132";
+      payload.applicants["requested_loan_amount_a_1"] =
+        payload.applicants["requested_loan_amount_a_1"] !== null
+          ? Number(payload.applicants["requested_loan_amount_a_1"])
+          : null;
+      payload.applicants["mgm_referral_code_a_1"] =
+        payload.applicants["mgm_referral_code_a_1"] === ""
+          ? null
+          : payload.applicants["mgm_referral_code_a_1"];
+      payload.applicants["card_type_a_1"] = "3268";
+      payload.applicants["mgm_flag_a_1"] = "N";
+      payload.applicants["product_categories"] =
+        payload.products[0].product_category;
+      payload.applicants["res_building_estate_a_1"] =
+        payload.applicants.res_building_estate_pt_a_1;
+      payload.applicants["res_city_desc_a_1"] = res_city_desc_a_1[0].code_desc;
+      if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.AD_1) {
+        payload.applicants["bauth_key"] =
+          "last_name_a_1,first_name_a_1,date_of_birth_a_1,mgm_flag_a_1,passport_no_a_1,HKID_a_1,expiry_date_a_1,note_a_1,email_a_1,country_of_issue_a_1,mgm_referral_code_a_1,id type_a_1,mobile_number_a_1,loan_purpose_a_1,requested_loan_tenor_a_1,requested_loan_amount_a_1,res_district_a_1,res_city_a_1,res_country_a_1,res_room_flat_a_1,res_floor_a_1,res_block_a_1,res_name_of_Street_a_1,res_building_estate_a_1";
+      }
+      if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1) {
+        payload.applicants["currency_pl_a_1"] = "HKD";
+        payload.applicants["address_match_flag"] = "Y";
+        payload.applicants["off_building_estate_a_1"] =
+          payload.applicants.off_building_estate_pt_a_1;
+        payload.applicants["off_city_desc_a_1"] =
+          off_city_desc_a_1.length > 0 ? off_city_desc_a_1[0].code_desc : null;
+        payload.applicants["off_city_desc_a_1"] =
+          off_city_desc_a_1.length > 0 ? off_city_desc_a_1[0].code_desc : null;
+        payload.applicants["office_address_a_1"] = resAddressEng(
+          stages.userInput,
+          lovDescSelector,
+          "office_address"
+        )?.replace("\n", "");
+        payload.applicants["embossed_name_a_1"] =
+          payload.applicants.last_name_a_1 +
+          " " +
+          payload.applicants.first_name_a_1;
+        payload.applicants["apply_for_pl_a_1"] =
+          "STANDARD CHARTERED PERSONAL INSTALMENT LOAN";
+        payload.applicants["res_address_a_1"] = resAddressEng(
+          stages.userInput,
+          lovDescSelector,
+          "res_address"
+        )?.replace("\n", "");
+        payload.applicants["integrated_deposit_account_a_1"] = "";
+      }
+      payload.applicants["full_name_a_1"] =
+        payload.applicants.last_name_a_1 +
+        " " +
+        payload.applicants.first_name_a_1;
+      payload.stage["next_page_values"] =
+        "pd-1,bd-1a,bd-1,ad-1,ad-1a,ad-2,ad-3,ad-6,rp,aip-1,doc-3,ld-1,ffd-1";
+      payload["dedupeList"] = {};
+      payload["client"] = {
+        journey: "prelogin_ntc_or_ntp",
+        "auth-type": "manual",
+        "login-type": "prelogin",
       };
-      return selector(state);
-    });
-  });
+    }
+    payload.stage.stage_status = "incomplete";
+    payload.stage["page_id"] =
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.PD_1
+        ? ""
+        : stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1
+        ? getStageName(
+            CONSTANTS.STAGE_NAMES.RP,
+            stages.stages[0].stageInfo.application.journey_type
+          )
+        : getStageName(
+            stages.stages[0].stageId,
+            stages.stages[0].stageInfo.application.journey_type
+          );
+    payload.stage["stage_id"] =
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.PD_1
+        ? ""
+        : stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1
+        ? getStageName(
+            CONSTANTS.STAGE_NAMES.RP,
+            stages.stages[0].stageInfo.application.journey_type
+          )
+            .split("-")[0]
+            .toUpperCase()
+        : getStageName(
+            stages.stages[0].stageId,
+            stages.stages[0].stageInfo.application.journey_type
+          )
+            .split("-")[0]
+            .toUpperCase();
+    delete Object.assign(payload, {
+      ["fieldmetadata"]: payload["fieldMetaData"],
+    })["fieldMetaData"];
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+    payload["applicant_documents"] = [
+      {
+        applicant_sequence_number: null,
+        document_list: null,
+        email_id_change: null,
+        icdd_reference_no_availability: null,
+        journey_type: "NTB",
+        last_updated_credit_limit_date_flag: null,
+        mobile_no_change: null,
+        staff_category: null,
+      },
+    ];
+    payload["oz_templates"] = null;
+    payload["preApprovedData"] = {};
+    payload.products[0].relation_type_code = "G";
+    console.log(payload);
+    return sortByAscendingOrder(payload);
+  },
 
-  describe("generateUUID", () => {
-    it("should generate a mock UUID", () => {
-      const result = PreApprovalUtil.generateUUID();
-      expect(result).toBe("mock-uuid");
-    });
-  });
-
-  describe("getSHA256Hash", () => {
-    it("should return the SHA-256 hash of an input string", async () => {
-      const mockDigest = jest.fn().mockResolvedValue(
-        new Uint8Array([216, 199, 45, 173, 82, 36, 19, 110, 41, 120, 141, 92])
-      );
-
-      Object.defineProperty(window.crypto.subtle, "digest", {
-        value: mockDigest,
-      });
-
-      const result = await PreApprovalUtil.getSHA256Hash("test-input");
-      expect(mockDigest).toHaveBeenCalledWith(
-        "SHA-256",
-        new TextEncoder().encode("test-input")
-      );
-      expect(result).toBe("d8c72dad5224136e29788d5c80242f79");
-    });
-  });
-
-  describe("stringToHash", () => {
-    it("should hash a string into a number", () => {
-      const result = PreApprovalUtil.stringToHash("test");
-      expect(result).toBeGreaterThan(0); // Example validation
-    });
-  });
-
-  describe("getFieldOnlyWithValue", () => {
-    it("should return an array of fields with values", () => {
-      const result = PreApprovalUtil.getFieldOnlyWithValue();
-      expect(result).toEqual(["product_minimum"]);
-    });
-  });
-
-  describe("getApplicantFields", () => {
-    it("should return the list of applicant fields", () => {
-      const result = PreApprovalUtil.getApplicantFields();
-      expect(result).toContain("last_name_a_1");
-      expect(result.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe("getLovDescriptionFields", () => {
-    it("should return an array of keys from lovDesc", () => {
-      const result = PreApprovalUtil.getLovDescriptionFields();
-      expect(result).toEqual(["key1"]);
-    });
-  });
-
-  describe("getAckMetaData", () => {
-    it("should return formatted metadata", () => {
-      process.env.REACT_APP_XRTOB = "mock-key";
-
-      const result = PreApprovalUtil.getAckMetaData("mock-channel-reference");
-      expect(JSON.parse(result)).toMatchObject({
-        reqId: "mock-uuid",
-        iAuth: "mock-md5-hash",
-      });
-    });
-  });
-
-  describe("getFormConfigPayload", () => {
-    it("should return a sorted payload object", () => {
-      const result = PreApprovalUtil.getFormConfigPayload();
-      expect(result).toBeDefined();
-      expect(typeof result).toBe("object");
-    });
-  });
-
-  describe("securityCallDesider", () => {
-    it("should generate a security descriptor", () => {
-      const result = PreApprovalUtil.securityCallDesider("bAuth", "keyType", []);
-      expect(result).toBeDefined();
-    });
-  });
-
-  describe("getBAuth", () => {
-    it("should generate a BAuth hash", async () => {
-      const result = await PreApprovalUtil.getBAuth();
-      expect(result).toBeDefined();
-      expect(result).toBe("mock-sha256-hash");
-    });
-  });
-
-  jest.mock('path-to-store', () => ({
-  getState: jest.fn(),
-}));
-
-jest.mock('./preApprovalUtils', () => ({
-  getApplicantFields: jest.fn(),
-  getApplicationFields: jest.fn(),
-  getProductFields: jest.fn(),
-  getLoveDescriptionFields: jest.fn(),
-  generateSecMd: jest.fn(),
-}));
-import store from 'path-to-store';
-import * as PreApprovalUtil from './preApprovalUtils';
-import { securityCallDesider } from './path-to-securityCallDesider';
-
-describe('securityCallDesider', () => {
-  beforeEach(() => {
-    jest.clearAllMocks(); // Clear mocks before each test
-  });
-
-  it('should handle bAuth case', () => {
-    store.getState.mockReturnValue({
-      stages: { stages: [{ stageInfo: JSON.stringify({ applicants: ['app1', 'app2'] }) }] },
-    });
-    PreApprovalUtil.getApplicantFields.mockReturnValue(['field1', 'field2']);
-    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
-
-    const result = securityCallDesider('bAuth', 'keyType', 'checkFieldWithValue');
-
-    expect(store.getState).toHaveBeenCalled();
-    expect(PreApprovalUtil.getApplicantFields).toHaveBeenCalled();
-    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
-      'bAuth',
-      'keyType',
-      ['field1', 'field2'],
-      ['app1', 'app2'],
-      'checkFieldWithValue'
+  getFormConfigPayload: () => {
+    let formConfigmetaData = JSON.parse(
+      JSON.stringify(store.getState()?.stages?.stages?.[0]?.stageInfo)
     );
-    expect(result).toBe('mockSecMd');
-  });
-
-  it('should handle aAuth case', () => {
-    store.getState.mockReturnValue({
-      stages: { stages: [{ stageInfo: JSON.stringify({ application: ['appData'] }) }] },
-    });
-    PreApprovalUtil.getApplicationFields.mockReturnValue(['field1', 'field2']);
-    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
-
-    const result = securityCallDesider('aAuth', 'keyType', 'checkFieldWithValue');
-
-    expect(store.getState).toHaveBeenCalled();
-    expect(PreApprovalUtil.getApplicationFields).toHaveBeenCalled();
-    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
-      'aAuth',
-      'keyType',
-      ['field1', 'field2'],
-      ['appData'],
-      'checkFieldWithValue'
+    let payload = JSON.parse(
+      JSON.stringify(store.getState()?.stages?.stages?.[0]?.stageInfo)
     );
-    expect(result).toBe('mockSecMd');
-  });
-
-  it('should handle pAuth case', () => {
-    store.getState.mockReturnValue({
-      stages: { stages: [{ stageInfo: JSON.stringify({ products: [['prod1']] }) }] },
-    });
-    PreApprovalUtil.getProductFields.mockReturnValue(['field1', 'field2']);
-    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
-
-    const result = securityCallDesider('pAuth', 'keyType', 'checkFieldWithValue');
-
-    expect(store.getState).toHaveBeenCalled();
-    expect(PreApprovalUtil.getProductFields).toHaveBeenCalled();
-    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
-      'pAuth',
-      'keyType',
-      ['field1', 'field2'],
-      ['prod1'],
-      'checkFieldWithValue'
+    let applicant = JSON.parse(
+      JSON.stringify(
+        store.getState()?.stages?.stages?.[0]?.stageInfo?.applicants?.[0]
+      )
     );
-    expect(result).toBe('mockSecMd');
-  });
-
-  it('should handle lAuth case', () => {
-    store.getState.mockReturnValue({
-      stages: { stages: [{ stageInfo: JSON.stringify({ lov_desc: 'lovDesc' }) }] },
-    });
-    PreApprovalUtil.getLoveDescriptionFields.mockReturnValue(['field1', 'field2']);
-    PreApprovalUtil.generateSecMd.mockReturnValue('mockSecMd');
-
-    const result = securityCallDesider('lAuth', 'keyType', 'checkFieldWithValue');
-
-    expect(store.getState).toHaveBeenCalled();
-    expect(PreApprovalUtil.getLoveDescriptionFields).toHaveBeenCalled();
-    expect(PreApprovalUtil.generateSecMd).toHaveBeenCalledWith(
-      'lAuth',
-      'keyType',
-      ['field1', 'field2'],
-      'lovDesc',
-      'checkFieldWithValue'
+    let stages = JSON.parse(JSON.stringify(store.getState()?.stages));
+    let lovDescSelector = JSON.parse(
+      JSON.stringify(store?.getState()?.lovDesc)
     );
-    expect(result).toBe('mockSecMd');
-  });
+    console.log(lovDescSelector);
+    let res_city_desc_a_1 = lovDescSelector.lovDesc.filter(
+      (item: any) => item.label === "res_city"
+    );
+    let off_city_desc_a_1 = lovDescSelector.lovDesc.filter(
+      (item: any) => item.label === "off_city"
+    );
+    payload["applicants"] = applicant;
+    let satVal = "85699042071517936981847841370641500068";
+    payload.applicants["adobe_ecid"] = satVal;
 
-  it('should handle unknown authType gracefully', () => {
-    store.getState.mockReturnValue({
-      stages: { stages: [{ stageInfo: JSON.stringify({ applicants: ['applicant'] }) }] },
-    });
+    payload.applicants["preimumMGM_resume_a_1"] = "HKPIL23PLSTP10undefined1258";
 
-    const result = securityCallDesider('unknownAuth', 'keyType', 'checkFieldWithValue');
+    // cos_ref_number: "HK24111600234921"
+    // channel_reference: "0416146f3e6bb12024"
+    // application_reference: "HK20241116900004"
 
-    expect(store.getState).toHaveBeenCalled();
-    expect(result).toBeUndefined();
-  });
+    let formFields = "";
+    var fName = formConfigmetaData?.fieldMetaData.data?.stages?.[0]?.fields;
+    for (let i in fName) {
+      if (
+        fName[i].component_type === "Text" ||
+        fName[i].component_type === "emailDomain" ||
+        fName[i].component_type === "Phone" ||
+        fName[i].component_type === "Date" ||
+        fName[i].component_type === "HKID" ||
+        fName[i].component_type === "short-text"
+      ) {
+        console.log("formFields---", formFields);
+        console.log("logical_field_name----", fName[i].logical_field_name);
+        formFields = formFields + fName[i].logical_field_name + "_a_1,";
+      }
+    }
+    let userValues = JSON.parse(
+      JSON.stringify(store.getState()?.stages?.userInput?.applicants?.[0])
+    );
+    let bauth_key = "";
+    for (let keys in userValues) {
+      // lauth_key = lauth_key + keys + "_a_1,";
+      bauth_key = bauth_key + keys + "_a_1,";
+    }
+    payload.applicants["bauth_key"] = bauth_key;
+    payload.applicants["lauth_key"] = "";
+    payload.applicants["product_description_a_1"] =
+      "STANDARD CHARTERED PERSONAL INSTALMENT LOAN";
+    payload.applicants["HKID_a_1_final"] = payload.applicants.HKID_a_1;
+    payload.applicants["HKID_rp"] = payload.applicants.HKID_a_1
+      ? payload.applicants.HKID_a_1[0] +
+        "-" +
+        payload.applicants.HKID_a_1.substring(
+          1,
+          payload.applicants.HKID_a_1.length - 1
+        ) +
+        "-" +
+        payload.applicants.HKID_a_1[payload.applicants.HKID_a_1.length - 1]
+      : "";
 
-  it('should handle missing stageInfo gracefully', () => {
-    store.getState.mockReturnValue({
-      stages: { stages: [{}] }, // No stageInfo provided
-    });
+    let lovDesc = JSON.parse(
+      JSON.stringify(store.getState()?.lovDesc?.lovDesc)
+    );
+    console.log(lovDesc);
+    let lauth_key = "";
+    let lovDescData: any = {};
+    for (let i in lovDesc) {
+      if (lovDesc[i].code_desc !== "") {
+        lovDescData[lovDesc[i].label + "_a_1_desc"] = lovDesc[i].code_desc;
+        lauth_key =
+          lauth_key === ""
+            ? lauth_key + lovDesc[i].label + "_a_1_desc"
+            : lauth_key + "," + lovDesc[i].label + "_a_1_desc";
+      }
+    }
+    console.log(lovDescData);
+    payload["lov_desc"] = {};
+    if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.AD_1) {
+      payload.application["application_status"] = "Success";
+      delete payload.application.is_save_to_pega;
+      delete payload.application.page_status;
+    }
+    payload.application["acquisition_channel"] = "D";
+    if (
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.AD_1 ||
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1 ||
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.FFD_1
+    ) {
+      payload["lov_desc"] = lovDescData;
+      payload.applicants["lauth_key"] = lauth_key;
+      payload.application.source_system_name = "3";
+      payload.application.request_id = null;
+      payload.application["authentication_flag"] = null;
+      //delete armcode//
+      delete payload.application.armcode;
+      delete payload.application.arm_code;
+      delete payload.application.journey_type_hk;
+      delete payload.application.is_td_with_casa;
+      delete payload.application.notification_required;
+      delete payload.application.sub_segment;
+      delete payload.application.segment;
+      delete payload.application.closing_id;
+      delete payload.application.service_type;
+      delete payload.application.error;
+      delete payload.application.response_type;
+      delete payload.application.response_action;
+      delete payload.applicants.client_pl_consent4_a_1;
+      payload.application["alipay_ref_number"] = null;
+      payload.application["form_type"] = null;
+      payload.application["application_status"] = null;
+      payload.application["stage_wise"] = null;
+      payload.application["ext_authentication_reference_number"] = null;
+      payload.application["ext_acceptance_reference_number"] = null;
+      payload.application["page_wise"] = "yes";
+      payload.application["version"] = "";
+      payload.applicants["premium_a_1"] = "1258";
+      payload.applicants["affiliation_a_1"] = "2132";
+      payload.applicants["requested_loan_amount_a_1"] =
+        payload.applicants["requested_loan_amount_a_1"] !== null
+          ? Number(payload.applicants["requested_loan_amount_a_1"])
+          : null;
+      payload.applicants["mgm_referral_code_a_1"] =
+        payload.applicants["mgm_referral_code_a_1"] === ""
+          ? null
+          : payload.applicants["mgm_referral_code_a_1"];
+      payload.applicants["card_type_a_1"] = "3268";
+      payload.applicants["mgm_flag_a_1"] = "N";
+      payload.applicants["product_categories"] =
+        payload.products[0].product_category;
+      payload.applicants["res_building_estate_a_1"] =
+        payload.applicants.res_building_estate_pt_a_1;
+      payload.applicants["res_city_desc_a_1"] = res_city_desc_a_1[0].code_desc;
+      if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.AD_1) {
+        payload.applicants["bauth_key"] =
+          "last_name_a_1,first_name_a_1,date_of_birth_a_1,mgm_flag_a_1,passport_no_a_1,HKID_a_1,expiry_date_a_1,note_a_1,email_a_1,country_of_issue_a_1,mgm_referral_code_a_1,id type_a_1,mobile_number_a_1,loan_purpose_a_1,requested_loan_tenor_a_1,requested_loan_amount_a_1,res_district_a_1,res_city_a_1,res_country_a_1,res_room_flat_a_1,res_floor_a_1,res_block_a_1,res_name_of_Street_a_1,res_building_estate_a_1";
+      }
+      if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1) {
+        payload.applicants["currency_pl_a_1"] = "HKD";
+        payload.applicants["address_match_flag"] = "Y";
+        payload.applicants["off_building_estate_a_1"] =
+          payload.applicants.off_building_estate_pt_a_1;
+        payload.applicants["off_city_desc_a_1"] =
+          off_city_desc_a_1.length > 0 ? off_city_desc_a_1[0].code_desc : null;
+        payload.applicants["office_address_a_1"] = resAddressEng(
+          stages.userInput,
+          lovDescSelector,
+          "office_address"
+        )?.replace("\n", "");
+        payload.applicants["embossed_name_a_1"] =
+          payload.applicants.last_name_a_1 +
+          " " +
+          payload.applicants.first_name_a_1;
+        payload.applicants["apply_for_pl_a_1"] =
+          "STANDARD CHARTERED PERSONAL INSTALMENT LOAN";
+        payload.applicants["res_address_a_1"] = resAddressEng(
+          stages.userInput,
+          lovDescSelector,
+          "res_address"
+        )?.replace("\n", "");
+        payload.applicants["integrated_deposit_account_a_1"] = "";
+      }
+      payload.applicants["full_name_a_1"] =
+        payload.applicants.last_name_a_1 +
+        " " +
+        payload.applicants.first_name_a_1;
+      payload.stage["next_page_values"] =
+        "pd-1,bd-1a,bd-1,ad-1,ad-1a,ad-2,ad-3,ad-6,rp,aip-1,doc-3,ld-1,ffd-1";
+      payload["dedupeList"] = {};
+      payload["client"] = {
+        journey: "prelogin_ntc_or_ntp",
+        "auth-type": "manual",
+        "login-type": "prelogin",
+      };
+    }
+    payload.stage.stage_status = "incomplete";
+    if (stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.FFD_1) {
+      payload.stage.workflow_stage_id = "FFD";
+    }
+    payload.stage["page_id"] =
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.PD_1
+        ? ""
+        : stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1
+        ? getStageName(
+            CONSTANTS.STAGE_NAMES.RP,
+            stages.stages[0].stageInfo.application.journey_type
+          )
+        : getStageName(
+            stages.stages[0].stageId,
+            stages.stages[0].stageInfo.application.journey_type
+          );
+    payload.stage["stage_id"] =
+      stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.PD_1
+        ? ""
+        : stages.stages[0].stageId === CONSTANTS.STAGE_NAMES.ACD_1
+        ? getStageName(
+            CONSTANTS.STAGE_NAMES.RP,
+            stages.stages[0].stageInfo.application.journey_type
+          )
+            .split("-")[0]
+            .toUpperCase()
+        : getStageName(
+            stages.stages[0].stageId,
+            stages.stages[0].stageInfo.application.journey_type
+          )
+            .split("-")[0]
+            .toUpperCase();
+    delete Object.assign(payload, {
+      ["fieldmetadata"]: payload["fieldMetaData"],
+    })["fieldMetaData"];
+    if (
+      stages.stages[0].stageId !== CONSTANTS.STAGE_NAMES.DOC_3 ||
+      stages.stages[0].stageId !== CONSTANTS.STAGE_NAMES.LD_1 ||
+      stages.stages[0].stageId !== CONSTANTS.STAGE_NAMES.FFD_1 ||
+      stages.stages[0].stageId !== CONSTANTS.STAGE_NAMES.FFD_2
+    ) {
+      payload["applicant_documents"] = [
+        {
+          applicant_sequence_number: null,
+          document_list: null,
+          email_id_change: null,
+          icdd_reference_no_availability: null,
+          journey_type: "NTB",
+          last_updated_credit_limit_date_flag: null,
+          mobile_no_change: null,
+          staff_category: null,
+        },
+      ];
+    }
+    payload["oz_templates"] = null;
+    payload["preApprovedData"] = {};
+    payload.products[0].relation_type_code = "G";
+    console.log(payload);
+    return sortByAscendingOrder(payload);
+  },
+};
 
-    const result = securityCallDesider('bAuth', 'keyType', 'checkFieldWithValue');
-
-    expect(store.getState).toHaveBeenCalled();
-    expect(result).toBeUndefined();
-  });
-});
+export default PreApprovalUtil;
