@@ -1,1 +1,76 @@
+import * as preApprovalServices from './preApprovalServices';  // Adjust the import based on actual location
+import axios from 'axios';
 
+// Mocking external dependencies like axios
+jest.mock('axios');
+
+describe('preApprovalServices', () => {
+  
+  test('buildPayload should build correct payload', () => {
+    const mockData = { name: 'John Doe', age: 30 };
+    const expectedPayload = { ...mockData, additionalInfo: 'some_value' };
+    
+    const result = preApprovalServices.buildPayload(mockData);
+    
+    expect(result).toEqual(expectedPayload);
+  });
+
+  test('processApplicants should process applicants correctly', () => {
+    const applicants = [
+      { id: '1', name: 'Applicant 1' },
+      { id: '2', name: 'Applicant 2' },
+    ];
+
+    const expectedProcessedApplicants = [
+      { id: '1', name: 'Applicant 1', processed: true },
+      { id: '2', name: 'Applicant 2', processed: true },
+    ];
+
+    const result = preApprovalServices.processApplicants(applicants);
+
+    expect(result).toEqual(expectedProcessedApplicants);
+  });
+
+  test('fetchLoanData should return correct data for valid applicantId', async () => {
+    const applicantId = '12345';
+    const mockResponse = { loanAmount: 1000, applicantId };
+
+    // Mocking the axios call
+    axios.get.mockResolvedValueOnce({ data: mockResponse });
+
+    const result = await preApprovalServices.fetchLoanData(applicantId);
+
+    expect(result).toEqual(mockResponse);
+    expect(axios.get).toHaveBeenCalledWith(`/api/loan/${applicantId}`);
+  });
+
+  test('fetchLoanData should throw an error if API call fails', async () => {
+    const applicantId = '12345';
+    const mockError = new Error('API call failed');
+
+    // Mocking axios to simulate an error
+    axios.get.mockRejectedValueOnce(mockError);
+
+    try {
+      await preApprovalServices.fetchLoanData(applicantId);
+    } catch (error) {
+      expect(error).toEqual(mockError);
+    }
+  });
+
+  test('processApplicants should handle empty applicants array', () => {
+    const applicants = [];
+    const result = preApprovalServices.processApplicants(applicants);
+    
+    expect(result).toEqual([]);
+  });
+
+  test('buildPayload should handle missing additionalInfo', () => {
+    const mockData = { name: 'Jane Doe' };
+    const expectedPayload = { ...mockData, additionalInfo: 'some_value' };
+    
+    const result = preApprovalServices.buildPayload(mockData);
+
+    expect(result).toEqual(expectedPayload);
+  });
+});
