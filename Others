@@ -394,3 +394,147 @@ describe('FormComponent', () => {
   });
 });
 
+
+
+
+import { buildPayload } from './utils'; // Assume buildPayload is exported from utils.js or similar.
+import * as redux from 'react-redux';
+
+jest.mock('react-redux', () => ({
+  ...jest.requireActual('react-redux'),
+  useDispatch: jest.fn(),
+  useSelector: jest.fn(),
+}));
+
+describe('Payload Construction Tests', () => {
+  let mockState;
+
+  beforeEach(() => {
+    // Initial mock state that simulates the store
+    mockState = {
+      form: {
+        applicants: [
+          {
+            HKID_a_1_final: 'A1234567',
+            HKID_rp: 'B7654321',
+          },
+        ],
+        application: {
+          product_code: '001',
+          application_status: 'Success',
+          requested_loan_amount_a_1: '1000',
+          premium_a_1: '200',
+          currency_pl_a_1: 'USD',
+        },
+      },
+      stages: {
+        stages: [
+          {
+            stageId: 'AD_1',
+          },
+        ],
+      },
+      lovDesc: [
+        {
+          lov_code: '123',
+          lov_value: 'Value1',
+        },
+        {
+          lov_code: '456',
+          lov_value: 'Value2',
+        },
+      ],
+    };
+
+    redux.useSelector.mockImplementation((selector) => selector(mockState));
+  });
+
+  test('should build payload correctly with given state', () => {
+    // Simulate building the payload based on the mocked state
+    const payload = buildPayload(mockState);
+
+    // Assertions to check if the payload structure is correct
+    expect(payload.applicants).toHaveLength(1);
+    expect(payload.applicants[0].HKID_a_1_final).toBe('A1234567');
+    expect(payload.applicants[0].HKID_rp).toBe('B7654321');
+    expect(payload.application.product_code).toBe('001');
+    expect(payload.application.application_status).toBe('Success');
+    expect(payload.application.requested_loan_amount_a_1).toBe('1000');
+    expect(payload.application.premium_a_1).toBe('200');
+    expect(payload.application.currency_pl_a_1).toBe('USD');
+    expect(payload.stages[0].stageId).toBe('AD_1');
+    expect(payload.lov_desc[0].description).toBe('Description for Value1');
+    expect(payload.lov_desc[1].description).toBe('Description for Value2');
+  });
+
+  test('should return empty applicants array when no applicants are present in state', () => {
+    // Mock state with no applicants
+    const emptyApplicantsState = {
+      ...mockState,
+      form: {
+        ...mockState.form,
+        applicants: [],
+      },
+    };
+    redux.useSelector.mockImplementation((selector) => selector(emptyApplicantsState));
+
+    // Simulate building the payload with the empty applicants state
+    const payload = buildPayload(emptyApplicantsState);
+
+    // Assertions to check if the applicants array is empty
+    expect(payload.applicants).toEqual([]);
+  });
+
+  test('should handle empty lovDesc array correctly', () => {
+    // Mock state with empty lovDesc
+    const emptyLovDescState = {
+      ...mockState,
+      lovDesc: [],
+    };
+    redux.useSelector.mockImplementation((selector) => selector(emptyLovDescState));
+
+    // Simulate building the payload with empty lovDesc
+    const payload = buildPayload(emptyLovDescState);
+
+    // Assertions to check if the lov_desc array is empty
+    expect(payload.lov_desc).toEqual([]);
+  });
+
+  test('should build payload correctly for different stage', () => {
+    // Mock state with a different stage
+    const differentStageState = {
+      ...mockState,
+      stages: {
+        stages: [
+          {
+            stageId: 'ACD_1',
+          },
+        ],
+      },
+    };
+    redux.useSelector.mockImplementation((selector) => selector(differentStageState));
+
+    // Simulate building the payload with a different stage
+    const payload = buildPayload(differentStageState);
+
+    // Assertions to check the stageId is updated
+    expect(payload.stages[0].stageId).toBe('ACD_1');
+  });
+
+  test('should handle missing stage gracefully', () => {
+    // Mock state without stages
+    const noStagesState = {
+      ...mockState,
+      stages: {
+        stages: [],
+      },
+    };
+    redux.useSelector.mockImplementation((selector) => selector(noStagesState));
+
+    // Simulate building the payload without any stages
+    const payload = buildPayload(noStagesState);
+
+    // Assertions to check if stages is empty
+    expect(payload.stages).toEqual([]);
+  });
+});
