@@ -1,368 +1,122 @@
-// Import necessary modules
-import { nextStage } from './path-to-your-function'; // Adjust the path to your function file
-import { 
-    postTMXUserSession, 
-    postFinalAcknowledge, 
-    postDocSaveData 
-} from './api'; // Mock these API calls
-import { dispatchLoader, preApprovalAction, stagesAction } from './actions'; // Mock these actions
-import { CONSTANTS, stageSelector } from './constants'; // Mock these constants
-
-jest.mock('./api'); // Mock the API module
-jest.mock('./actions'); // Mock actions
-jest.mock('./constants', () => ({
-    CONSTANTS: { STAGE_NAMES: { LD_1: 'LD_1' } },
-    stageSelector: [{ stageInfo: { id: 'dummy-stage-info' } }],
-}));
-
-// Mock dispatch
-const dispatch = jest.fn();
-
-// Mock API responses
-const mockPostTMXUserSession = {
-    status: 200,
-    data: { review_status: 'pass' },
-};
-
-const mockPostFinalAcknowledge = {
-    status: 202,
-};
-
-const mockPostDocSaveData = {
-    data: {
-        applicants: [{ id: 1, name: 'John Doe' }],
-        application: { id: 123, name: 'Test Application' },
-        applicant_documents: [{ id: 'doc-1', type: 'passport' }],
-    },
-};
-
-// Test suite
-describe('nextStage function', () => {
+ describe("postDocuments", () => {
     beforeEach(() => {
-        jest.clearAllMocks();
+      mockedAxios.post.mockReset();
+      (PreApprovalUtil.getAckMetaData as jest.Mock).mockReturnValue(
+        "mocked_ack_meta_data"
+      );
     });
 
-    it('should successfully complete the next stage process', async () => {
-        // Mock the API calls
-        postTMXUserSession.mockResolvedValue(mockPostTMXUserSession);
-        postFinalAcknowledge.mockResolvedValue(mockPostFinalAcknowledge);
-        postDocSaveData.mockResolvedValue(mockPostDocSaveData);
+    it("should call axios.post with correct arguments and resolve", async () => {
+      // Mock environment variables
+      process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+      process.env.REACT_APP_RTOB_APPLICATION_END_POINT =
+        "/application-endpoint/";
+      process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT = "/documents-endpoint/";
 
-        // Call the function
-        await nextStage();
+      const mockedResponse = { data: "mocked_response" };
+      mockedAxios.post.mockResolvedValueOnce(mockedResponse);
 
-        // Assertions for dispatchLoader
-        expect(dispatch).toHaveBeenCalledWith(dispatchLoader(true));
-        expect(dispatch).toHaveBeenCalledWith(dispatchLoader(false));
+      const channelReference = "mocked_channel_ref";
+      const file = new File(["dummy content"], "testDocument.pdf", {
+        type: "application/pdf",
+      });
 
-        // Assertions for postTMXUserSession
-        expect(postTMXUserSession).toHaveBeenCalledWith('channel_reference');
-        expect(postFinalAcknowledge).toHaveBeenCalledWith('channel_reference');
+      const result = await postDocuments(channelReference, file);
+      expect(result).toEqual(mockedResponse);
 
-        // Assertions for postDocSaveData
-        expect(postDocSaveData).toHaveBeenCalledWith(
-            'documentData',
-            'HKIDQRCodeData',
-            'zolozDocumentData'
-        );
-
-        // Assertions for dispatching actions
-        expect(dispatch).toHaveBeenCalledWith(preApprovalAction.setCurrentStage('PD-3'));
-        expect(dispatch).toHaveBeenCalledWith(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.LD_1));
-
-        // Assertions for stage data
-        const expectedStageData = {
-            applicants: mockPostDocSaveData.data.applicants,
-            application: mockPostDocSaveData.data.application,
-            applicant_documents: mockPostDocSaveData.data.applicant_documents,
-        };
-
-        expect(dispatch).toHaveBeenCalledWith(stagesAction.getStage({
-            id: CONSTANTS.STAGE_NAMES.LD_1,
-            formConfig: expectedStageData,
-        }));
+      // Check FormData contents
+      const formData = new FormData();
+      formData.append("file", file, "testDocument.pdf");
+      formData.append(
+        "documentJson",
+        JSON.stringify({
+          origin: "front-line-supporting-document",
+          documentCategoryCode: "R0005",
+          documentTypeCode: "A023",
+          applicantId: 1,
+          imageOrder: 5,
+          period: 0,
+          isWatermarkRequired: "N",
+          documentOptionSequence: "undefined",
+        })
+      );
     });
+    it("should handle axios.post rejection and call dispatchError", async () => {
+      // Mock environment variables
+      process.env.REACT_APP_RTOB_BASE_URL = "https://mock-base-url";
+      process.env.REACT_APP_RTOB_APPLICATION_END_POINT =
+        "/application-endpoint/";
+      process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT = "/documents-endpoint/";
 
-    it('should skip processing if postTMXUserSession fails or review_status is not "pass"', async () => {
-        // Mock a failed session response
-        postTMXUserSession.mockResolvedValue({ status: 400 });
+      const mockedError = new Error("mocked_error");
+      mockedAxios.post.mockRejectedValueOnce(mockedError);
 
-        // Call the function
-        await nextStage();
+      const channelReference = "mocked_channel_ref";
+      const file = new File(["dummy content"], "testDocument.pdf", {
+        type: "application/pdf",
+      });
 
-        // Ensure further actions are not triggered
-        expect(postFinalAcknowledge).not.toHaveBeenCalled();
-        expect(postDocSaveData).not.toHaveBeenCalled();
+      await expect(postDocuments(channelReference, file)).rejects.toThrow(
+        "mocked_error"
+      );
 
-        // Ensure dispatchLoader is called correctly
-        expect(dispatch).toHaveBeenCalledWith(dispatchLoader(true));
-        expect(dispatch).toHaveBeenCalledWith(dispatchLoader(false));
+      expect(dispatchError).toHaveBeenCalledWith(mockedError);
     });
-
-    it('should skip processing if postFinalAcknowledge fails', async () => {
-        // Mock responses
-        postTMXUserSession.mockResolvedValue(mockPostTMXUserSession);
-        postFinalAcknowledge.mockResolvedValue({ status: 400 });
-
-        // Call the function
-        await nextStage();
-
-        // Ensure postDocSaveData is not called
-        expect(postDocSaveData).not.toHaveBeenCalled();
-
-        // Ensure dispatchLoader is called correctly
-        expect(dispatch).toHaveBeenCalledWith(dispatchLoader(true));
-        expect(dispatch).toHaveBeenCalledWith(dispatchLoader(false));
-    });
-});
+   });
 
 
 
 
+export const postDocuments = (channelReference: any, file: any): any => {
+  const imageOrder = JSON.parse(JSON.stringify(store.getState().preApproval.incomeProofDocumentUpload));
+  
+  console.log("store:----", store.getState())
+  const documentJson: any = {
+    origin: "front-line-supporting-document",
+    documentCategoryCode: "R0005",
+    documentTypeCode: "A023",
+    applicantId: 1,
+    imageOrder: imageOrder?.length + 1,
+    period: 0,
+    isWatermarkRequired: "Y",
+    documentOptionSequence: "undefined",
+  };
 
+  console.log("----",  "imageOrder :",imageOrder);
 
-
-import {
-  postSaveData,
-  postDocSaveData,
-  postBasicData,
-  postAditionalData,
-  postDocuments,
-  postQRCodeZOLO,
-  postZOLOCheck,
-  postZolozAcknowledge,
-  postFinalAcknowledge,
-  postPdfPreview,
-  postTMXUserSession,
-  postFulFilmentData,
-} from "./preApprovalPostServices";
-import axios from "axios";
-import { store } from "../../../utils/store/store";
-import { dispatchError } from "../../../services/common-service";
-import PreApprovalUtil from "./preApprovalUtils";
-
-jest.mock("./payload", () => ({
-  adpayload: jest.fn(() => ({
-    applicants: [],
-    fieldmetadata: {},
-    products: [],
-    stage: {},
-    status: {},
-    applicant_documents: [],
-    client: {},
-    dedupe: {},
-    dedupeList: [],
-    etc_data: {},
-    lov_desc: {},
-    oz_templates: [],
-    preApprovedData: {},
-    preapproved: {
-      incomeProofDocumentUploadP:[{}],
-    },
-    service_response: {},
-  }
-      
-  )),
-}));
-
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-const mockDispatch = jest.fn();
-jest.mock("../../../utils/store/store", () => ({
-  store: {
-    getState: jest.fn(),
-  },
-}));
-jest.mock("axios", () => ({
-  __esModule: true,
-}));
-jest.mock("../../../services/common-service", 
-() => ({
-  dispatchError: jest.fn(),
-}));
-jest.mock("./preApprovalUtils", () => ({
-  getFormConfigPayload: jest.fn(() => ({ applicants: {}, application: {} })),
-  getAckMetaData: jest.fn(() => "mocked_meta_data"),
-  getADFormConfigPayload: jest.fn(),
-  generateUUID: jest.fn(),
-}));
-
-jest.mock("axios", () => ({
-  post: jest.fn(),
-}));
-describe("API Functions", () => {
-  beforeEach(() => {
-    (axios.post as jest.Mock).mockReset();
-
-    (store.getState as jest.Mock).mockReturnValue({
-      stages: {
-        stages: [
-          {
-            stageInfo: {
-              application: {
-                channel_reference: "test_channel_ref",
-                application_reference: "test_application_ref",
-                applicatnt_documents: [
-                  {
-                    documentzoloCheckRes: "mocked_zolo_check_res",
-                  },
-                ],
-              },
-            },
-            preApproval:{
-              incomeProofDocumentUploadP:[{
-                
-              }]
-            }
-          },
-        ],
-      },
-      preApproval: {
-        documentZoloCheckRes: "mocked_documentZoloCheckRes",
-      },
-    });
-  });
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  test("should successfully call postSaveData and resolve", async () => {
-    const mockedResponse = { data: "success" };
-    mockedAxios.post = jest.fn().mockResolvedValue(mockedResponse);
-    const result = await postSaveData();
-    expect(result).toEqual(mockedResponse);
-    expect(axios.post).toHaveBeenCalled();
-  });
-
-
-
-
-export const postSaveData = (): any => {
-  const stageSelector = JSON.parse(JSON.stringify(store.getState()?.stages?.stages?.[0]));
   const baseUrl = `${process.env.REACT_APP_RTOB_BASE_URL}`;
+  const endPoint = `${process.env.REACT_APP_RTOB_DOCUMENTS_END_POINT}`;
   const application = `${process.env.REACT_APP_RTOB_APPLICATION_END_POINT}`;
-  const channelRefNo = stageSelector?.stageInfo?.application?.channel_reference;
-  const saveUrl = `${application + channelRefNo}`;
-  let url = baseUrl + saveUrl;
-  let currentStageData = JSON.parse(JSON.stringify(PreApprovalUtil.getFormConfigPayload()));
-  if(stageSelector.stageId === CONSTANTS.STAGE_NAMES.FFD_1 || stageSelector.stageId === CONSTANTS.STAGE_NAMES.FFD_2) {
-    currentStageData["applicant_documents"]= stageSelector.stageInfo.applicant_documents
-  }
+
+  const url = baseUrl + application + channelReference + endPoint;
+
+
+  let data = new FormData();
+  data.append("file", file);
+  data.append("documentJson", JSON.stringify(documentJson));
+
   const options = {
     method: "POST",
     url,
     headers: {
-      "Content-Type": "application/json;charset=UTF-8",
-      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelRefNo),
+      "Content-Type": "multipart/form-data",
+      "Sc-Client-Context": PreApprovalUtil.getAckMetaData(channelReference),
     },
-    body: JSON.stringify(currentStageData),
+    body: JSON.stringify(data),
   };
-  console.log(options);
-
-
-  return axios
-    ?.post(url, JSON.stringify(currentStageData), { headers: options.headers })
-    .then((response) => {
-      console.log("inside post call====",response);
-      return Promise.resolve(response);
-    })
-    .catch((error) => {
-      console.log("clientResponse", error);
-      dispatchError(error);
-      return Promise.reject(error);
-    });
-};
-
-
-
-
-
-import { postSaveData } from "./preApprovalPostServices";
-import axios from "axios";
-import { store } from "../../../utils/store/store";
-import { dispatchError } from "../../../services/common-service";
-import PreApprovalUtil from "./preApprovalUtils";
-
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-
-jest.mock("../../../utils/store/store", () => ({
-  store: {
-    getState: jest.fn(),
-  },
-}));
-
-jest.mock("../../../services/common-service", () => ({
-  dispatchError: jest.fn(),
-}));
-
-jest.mock("./preApprovalUtils", () => ({
-  getFormConfigPayload: jest.fn(),
-  getAckMetaData: jest.fn(),
-}));
-
-describe("postSaveData", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    // Mock store state
-    (store.getState as jest.Mock).mockReturnValue({
-      stages: {
-        stages: [
-          {
-            stageId: "FFD_1",
-            stageInfo: {
-              application: {
-                channel_reference: "mock_channel_ref",
-              },
-              applicant_documents: [{ doc1: "mock_doc" }],
-            },
-          },
-        ],
-      },
-    });
-
-    // Mock PreApprovalUtil methods
-    PreApprovalUtil.getFormConfigPayload.mockReturnValue({
-      someKey: "someValue",
-    });
-    PreApprovalUtil.getAckMetaData.mockReturnValue("mocked_meta_data");
+const docaxios = axios.create({
+    headers: options.headers,
   });
 
-  test("should successfully call postSaveData and resolve", async () => {
-    const mockedResponse = { data: "success" };
-    mockedAxios.post.mockResolvedValue(mockedResponse);
+   return docaxios
+   .post(url, data, options)
+   .then((response: any) => {
+          return Promise.resolve(response);
+        })
+        .catch((error: any) => {
+          dispatchError(error);
+          console.log("clientResponse", error);
+          return Promise.reject(error);
+        });
 
-    const result = await postSaveData();
-
-    expect(result).toEqual(mockedResponse);
-    expect(axios.post).toHaveBeenCalledWith(
-      expect.any(String), // URL
-      JSON.stringify({
-        someKey: "someValue",
-        applicant_documents: [{ doc1: "mock_doc" }],
-      }), // Payload
-      {
-        headers: {
-          "Content-Type": "application/json;charset=UTF-8",
-          "Sc-Client-Context": "mocked_meta_data",
-        },
-      }
-    );
-  });
-
-  test("should handle JSON.parse error gracefully", async () => {
-    PreApprovalUtil.getFormConfigPayload.mockReturnValue(undefined);
-
-    await expect(postSaveData()).rejects.toThrow(SyntaxError);
-    expect(dispatchError).toHaveBeenCalledWith(expect.any(Error));
-  });
-
-  test("should call dispatchError on axios POST failure", async () => {
-    const mockedError = new Error("Mocked POST Error");
-    mockedAxios.post.mockRejectedValue(mockedError);
-
-    await expect(postSaveData()).rejects.toThrow("Mocked POST Error");
-    expect(dispatchError).toHaveBeenCalledWith(mockedError);
-  });
-});
+  }
