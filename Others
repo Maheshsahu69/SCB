@@ -215,3 +215,182 @@ describe("postDocuments", () => {
     expect(dispatchError).toHaveBeenCalledWith(mockedError);
   });
 });
+
+
+
+
+
+
+
+import { render } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import { createStore } from 'redux';
+import FormComponent from './FormComponent'; // Assuming your form component
+import * as redux from 'react-redux';
+
+// Mocking the redux store and necessary hooks
+jest.mock('react-redux', () => ({
+  ...jest.requireActual('react-redux'),
+  useDispatch: jest.fn(),
+  useSelector: jest.fn(),
+}));
+
+// Create a mock store
+const mockStore = createStore((state) => state, {
+  // Initial mock state
+  form: {
+    applicants: [
+      {
+        HKID_a_1_final: 'A1234567',
+        HKID_rp: 'B7654321',
+      },
+    ],
+    application: {
+      product_code: '001',
+      application_status: 'Success',
+      requested_loan_amount_a_1: '1000',
+      premium_a_1: '200',
+      currency_pl_a_1: 'USD',
+    },
+  },
+  stages: {
+    stages: [
+      {
+        stageId: 'AD_1',
+      },
+    ],
+  },
+  lovDesc: [
+    {
+      lov_code: '123',
+      lov_value: 'Value1',
+    },
+    {
+      lov_code: '456',
+      lov_value: 'Value2',
+    },
+  ],
+});
+
+describe('FormComponent', () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore;
+    // Mocking the redux state here as an example
+    redux.useSelector.mockImplementation((selector) => selector(store.getState()));
+    redux.useDispatch.mockReturnValue(jest.fn());
+  });
+
+  test('should build payload correctly for AD_1 stage', () => {
+    const { container } = render(
+      <Provider store={store}>
+        <FormComponent />
+      </Provider>
+    );
+
+    // Mock function to build the payload
+    const buildPayload = () => {
+      const state = store.getState();
+      const { applicants, application, stages, lovDesc } = state.form;
+
+      const payload = {
+        applicants: applicants.map((applicant) => ({
+          ...applicant,
+          HKID_rp: applicant.HKID_rp || '',
+        })),
+        application,
+        lov_desc: lovDesc.map((lov) => ({
+          ...lov,
+          description: `Description for ${lov.lov_value}`,
+        })),
+        stages: stages.stages.map((stage) => ({
+          ...stage,
+          stageId: stage.stageId,
+        })),
+      };
+
+      // Return the payload object
+      return payload;
+    };
+
+    // Run the payload construction function
+    const payload = buildPayload();
+
+    // Asserting that the payload is built correctly
+    expect(payload.applicants[0].HKID_a_1_final).toBe('A1234567');
+    expect(payload.applicants[0].HKID_rp).toBe('B7654321');
+    expect(payload.application.product_code).toBe('001');
+    expect(payload.application.requested_loan_amount_a_1).toBe('1000');
+    expect(payload.application.premium_a_1).toBe('200');
+    expect(payload.application.currency_pl_a_1).toBe('USD');
+    expect(payload.stages[0].stageId).toBe('AD_1');
+    expect(payload.lov_desc[0].description).toBe('Description for Value1');
+    expect(payload.lov_desc[1].description).toBe('Description for Value2');
+  });
+
+  test('should handle empty applicants correctly', () => {
+    const emptyStore = createStore((state) => state, {
+      form: {
+        applicants: [],
+        application: {},
+      },
+    });
+
+    redux.useSelector.mockImplementation((selector) => selector(emptyStore.getState()));
+
+    const { container } = render(
+      <Provider store={emptyStore}>
+        <FormComponent />
+      </Provider>
+    );
+
+    const payload = buildPayload();
+
+    expect(payload.applicants).toEqual([]);
+    expect(payload.application).toEqual({});
+  });
+
+  test('should update application status based on stage', () => {
+    const updatedStore = createStore((state) => state, {
+      form: {
+        applicants: [
+          {
+            HKID_a_1_final: 'C1234567',
+            HKID_rp: 'D7654321',
+          },
+        ],
+        application: {
+          product_code: '002',
+          application_status: 'Pending',
+          requested_loan_amount_a_1: '1500',
+          premium_a_1: '250',
+          currency_pl_a_1: 'EUR',
+        },
+      },
+      stages: {
+        stages: [
+          {
+            stageId: 'ACD_1',
+          },
+        ],
+      },
+    });
+
+    redux.useSelector.mockImplementation((selector) => selector(updatedStore.getState()));
+
+    const { container } = render(
+      <Provider store={updatedStore}>
+        <FormComponent />
+      </Provider>
+    );
+
+    const payload = buildPayload();
+
+    expect(payload.application.application_status).toBe('Pending');
+    expect(payload.stages[0].stageId).toBe('ACD_1');
+    expect(payload.application.requested_loan_amount_a_1).toBe('1500');
+    expect(payload.application.currency_pl_a_1).toBe('EUR');
+  });
+});
+
