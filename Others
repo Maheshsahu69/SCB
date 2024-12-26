@@ -1,76 +1,136 @@
-import * as preApprovalServices from './preApprovalServices';  // Adjust the import based on actual location
-import axios from 'axios';
+import PreApprovalUtil from './PreApprovalUtil';
+import { store } from '../../../utils/store/store';
+import md5 from 'md5';
+import { sha256 } from 'js-sha256';
 
-// Mocking external dependencies like axios
-jest.mock('axios');
+jest.mock('../../../utils/store/store', () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
 
-describe('preApprovalServices', () => {
-  
-  test('buildPayload should build correct payload', () => {
-    const mockData = { name: 'John Doe', age: 30 };
-    const expectedPayload = { ...mockData, additionalInfo: 'some_value' };
-    
-    const result = preApprovalServices.buildPayload(mockData);
-    
-    expect(result).toEqual(expectedPayload);
+jest.mock('md5', () => jest.fn());
+jest.mock('js-sha256', () => ({
+  sha256: jest.fn(),
+}));
+
+describe('PreApprovalUtil', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  test('processApplicants should process applicants correctly', () => {
-    const applicants = [
-      { id: '1', name: 'Applicant 1' },
-      { id: '2', name: 'Applicant 2' },
-    ];
-
-    const expectedProcessedApplicants = [
-      { id: '1', name: 'Applicant 1', processed: true },
-      { id: '2', name: 'Applicant 2', processed: true },
-    ];
-
-    const result = preApprovalServices.processApplicants(applicants);
-
-    expect(result).toEqual(expectedProcessedApplicants);
+  describe('generateUUID', () => {
+    it('should generate a valid UUID', () => {
+      const uuid = PreApprovalUtil.generateUUID();
+      expect(uuid).toBeDefined();
+      expect(typeof uuid).toBe('string');
+    });
   });
 
-  test('fetchLoanData should return correct data for valid applicantId', async () => {
-    const applicantId = '12345';
-    const mockResponse = { loanAmount: 1000, applicantId };
+  describe('getSHA256Hash', () => {
+    it('should return the SHA256 hash of the input', async () => {
+      const input = 'test-input';
+      const mockHash = new Uint8Array([1, 2, 3, 4]);
+      jest.spyOn(window.crypto.subtle, 'digest').mockResolvedValueOnce(mockHash.buffer);
 
-    // Mocking the axios call
-    axios.get.mockResolvedValueOnce({ data: mockResponse });
-
-    const result = await preApprovalServices.fetchLoanData(applicantId);
-
-    expect(result).toEqual(mockResponse);
-    expect(axios.get).toHaveBeenCalledWith(`/api/loan/${applicantId}`);
+      const result = await PreApprovalUtil.getSHA256Hash(input);
+      expect(result).toEqual('01020304');
+      expect(window.crypto.subtle.digest).toHaveBeenCalledWith('SHA-256', new TextEncoder().encode(input));
+    });
   });
 
-  test('fetchLoanData should throw an error if API call fails', async () => {
-    const applicantId = '12345';
-    const mockError = new Error('API call failed');
-
-    // Mocking axios to simulate an error
-    axios.get.mockRejectedValueOnce(mockError);
-
-    try {
-      await preApprovalServices.fetchLoanData(applicantId);
-    } catch (error) {
-      expect(error).toEqual(mockError);
-    }
+  describe('stringToHash', () => {
+    it('should convert a string to a numeric hash', () => {
+      const result = PreApprovalUtil.stringToHash('test');
+      expect(typeof result).toBe('number');
+    });
   });
 
-  test('processApplicants should handle empty applicants array', () => {
-    const applicants = [];
-    const result = preApprovalServices.processApplicants(applicants);
-    
-    expect(result).toEqual([]);
+  describe('getFieldOnlyWithValue', () => {
+    it('should return an array with "product_minimum"', () => {
+      const result = PreApprovalUtil.getFieldOnlyWithValue();
+      expect(result).toEqual(['product_minimum']);
+    });
   });
 
-  test('buildPayload should handle missing additionalInfo', () => {
-    const mockData = { name: 'Jane Doe' };
-    const expectedPayload = { ...mockData, additionalInfo: 'some_value' };
-    
-    const result = preApprovalServices.buildPayload(mockData);
+  describe('getApplicantFields', () => {
+    it('should return a list of applicant fields', () => {
+      const result = PreApprovalUtil.getApplicantFields();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toContain('last_name_a_1');
+    });
+  });
 
-    expect(result).toEqual(expectedPayload);
+  describe('getApplicationFields', () => {
+    it('should return a list of application fields', () => {
+      const result = PreApprovalUtil.getApplicationFields();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result).toContain('application_reference');
+    });
+  });
+
+  describe('securityCallDesider', () => {
+    it('should return a processed security call string', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [{ stageInfo: { applicants: { last_name_a_1: 'Doe' } } }],
+        },
+      });
+
+      const result = PreApprovalUtil.securityCallDesider('bAuth', 'key', []);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('generateSecMd', () => {
+    it('should generate security metadata', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [{ stageInfo: { applicants: { last_name_a_1: 'Doe' } } }],
+        },
+      });
+
+      const result = PreApprovalUtil.generateSecMd('bAuth', 'key', ['last_name_a_1'], { last_name_a_1: 'Doe' }, []);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('getBAuth', () => {
+    it('should generate BAuth hash', async () => {
+      jest.spyOn(PreApprovalUtil, 'securityCallDesider').mockReturnValue('securityString');
+      jest.spyOn(PreApprovalUtil, 'getSHA256Hash').mockResolvedValue('hashValue');
+
+      const result = await PreApprovalUtil.getBAuth();
+      expect(result).toEqual('hashValue');
+    });
+  });
+
+  describe('getAckMetaData', () => {
+    it('should return metadata for acknowledgment', () => {
+      process.env.REACT_APP_XRTOB = 'testKey';
+      md5.mockReturnValue('hashedValue');
+      store.getState.mockReturnValue({
+        auth: { sessionUid: 'sessionId' },
+      });
+
+      const result = PreApprovalUtil.getAckMetaData('channelReference');
+      expect(result).toContain('hashedValue');
+    });
+  });
+
+  describe('getFormConfigPayload', () => {
+    it('should return a sorted payload', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [{ stageInfo: { applicants: [{}] } }],
+          userInput: { applicants: [{}] },
+        },
+        lovDesc: { lovDesc: [] },
+      });
+
+      const result = PreApprovalUtil.getFormConfigPayload();
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty('applicants');
+    });
   });
 });
