@@ -134,3 +134,172 @@ describe('PreApprovalUtil', () => {
     });
   });
 });
+
+
+
+import PreApprovalUtil from './PreApprovalUtil';
+import { store } from '../../../utils/store/store';
+import md5 from 'md5';
+import { sha256 } from 'js-sha256';
+
+jest.mock('../../../utils/store/store', () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+
+jest.mock('md5', () => jest.fn());
+jest.mock('js-sha256', () => ({
+  sha256: jest.fn(),
+}));
+
+describe('PreApprovalUtil', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('generateUUID', () => {
+    it('should generate a valid UUID', () => {
+      const uuid = PreApprovalUtil.generateUUID();
+      expect(uuid).toBeDefined();
+      expect(typeof uuid).toBe('string');
+    });
+  });
+
+  describe('getSHA256Hash', () => {
+    it('should return the SHA256 hash of the input', async () => {
+      const input = 'test-input';
+      const mockHash = new Uint8Array([1, 2, 3, 4]);
+      jest.spyOn(window.crypto.subtle, 'digest').mockResolvedValueOnce(mockHash.buffer);
+
+      const result = await PreApprovalUtil.getSHA256Hash(input);
+      expect(result).toEqual('01020304');
+      expect(window.crypto.subtle.digest).toHaveBeenCalledWith('SHA-256', new TextEncoder().encode(input));
+    });
+  });
+
+  describe('stringToHash', () => {
+    it('should convert a string to a numeric hash', () => {
+      const result = PreApprovalUtil.stringToHash('test');
+      expect(typeof result).toBe('number');
+    });
+  });
+
+  describe('getFieldOnlyWithValue', () => {
+    it('should return an array with "product_minimum"', () => {
+      const result = PreApprovalUtil.getFieldOnlyWithValue();
+      expect(result).toEqual(['product_minimum']);
+    });
+  });
+
+  describe('securityCallDesider', () => {
+    it('should handle "bAuth" type and return a string', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [
+            { stageInfo: { applicants: { last_name_a_1: 'Doe' } } },
+          ],
+        },
+      });
+
+      const result = PreApprovalUtil.securityCallDesider('bAuth', 'key', []);
+      expect(result).toBeDefined();
+      expect(store.getState).toHaveBeenCalled();
+    });
+
+    it('should handle "aAuth" type and return a string', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [
+            { stageInfo: { application: { application_reference: '12345' } } },
+          ],
+        },
+      });
+
+      const result = PreApprovalUtil.securityCallDesider('aAuth', 'key', []);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('getBAuth', () => {
+    it('should generate and return a BAuth hash', async () => {
+      jest.spyOn(PreApprovalUtil, 'securityCallDesider').mockReturnValue('securityString');
+      jest.spyOn(PreApprovalUtil, 'getSHA256Hash').mockResolvedValue('hashValue');
+
+      const result = await PreApprovalUtil.getBAuth();
+      expect(result).toEqual('hashValue');
+    });
+  });
+
+  describe('getAckMetaData', () => {
+    it('should return metadata for acknowledgment', () => {
+      process.env.REACT_APP_XRTOB = 'testKey';
+      md5.mockReturnValue('hashedValue');
+      store.getState.mockReturnValue({
+        auth: { sessionUid: 'sessionId' },
+      });
+
+      const result = PreApprovalUtil.getAckMetaData('channelReference');
+      expect(result).toContain('hashedValue');
+      expect(md5).toHaveBeenCalledWith('testKeychannelReference');
+    });
+  });
+
+  describe('getFormConfigPayload', () => {
+    it('should return a sorted payload', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [
+            { stageInfo: { applicants: [{}], products: [{}], application: {} } },
+          ],
+          userInput: { applicants: [{}] },
+        },
+        lovDesc: { lovDesc: [{ label: 'res_city', code_desc: 'CityDesc' }] },
+      });
+
+      const result = PreApprovalUtil.getFormConfigPayload();
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty('applicants');
+      expect(result.applicants).toHaveProperty('adobe_ecid');
+    });
+  });
+
+  describe('generateSecMd', () => {
+    it('should handle valid data and generate metadata', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [
+            { stageInfo: { applicants: { last_name_a_1: 'Doe' } } },
+          ],
+        },
+      });
+
+      const result = PreApprovalUtil.generateSecMd('bAuth', 'key', ['last_name_a_1'], { last_name_a_1: 'Doe' }, []);
+      expect(result).toContain('Doe');
+    });
+
+    it('should handle missing keys gracefully', () => {
+      store.getState.mockReturnValue({
+        stages: {
+          stages: [
+            { stageInfo: { applicants: {} } },
+          ],
+        },
+      });
+
+      const result = PreApprovalUtil.generateSecMd('bAuth', 'key', ['missing_field'], {}, []);
+      expect(result).toBeDefined();
+    });
+  });
+
+  describe('getLovDescriptionFields', () => {
+    it('should return LOV description fields', () => {
+      store.getState.mockReturnValue({
+        lovDesc: { lovDesc: [{ label: 'test', code_desc: 'desc' }] },
+      });
+
+      const result = PreApprovalUtil.getLovDescriptionFields();
+      expect(result).toEqual(['test']);
+    });
+  });
+});
