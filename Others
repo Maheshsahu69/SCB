@@ -97,3 +97,137 @@ payload["lov_desc"] = {};
         "login-type": "prelogin",
       };
     }
+
+
+
+import { PreApprovalUtil } from './preApprovalUtils'; // Adjust the import path
+import { store } from '../../../utils/store/store'; // Adjust the import path
+import { CONSTANTS } from '../../../utils/common/constants'; // Adjust the import path
+
+jest.mock('../../../utils/store/store', () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+
+describe('PreApprovalUtil - getADFormConfigPayload', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should assign lov_desc and handle AD_1 stageId', () => {
+    const mockState = {
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.AD_1,
+            stageInfo: {
+              applicants: [
+                { last_name_a_1: 'Doe', first_name_a_1: 'John', requested_loan_amount_a_1: '1000' },
+              ],
+              application: { channel_reference: '12345', is_save_to_pega: true, page_status: true },
+              products: [{ product_category: 'Loan' }],
+              stage: { stage_status: 'incomplete' },
+            },
+          },
+        ],
+      },
+      lovDesc: {
+        lovDesc: [{ label: 'res_city', code_desc: 'Hong Kong' }],
+      },
+    };
+
+    (store.getState as jest.Mock).mockReturnValue(mockState);
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    // Validate lov_desc assignment
+    expect(result['lov_desc']).toEqual({});
+    // Validate AD_1-specific changes
+    expect(result.application['application_status']).toBe('Success');
+    expect(result.application['authentication_flag']).toBeNull();
+    expect(result.application).not.toHaveProperty('is_save_to_pega');
+    expect(result.application).not.toHaveProperty('page_status');
+  });
+
+  it('should handle AD_1 and ACD_1 stageId correctly', () => {
+    const mockState = {
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.ACD_1,
+            stageInfo: {
+              applicants: [
+                {
+                  last_name_a_1: 'Smith',
+                  first_name_a_1: 'Jane',
+                  res_building_estate_pt_a_1: 'Building A',
+                  requested_loan_amount_a_1: '5000',
+                  mgm_referral_code_a_1: '',
+                },
+              ],
+              application: { channel_reference: '67890' },
+              products: [{ product_category: 'Mortgage' }],
+              stage: { stage_status: 'incomplete' },
+            },
+          },
+        ],
+      },
+      lovDesc: {
+        lovDesc: [
+          { label: 'res_city', code_desc: 'New York' },
+          { label: 'off_city', code_desc: 'Los Angeles' },
+        ],
+      },
+    };
+
+    (store.getState as jest.Mock).mockReturnValue(mockState);
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    // Validate shared changes between AD_1 and ACD_1
+    expect(result['lov_desc']).toBeDefined();
+    expect(result['applicants']['lauth_key']).toBeDefined();
+    expect(result.application['acquisition_channel']).toBe('D');
+    expect(result.application['source_system_name']).toBe('3');
+    expect(result.application['request_id']).toBeNull();
+    expect(result.application).not.toHaveProperty('armcode');
+    expect(result.application['page_wise']).toBe('yes');
+    expect(result.application['version']).toBe('');
+
+    // Validate ACD_1-specific changes
+    expect(result.applicants['currency_pl_a_1']).toBe('HKD');
+    expect(result.applicants['address_match_flag']).toBe('Y');
+    expect(result.applicants['off_building_estate_a_1']).toBe('Building A');
+  });
+
+  it('should handle missing lovDesc and assign defaults', () => {
+    const mockState = {
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.AD_1,
+            stageInfo: {
+              applicants: [
+                { last_name_a_1: 'Doe', first_name_a_1: 'John', requested_loan_amount_a_1: null },
+              ],
+              application: { channel_reference: '12345' },
+              products: [{ product_category: 'Loan' }],
+              stage: { stage_status: 'incomplete' },
+            },
+          },
+        ],
+      },
+      lovDesc: undefined, // Missing lovDesc
+    };
+
+    (store.getState as jest.Mock).mockReturnValue(mockState);
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    // Validate defaults
+    expect(result.applicants['requested_loan_amount_a_1']).toBeNull();
+    expect(result.applicants['product_categories']).toBe('Loan');
+    expect(result['lov_desc']).toEqual({});
+  });
+});
