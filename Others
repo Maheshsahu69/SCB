@@ -96,3 +96,118 @@ payload["lov_desc"] = {};
         "login-type": "prelogin",
       };
     }
+
+
+import { PreApprovalUtil } from './preApprovalUtils';
+import { store } from '../../../utils/store/store';
+
+jest.mock('../../../utils/store/store', () => ({
+  getState: jest.fn(),
+}));
+
+jest.mock('../../dashboard/review-page/review-page.utils', () => ({
+  resAddressEng: jest.fn(() => 'Mocked Address'),
+}));
+
+describe('getADFormConfigPayload', () => {
+  it('should assign lov_desc and handle AD_1 stageId correctly', () => {
+    const mockState = {
+      stages: {
+        stages: [
+          {
+            stageId: 'AD_1',
+            stageInfo: {
+              applicants: [{ last_name_a_1: 'Smith', first_name_a_1: 'John' }],
+              application: {},
+              products: [{ product_category: 'Mortgage' }],
+            },
+          },
+        ],
+      },
+      lovDesc: {
+        lovDesc: [{ label: 'res_city', code_desc: 'Hong Kong' }],
+      },
+    };
+
+    (store.getState as jest.Mock).mockReturnValue(mockState);
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    expect(result.lov_desc).toEqual({});
+    expect(result.application.application_status).toBe('Success');
+    expect(result.application.is_save_to_pega).toBeUndefined();
+    expect(result.application.page_status).toBeUndefined();
+    expect(result.application.acquisition_channel).toBe('D');
+  });
+
+  it('should handle ACD_1 stageId correctly', () => {
+    const mockState = {
+      stages: {
+        stages: [
+          {
+            stageId: 'ACD_1',
+            stageInfo: {
+              applicants: [
+                {
+                  last_name_a_1: 'Doe',
+                  first_name_a_1: 'Jane',
+                  off_building_estate_pt_a_1: 'Building A',
+                },
+              ],
+              application: {},
+              products: [{ product_category: 'Personal Loan' }],
+            },
+          },
+        ],
+      },
+      lovDesc: {
+        lovDesc: [{ label: 'off_city', code_desc: 'Los Angeles' }],
+      },
+    };
+
+    (store.getState as jest.Mock).mockReturnValue(mockState);
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    expect(result.applicants['off_building_estate_a_1']).toBe('Building A');
+    expect(result.applicants['currency_pl_a_1']).toBe('HKD');
+    expect(result.applicants['address_match_flag']).toBe('Y');
+    expect(result.applicants['off_city_desc_a_1']).toBe('Los Angeles');
+  });
+
+  it('should handle FFD_1 stageId correctly', () => {
+    const mockState = {
+      stages: {
+        stages: [
+          {
+            stageId: 'FFD_1',
+            stageInfo: {
+              applicants: [
+                {
+                  last_name_a_1: 'Brown',
+                  first_name_a_1: 'Charlie',
+                  res_building_estate_pt_a_1: 'Estate B',
+                },
+              ],
+              application: {},
+              products: [{ product_category: 'Credit Card' }],
+            },
+          },
+        ],
+      },
+      lovDesc: {
+        lovDesc: [{ label: 'res_city', code_desc: 'San Francisco' }],
+      },
+    };
+
+    (store.getState as jest.Mock).mockReturnValue(mockState);
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    expect(result.applicants['res_building_estate_a_1']).toBe('Estate B');
+    expect(result.application.source_system_name).toBe('3');
+    expect(result.application.request_id).toBeNull();
+    expect(result.application.page_wise).toBe('yes');
+    expect(result.application.version).toBe('');
+  });
+});
