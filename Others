@@ -211,3 +211,158 @@ describe('getADFormConfigPayload', () => {
     expect(result.application.version).toBe('');
   });
 });
+
+
+
+
+
+
+import { store } from "../../../utils/store/store";
+import PreApprovalUtil from "./PreApprovalUtil";
+import { CONSTANTS } from "../../../utils/common/constants";
+import { sortByAscendingOrder } from "../../../services/common-service";
+
+jest.mock("../../../utils/store/store");
+jest.mock("../../../services/common-service");
+
+describe("PreApprovalUtil.getADFormConfigPayload", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should cover the payload modifications for AD_1 stageId", () => {
+    store.getState = jest.fn(() => ({
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.AD_1,
+            stageInfo: {
+              application: {
+                is_save_to_pega: true,
+                page_status: true,
+              },
+              applicants: [
+                {
+                  last_name_a_1: "Doe",
+                  first_name_a_1: "John",
+                  res_building_estate_pt_a_1: "Building A",
+                },
+              ],
+              products: [{ product_category: "Loans" }],
+            },
+          },
+        ],
+        userInput: {
+          applicants: [{ key1: "value1" }],
+        },
+      },
+      lovDesc: {
+        lovDesc: [{ label: "res_city", code_desc: "Hong Kong" }],
+      },
+    }));
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    // Check payload modifications
+    expect(result.application.application_status).toBe("Success");
+    expect(result.application.is_save_to_pega).toBeUndefined();
+    expect(result.application.page_status).toBeUndefined();
+    expect(result.application.acquisition_channel).toBe("D");
+
+    // Check lov_desc and applicants modifications
+    expect(result.lov_desc).toEqual({ res_city_a_1_desc: "Hong Kong" });
+    expect(result.applicants.lauth_key).toContain("res_city_a_1_desc");
+    expect(result.applicants.res_building_estate_a_1).toBe("Building A");
+  });
+
+  it("should cover the payload modifications for ACD_1 stageId", () => {
+    store.getState = jest.fn(() => ({
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.ACD_1,
+            stageInfo: {
+              applicants: [
+                {
+                  last_name_a_1: "Doe",
+                  first_name_a_1: "John",
+                  off_building_estate_pt_a_1: "Building B",
+                },
+              ],
+              application: {
+                journey_type: "NTC",
+              },
+              products: [{ product_category: "Credit" }],
+            },
+          },
+        ],
+        userInput: {
+          applicants: [{ key1: "value1" }],
+        },
+        lovDesc: {
+          lovDesc: [
+            { label: "res_city", code_desc: "Hong Kong" },
+            { label: "off_city", code_desc: "Shanghai" },
+          ],
+        },
+      },
+    }));
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    // Check applicants modifications
+    expect(result.applicants.currency_pl_a_1).toBe("HKD");
+    expect(result.applicants.address_match_flag).toBe("Y");
+    expect(result.applicants.off_building_estate_a_1).toBe("Building B");
+    expect(result.applicants.full_name_a_1).toBe("Doe John");
+
+    // Check lov_desc modifications
+    expect(result.lov_desc).toEqual({
+      res_city_a_1_desc: "Hong Kong",
+      off_city_a_1_desc: "Shanghai",
+    });
+  });
+
+  it("should cover the payload modifications for FFD_1 stageId", () => {
+    store.getState = jest.fn(() => ({
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.FFD_1,
+            stageInfo: {
+              applicants: [
+                {
+                  last_name_a_1: "Doe",
+                  first_name_a_1: "Jane",
+                },
+              ],
+              application: {},
+              products: [{ product_category: "Investments" }],
+            },
+          },
+        ],
+        userInput: {
+          applicants: [{ key1: "value1" }],
+        },
+        lovDesc: {
+          lovDesc: [{ label: "res_city", code_desc: "Tokyo" }],
+        },
+      },
+    }));
+
+    const result = PreApprovalUtil.getADFormConfigPayload();
+
+    // Check application modifications
+    expect(result.application.source_system_name).toBe("3");
+    expect(result.application.request_id).toBeNull();
+    expect(result.application.authentication_flag).toBeNull();
+
+    // Check dedupeList and client payload
+    expect(result.dedupeList).toEqual({});
+    expect(result.client).toEqual({
+      journey: "prelogin_ntc_or_ntp",
+      "auth-type": "manual",
+      "login-type": "prelogin",
+    });
+  });
+});
