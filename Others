@@ -299,3 +299,196 @@ class service {
 const trackEvents = new service();
 
 export default trackEvents;
+
+
+
+
+
+
+
+
+import trackEvents from './service';
+import { store } from "../utils/store/store";
+import { getUrl } from "../utils/common/change.utils";
+
+// Mocking external dependencies
+jest.mock("../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+
+jest.mock("../utils/common/change.utils", () => ({
+  getUrl: {
+    getChannelRefNo: jest.fn(),
+    getParameterByName: jest.fn(),
+  },
+}));
+
+// Mocking `window.adobeDataLayer`
+global.window = Object.create(window);
+global.window.adobeDataLayer = {
+  push: jest.fn(),
+};
+
+// Mock data
+const mockStage = {
+  stages: {
+    userInput: {
+      applicants: {
+        label_a_1: "value1",
+      },
+    },
+    stages: [
+      {
+        stageInfo: {
+          applicants: { profile_id: "12345" },
+          fieldMetaData: {
+            data: {
+              stages: [
+                {
+                  stageId: "stage1",
+                  fields: [
+                    {
+                      logical_field_name: "field1",
+                      rwb_label_name: "Label 1",
+                      lov: "Yes",
+                    },
+                  ],
+                },
+              ],
+            },
+            country: "HK",
+          },
+          products: [
+            {
+              name: "Product 1",
+              product_type: "Type 1",
+              product_category: "SA",
+            },
+          ],
+        },
+      },
+    ],
+    journeyType: "type1",
+  },
+  auth: {
+    SSCode: true,
+  },
+};
+
+describe("Service Class - Unit Tests", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("getFormFieldValue returns correct value", () => {
+    store.getState.mockReturnValue(mockStage);
+    const result = trackEvents.getFormFieldValue("label", mockStage, "No");
+    expect(result).toBe("value1");
+  });
+
+  test("getFormFields returns correct form fields", () => {
+    const result = trackEvents.getFormFields("stage1", mockStage, ["field1"]);
+    expect(result).toEqual([
+      {
+        formFieldValue: "na",
+        formFieldName: "Label 1",
+      },
+    ]);
+  });
+
+  test("getLabelName returns correct label name", () => {
+    const label = trackEvents.getLabelName("Tenor & monthly repayment");
+    expect(label).toBe("Tenor");
+    const defaultLabel = trackEvents.getLabelName("Other Label");
+    expect(defaultLabel).toBe("Other Label");
+  });
+
+  test("triggerAdobeEvent pushes event to adobeDataLayer", () => {
+    getUrl.getChannelRefNo.mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+    store.getState.mockReturnValue(mockStage);
+
+    trackEvents.triggerAdobeEvent("formSubmit");
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "formSubmit",
+        form: expect.objectContaining({
+          refNum: "app456",
+        }),
+      })
+    );
+  });
+
+  test("getProductInfo returns correct product info", () => {
+    const result = trackEvents.getProductInfo(mockStage);
+    expect(result).toEqual([
+      {
+        productInfo: {
+          productName: "Product 1",
+          productID: "Type 1",
+          productCategory: "SA",
+          productSubCategory: "na",
+        },
+      },
+      {
+        formInfo: {
+          formName: "rtob_crossborder",
+          productCategory: "SA",
+          productName: "Product 1",
+        },
+      },
+    ]);
+  });
+
+  test("getAdobeDataLayer returns correct data object", () => {
+    getUrl.getChannelRefNo.mockReturnValue({
+      channelRefNo: "channel123",
+    });
+    getUrl.getParameterByName.mockReturnValue("en");
+
+    const result = trackEvents.getAdobeDataLayer("formSubmit", mockStage, "Step 1");
+    expect(result).toEqual(
+      expect.objectContaining({
+        event: "formSubmit",
+        page: expect.objectContaining({
+          pageInfo: expect.objectContaining({
+            pageType: "form",
+          }),
+        }),
+        form: expect.objectContaining({
+          formStepName: "Step 1",
+        }),
+      })
+    );
+  });
+
+  test("atViewStart pushes event to adobeDataLayer", () => {
+    getUrl.getParameterByName.mockReturnValue("en");
+    store.getState.mockReturnValue(mockStage);
+
+    trackEvents.atViewStart();
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "at-view-start",
+        page: expect.objectContaining({
+          pageInfo: expect.objectContaining({
+            pageName: expect.stringContaining("en"),
+          }),
+        }),
+      })
+    );
+  });
+
+  test("prehideSnippet injects and removes style tag", () => {
+    document.head.innerHTML = "";
+    trackEvents.prehideSnippet();
+    const styleTag = document.getElementById("at-body-style");
+    expect(styleTag).not.toBeNull();
+    jest.advanceTimersByTime(3000);
+    expect(document.getElementById("at-body-style")).toBeNull();
+  });
+});
