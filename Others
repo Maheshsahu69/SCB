@@ -886,3 +886,218 @@ describe("Service Class - Unit Tests", () => {
     expect(document.getElementById("at-body-style")).not.toBeNull();
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+import trackEvents from './track-events';
+import { store } from "../utils/store/store";
+import { getUrl } from "../utils/common/change.utils";
+
+// Mock dependencies
+jest.mock("../utils/store/store", () => ({
+  store: {
+    getState: jest.fn(),
+  },
+}));
+
+jest.mock("../utils/common/change.utils", () => ({
+  getUrl: {
+    getChannelRefNo: jest.fn(),
+  },
+}));
+
+global.window = Object.create(window);
+global.window.adobeDataLayer = {
+  push: jest.fn(),
+};
+
+// Mock data
+const mockStage = {
+  stages: {
+    stages: [
+      {
+        stageInfo: {
+          applicants: { profile_id: "12345" },
+          fieldMetaData: {
+            country: "HK",
+          },
+        },
+        stageId: "rp",
+      },
+    ],
+  },
+  lastAccessed: {
+    fieldFocused: "field1",
+  },
+  error: {
+    errors: [
+      {
+        statusCode: 500,
+        statusText: "Internal Server Error",
+      },
+    ],
+    exceptionList: {
+      errorList: {
+        errors: [
+          {
+            code: "404",
+            detail: "Not Found",
+            error_header: "Header",
+          },
+        ],
+      },
+    },
+  },
+};
+
+describe("triggerAdobeEvent - Full Coverage", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("handles popupViewed event", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    window.adobeDataLayer = [{ event: "formSubmit" }];
+    trackEvents.triggerAdobeEvent("popupViewed", "PopupButton");
+
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "popupViewed",
+        form: expect.objectContaining({
+          popupName: "PopupButton",
+        }),
+      })
+    );
+  });
+
+  test("handles formStart event", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    trackEvents.triggerAdobeEvent("formStart");
+
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "formStart",
+        page: expect.objectContaining({
+          attributes: expect.objectContaining({
+            pfm: expect.anything(),
+          }),
+        }),
+      })
+    );
+  });
+
+  test("handles ctaClick event with Continue button", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    trackEvents.triggerAdobeEvent("ctaClick", "Continue");
+
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "ctaClick",
+        customLinkClick: expect.objectContaining({
+          customLinkText: "Submit", // Changed to Submit because stageId === 'rp'
+        }),
+      })
+    );
+  });
+
+  test("handles formSubmit event", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    window.adobeDataLayer = [];
+    trackEvents.triggerAdobeEvent("formSubmit");
+
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "formSubmit",
+        form: expect.objectContaining({
+          appStatus: "Submitted",
+        }),
+      })
+    );
+  });
+
+  test("handles formAbandonment event", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    window.adobeDataLayer = [];
+    trackEvents.triggerAdobeEvent("formAbandonment", "Cancel");
+
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "formAbandonment",
+        form: expect.objectContaining({
+          formLastAccessedField: "field1",
+        }),
+        customLinkClick: expect.objectContaining({
+          customLinkText: "Cancel",
+        }),
+      })
+    );
+  });
+
+  test("handles formError event", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    trackEvents.triggerAdobeEvent("formError");
+
+    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "formError",
+        error: [
+          expect.objectContaining({
+            errorCode: "500",
+            errorDescription: "Internal Server Error",
+          }),
+        ],
+      })
+    );
+  });
+
+  test("handles default case", () => {
+    (store.getState as jest.Mock).mockReturnValue(mockStage);
+    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
+      channelRefNo: "channel123",
+      applicationRefNo: "app456",
+    });
+
+    trackEvents.triggerAdobeEvent("unknownEvent");
+
+    // Ensure no push is called
+    expect(window.adobeDataLayer.push).not.toHaveBeenCalled();
+  });
+});
