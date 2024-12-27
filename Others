@@ -73,3 +73,68 @@ const Carousel: React.FC<any> = ({
 };
 
 export default Carousel;
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import Carousel from "./Carousel";
+
+const mockImages = [
+  { banner: "image1.jpg", step: "Step 1", stepText: "This is step 1" },
+  { banner: "image2.jpg", step: "Step 2", stepText: "This is step 2" },
+  { banner: "image3.jpg", step: "Step 3", stepText: "This is step 3" },
+  { banner: "image4.jpg", step: "Step 4", stepText: "This is step 4" },
+];
+
+describe("Carousel Component", () => {
+  test("renders carousel component", () => {
+    render(<Carousel image={mockImages} isAutoSlide={false} />);
+    expect(screen.getByAltText("Image 1")).toBeInTheDocument();
+    expect(screen.getByAltText("Image 2")).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  test("navigates to the next image when 'next' button is clicked", () => {
+    render(<Carousel image={mockImages} isAutoSlide={false} />);
+    const nextButton = screen.getByText(">");
+    fireEvent.click(nextButton);
+    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
+    expect(screen.getByAltText("Image 4")).toBeInTheDocument();
+  });
+
+  test("navigates to the previous image when 'previous' button is clicked", () => {
+    render(<Carousel image={mockImages} isAutoSlide={false} />);
+    const prevButton = screen.getByText("<");
+    fireEvent.click(prevButton);
+    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
+    expect(screen.getByAltText("Image 4")).toBeInTheDocument();
+  });
+
+  test("renders dot indicators with active class", () => {
+    render(<Carousel image={mockImages} isAutoSlide={false} />);
+    const dots = screen.getAllByRole("dot");
+    expect(dots).toHaveLength(3);
+    expect(dots[0]).toHaveClass("dot-active");
+  });
+
+  test("auto-slides images every 2 seconds", () => {
+    jest.useFakeTimers();
+    render(<Carousel image={mockImages} isAutoSlide />);
+    jest.advanceTimersByTime(2000);
+    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
+    jest.advanceTimersByTime(2000);
+    expect(screen.getByAltText("Image 1")).toBeInTheDocument();
+    jest.useRealTimers();
+  });
+
+  test("clears interval on component unmount", () => {
+    jest.useFakeTimers();
+    const { unmount } = render(<Carousel image={mockImages} isAutoSlide />);
+    unmount();
+    expect(clearInterval).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+});
+
