@@ -1,203 +1,301 @@
-import { useEffect, useState } from "react";
-import "./carousel.scss";
+import { getUrl } from "../utils/common/change.utils";
+import { store } from "../utils/store/store";
+import { KeyWithAnyModel } from "../utils/model/common-model";
+import { getUserType, getErrorType, loginval, getStepName, getDeviceTypes } from '../utils/adobe/constants';
 
-const Carousel: React.FC<any> = ({
-  image,
-  position,
-  top,
-  left,
-  right,
-  marginTop,
-  marginLeft,
-  isAutoSlide
-}) => {
-  const images = image;
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [moveDot, setMoveDot] = useState(0);
-  const nextImage = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 2) % images.length);
-  };
-  const prevImage = () => {
-    setCurrentIndex(
-      (prevIndex) => (prevIndex - 2 + images.length) % images.length
-    );
-  };
+class service {
 
-  useEffect(()=>{
-    const interval =setInterval(()=>{
-      setCurrentIndex((preIndex) =>(preIndex + 2)% images.length);
-      setMoveDot((prevIndex)=>(prevIndex + 1) % 3);
-    },2000);
-
-    return(()=> clearInterval(interval));
-  },[])
-
-  return (
-    <>
-      <div
-        className="carousel-slide"
-      >
-        <button
-          className="carousel-btn"
-          onClick={prevImage}
-        >
-          {`<`}
-        </button>
-        <img src={image[currentIndex].banner} alt={`Image ${currentIndex + 1}`} />
-        <img src={image[currentIndex+1].banner} alt={`Image ${currentIndex + 1}`} />
-        <button
-          className="carousel-btn"
-          onClick={nextImage}
-        >
-          {`>`}
-        </button>
-      </div>
-      <div className="steps-container">
-      <div className="sub-div1">
-      <div className="image1-div">{image[currentIndex].step}</div>
-      <div className="steptext1-div">{image[currentIndex].stepText}</div>
-      </div>
-      <div className="dot-container">
-        {[0.1,2, 3].map((step, index)=>
-            <span key={index} className={`dot-style ${moveDot===index ? "dot-active":""}`}></span> 
-        )
+    getFormFieldValue = (labelName: string, stage: KeyWithAnyModel, lov: string) => {
+        let finalValue = 'na';
+        let stageApplicant = labelName.concat('_a_1')
+        let value = (stage.stages.userInput && stage.stages.userInput.applicants) ? stage.stages.userInput.applicants[stageApplicant] : null;
+        if (!value) {
+            value = (stage.stages.stages[0].stageInfo.applicants) ? stage.stages.stages[0].stageInfo.applicants[stageApplicant] : null;
         }
-      </div>
-      <div className="sub-div2">
-      <div className="image2-div">{image[currentIndex +1].step}</div>
-      <div className="steptext2-div">{image[currentIndex +1].stepText}</div>
-      </div>
-      </div>
-    </>
-  );
-};
+        if (value) {
+            if (lov === 'Yes') {
+                const lovData = stage.lov.lov;
+                if (lovData) {
+                    const lovValues = lovData.find((lovs: KeyWithAnyModel) => lovs.label === labelName);
+                    if (lovValues) {
+                        const lovValue = lovValues.value.find((lov: KeyWithAnyModel) => lov.CODE_VALUE === value)
+                        if (lovValue) {
+                            finalValue = lovValue.CODE_DESC;
+                        }
+                    }
+                }
+            } else if (lov === 'No') {
+                finalValue = value;
+            }
 
-export default Carousel;
+        }
+        return finalValue;
+    }
 
+    getFormFields(stageId: string, stage: KeyWithAnyModel, logicalNames: Array<string>){
+        let formFields: Array<{}> = [];
+        logicalNames.forEach(logicalName => {
+            const currentStage = stage.stages.stages[0].stageInfo.fieldMetaData.data.stages.find((stage : KeyWithAnyModel) => stage.stageId === stageId);
+            if(currentStage){
+               const field = currentStage.fields.find( (field : KeyWithAnyModel) => field.logical_field_name === logicalName)
+                if(field){
+                    formFields.push({
+                        formFieldValue : this.getFormFieldValue(logicalName, stage, field.lov),
+                        formFieldName : this.getLabelName(field.rwb_label_name)
+                    })
+                }
+            }
+        })
+        return formFields ;
+    }
 
-
-
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import Carousel from "./Carousel";
-
-const mockImages = [
-  { banner: "image1.jpg", step: "Step 1", stepText: "This is step 1" },
-  { banner: "image2.jpg", step: "Step 2", stepText: "This is step 2" },
-  { banner: "image3.jpg", step: "Step 3", stepText: "This is step 3" },
-  { banner: "image4.jpg", step: "Step 4", stepText: "This is step 4" },
-];
-
-describe("Carousel Component", () => {
-  test("renders carousel component", () => {
-    render(<Carousel image={mockImages} isAutoSlide={false} />);
-    expect(screen.getByAltText("Image 1")).toBeInTheDocument();
-    expect(screen.getByAltText("Image 2")).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(2);
-  });
-
-  test("navigates to the next image when 'next' button is clicked", () => {
-    render(<Carousel image={mockImages} isAutoSlide={false} />);
-    const nextButton = screen.getByText(">");
-    fireEvent.click(nextButton);
-    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
-    expect(screen.getByAltText("Image 4")).toBeInTheDocument();
-  });
-
-  test("navigates to the previous image when 'previous' button is clicked", () => {
-    render(<Carousel image={mockImages} isAutoSlide={false} />);
-    const prevButton = screen.getByText("<");
-    fireEvent.click(prevButton);
-    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
-    expect(screen.getByAltText("Image 4")).toBeInTheDocument();
-  });
-
-  test("renders dot indicators with active class", () => {
-    render(<Carousel image={mockImages} isAutoSlide={false} />);
-    const dots = screen.getAllByRole("dot");
-    expect(dots).toHaveLength(3);
-    expect(dots[0]).toHaveClass("dot-active");
-  });
-
-  test("auto-slides images every 2 seconds", () => {
-    jest.useFakeTimers();
-    render(<Carousel image={mockImages} isAutoSlide />);
-    jest.advanceTimersByTime(2000);
-    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
-    jest.advanceTimersByTime(2000);
-    expect(screen.getByAltText("Image 1")).toBeInTheDocument();
-    jest.useRealTimers();
-  });
-
-  test("clears interval on component unmount", () => {
-    jest.useFakeTimers();
-    const { unmount } = render(<Carousel image={mockImages} isAutoSlide />);
-    unmount();
-    expect(clearInterval).toHaveBeenCalled();
-    jest.useRealTimers();
-  });
-});
+    getLabelName(label: string) {
+        switch (label) {
+            case 'Tenor & monthly repayment': {
+                return 'Tenor';
+            }
+            default: {
+                return label;
+            }
+        }
+    }
 
 
+    triggerAdobeEvent = (eventName: string, buttonName?: string, docResponse?: KeyWithAnyModel, errType?: string) => {
+        const stage = store.getState();
+        const channelRef = getUrl.getChannelRefNo().channelRefNo;
+        const appRefNo = getUrl.getChannelRefNo().applicationRefNo;
+        if (stage && stage.stages && stage.stages.stages && stage.stages.stages.length > 0 && stage.stages.stages[0].stageInfo) {
+            let stepName = getStepName(stage);
+            let dataLayer: KeyWithAnyModel = this.getAdobeDataLayer(eventName, stage, stepName);
+            if (eventName !== 'popupViewed') {
+                dataLayer.form.channelRefNum = channelRef ? channelRef : 'na'
+            }
 
+            if (eventName !== 'formStart' && eventName !== 'popupViewed') {
+                dataLayer.form.refNum = appRefNo;
+                // dataLayer.form.cosReferenceID = 'na';
+            }
+            if (eventName !== 'formStart' && eventName !== 'popupViewed' && eventName !== 'formStepCompletions' && eventName !== 'formSubmit' && eventName !== 'formAbandonment' && eventName !== 'formError') {
+                dataLayer.form.formFields = [
+                    {
+                        formFieldValue: 'na',
+                        formFieldName: 'na'
+                    }]
+            }
+            if (eventName === 'pageView') {
+                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
+                dataLayer.form.formFields = [
+                    {
+                        formFieldValue: 'na',
+                        formFieldName: 'na'
+                    }];
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'formStart') {
+                dataLayer.page.attributes.pfm = loginval();
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'ctaClick') {
+                // const popupName = errType;
+                if (buttonName === 'Continue') {
+                    const stageId = stage.stages.stages[0].stageId;
+                    // if (stageId !== 'doc') {
+                    //     dataLayer.form.formFields = this.getFormFieldsByScreenName(stage)
+                    // } else if (stageId === 'doc' && docResponse) {
+                    //     dataLayer.form.formFields = this.documentList(docResponse);
+                    // }
+                    if (stageId === 'rp') {
+                        buttonName = 'Submit';
+                    }
+                }
+                // dataLayer.form.formFields = [
+                //     {
+                //         formFieldValue: 'na',
+                //         formFieldName: 'na'
+                //     }]
+                dataLayer.customLinkClick = {
+                    'customLinkText': buttonName,
+                    'customLinkPosition': buttonName === 'Login' ? 'top' : 'bottom',
+                    'customLinkType': 'button'
+                }
+                // if(popupName){
+                //     dataLayer.form.popupName = popupName;
+                // }
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'formStepCompletions') {
+                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
+                dataLayer.form.formFields = [
+                    {
+                        formFieldValue: 'na',
+                        formFieldName: 'na'
+                    }];
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'formSubmit' && !window.adobeDataLayer.find((eachEvent: KeyWithAnyModel) => eachEvent.event === 'formSubmit')) {
+                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
+                dataLayer.form.appStatus = 'Submitted';
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'formAbandonment' && !window.adobeDataLayer.find((eachEvent: KeyWithAnyModel) => ( eachEvent.event === 'formSubmit' || eachEvent.event === 'formAbandonment'))) {
+                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
+                dataLayer.form.formLastAccessedField = stage.lastAccessed.fieldFocused ? stage.lastAccessed.fieldFocused : 'na';
+                dataLayer.form.formFields = [
+                    {
+                        formFieldValue: 'na',
+                        formFieldName: 'na'
+                    }];
+                dataLayer.customLinkClick = {
+                    'customLinkText': buttonName,
+                    'customLinkPosition': buttonName === 'Login' ? 'top' : 'bottom',
+                    'customLinkType': 'button'
+                }
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'formError') {
+                const error = store.getState().error.errors;
+                const exception: KeyWithAnyModel = store.getState().error.exceptionList;
+                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
+                if (error.length > 0) {
+                    dataLayer.error = [{
+                        errorCode: error[0].statusCode ? error[0].statusCode : exception[0].error_type ? exception[0].error_type : 'na',
+                        errorField: stepName,
+                        errorDescription: error[0].statusText ? error[0].statusText : exception[0].status ? exception[0].status : 'na'
+                    }]
+                } 
+                else if(exception && exception.errorList && exception.errorList.errors && exception.errorList.errors.length > 0){
+                    dataLayer.error = [{
+                        errorCode: exception.errorList.errors[0].code ? exception.errorList.errors[0].code : 'na',
+                        errorField: stepName,
+                        errorDescription: exception.errorList.errors[0].detail ? exception.errorList.errors[0].detail : exception.error_header
+                    }]
+                }  else {
+                    dataLayer.error = [{
+                        errorCode: 'na',
+                        errorField: stepName,
+                        errorDescription: 'na'
+                    }]
+                }
+                window.adobeDataLayer.push(dataLayer);
+            }
+            else if (eventName === 'popupViewed') {
+                const lastEvent: KeyWithAnyModel =  window.adobeDataLayer[window.adobeDataLayer.length-1];
+                if (!lastEvent || (lastEvent && lastEvent.event !== 'popupViewed')) {
+                    dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
+                    dataLayer.form.popupName = buttonName ? buttonName : 'na'
+                    window.adobeDataLayer.push(dataLayer);
+                }
+            }           
+    }
+}
 
+    getProductInfo = (stage: KeyWithAnyModel) => {
+        let info: Array<{}> = [];
+        let formName = '';
+        let productCategory = '';
+        let productName = '';
+        const products = stage.stages.stages[0].stageInfo.products;
+        products.forEach((product: KeyWithAnyModel) => {
+            const formNameCheck = product.product_category === 'SA' ? 'rtob_crossborder' : 'na';
+        info.push({
+                productInfo: {
+                    productName: product.name,
+                    productID: product.product_type,
+                    productCategory: product.product_category,
+                    productSubCategory: 'na',
+                }
+            });
+            info.push({
+                formInfo: {
+                        formName : formName ? (formName + '|' + formNameCheck) : formNameCheck,
+                        productCategory : productCategory ? (productCategory + '|' + product.product_category) : product.product_category,
+                      productName : productName ? (productName + '|' + product.name) : product.name
+                }
+            })
+        });
 
+    return info;
+ }      
 
+    getAdobeDataLayer = (eventName: string, stage: KeyWithAnyModel, stepName: string|undefined) => {
+        const product = this.getProductInfo(stage);
+        const formInfo: KeyWithAnyModel = product[1]
+        const channelRef = getUrl.getChannelRefNo().channelRefNo;
+        const language = getUrl.getParameterByName("lang");
+        const country = stage.stages.stages[0].stageInfo.fieldMetaData.country;
+        const Curreny = language === "zh-HK" ? "HK$" : "HKD";
+        const market = 'hk';
+        let dataObject = {
+            event: eventName,
+            page: {
+                pageInfo: {
+                    pageType: 'form',
+                    pageName: market + ':' + language + ':web:wealth:cross border:greater bay area banking:GBA Southbound wealth management connect service' + (stepName === "start application process"? ':na' :  ( ':' + formInfo.formInfo.formName)) + ':' + stepName,
+                    buildDetails: `${process.env.REACT_APP_ADOBE_BUILD_DETAILS}`,
+                    libDetails: `${process.env.REACT_APP_ADOBE_LIB_DETAILS}`
+                },
+                category: {
+                    primaryCategory: formInfo.formInfo.productCategory,
+                    subCategory1: 'na'
+                },
+                attributes: {
+                    country: country,
+                    language: language,
+                    currency: Curreny,
+                    platform: getDeviceTypes(),
+                    pfm: loginval()
+                },
+            },
+            form: {
+                formName: formInfo.formInfo.formName,
+                formStepName: stepName,
+                formPlatform: 'rtob',
+                formType: 'application',
+                channelRefNum: channelRef ? channelRef : 'na',
+                cosReferenceID: 'na'
+            },
+            user: {
+                "userInfo": {
+                    userID: ( stage.stages.stages[0].stageInfo.applicants && stage.stages.stages[0].stageInfo.applicants.profile_id ) ? stage.stages.stages[0].stageInfo.applicants.profile_id : 'na',
+                    userType: stage.stages.journeyType ? getUserType(stage.stages.journeyType) : 'na',
+                    loginStatus: (stage.auth && stage.auth.SSCode) ? 'logged-in' : 'not logged-in',
+                    segment: 'wealth'
+                }
+            },
+            product: [product[0]]
+        };
+        return dataObject;
+}
 
+    atViewStart = () => {
+        const language = getUrl.getParameterByName("lang");
+        const market = 'hk';
+        this.prehideSnippet();
+        const stage = store.getState();
+        if (stage && stage.stages.stages && stage.stages.stages.length > 0 && stage.stages.stages[0].stageInfo) {
+           let formInfo: KeyWithAnyModel = this.getProductInfo(stage)[1];
+           const stepName = getStepName(stage);
+            window.adobeDataLayer.push({
+                "event": "at-view-start",
+                "page": {
+                    "pageInfo": {
+                        "pageName": market + ':' + language + ':web:wealth:cross border:greater bay area banking:GBA Southbound wealth management connect service' + (stepName === "start application process"? ':na' :  ( ':' + formInfo.formInfo.formName)) + ':' + stepName,
+                        "viewName": stepName,
+                        "primaryCategory": formInfo.formInfo.productCategory,
+                        "subCategory1": "na"
+                    }
+                }
+            });
+        }
+    }
 
+    prehideSnippet = () => {
+        (function (g, b, d, f) { (function (a, c, d) { if (a) { var e = b.createElement("style"); e.id = c; e.innerHTML = d; a.appendChild(e) } })(b.getElementsByTagName("head")[0], "at-body-style", d); setTimeout(function () { var a = b.getElementsByTagName("head")[0]; if (a) { var c = b.getElementById("at-body-style"); c && a.removeChild(c) } }, f) }(window, document, "body{opacity: 1 !important}", 3E3));
+    }
 
+}
 
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import Carousel from "./Carousel";
+const trackEvents = new service();
 
-const mockImages = [
-  { banner: "image1.jpg", step: "Step 1", stepText: "This is step 1" },
-  { banner: "image2.jpg", step: "Step 2", stepText: "This is step 2" },
-  { banner: "image3.jpg", step: "Step 3", stepText: "This is step 3" },
-  { banner: "image4.jpg", step: "Step 4", stepText: "This is step 4" },
-];
-
-describe("Carousel Component - useEffect functionality", () => {
-  beforeEach(() => {
-    jest.useFakeTimers(); // Enable fake timers
-  });
-
-  afterEach(() => {
-    jest.useRealTimers(); // Restore real timers
-  });
-
-  test("auto-slides images every 2 seconds when isAutoSlide is true", () => {
-    render(<Carousel image={mockImages} isAutoSlide />);
-
-    // Initially, the first two images should be visible
-    expect(screen.getByAltText("Image 1")).toBeInTheDocument();
-    expect(screen.getByAltText("Image 2")).toBeInTheDocument();
-
-    // Advance the timer by 2 seconds (simulate the interval)
-    jest.advanceTimersByTime(2000);
-
-    // The carousel should show the next set of images
-    expect(screen.getByAltText("Image 3")).toBeInTheDocument();
-    expect(screen.getByAltText("Image 4")).toBeInTheDocument();
-
-    // Advance the timer by another 2 seconds
-    jest.advanceTimersByTime(2000);
-
-    // The carousel should loop back to the start
-    expect(screen.getByAltText("Image 1")).toBeInTheDocument();
-    expect(screen.getByAltText("Image 2")).toBeInTheDocument();
-  });
-
-  test("clears the interval on component unmount", () => {
-    const clearIntervalSpy = jest.spyOn(global, "clearInterval"); // Mock clearInterval
-
-    const { unmount } = render(<Carousel image={mockImages} isAutoSlide />);
-    unmount(); // Unmount the component
-
-    // Verify that clearInterval was called
-    expect(clearIntervalSpy).toHaveBeenCalled();
-
-    clearIntervalSpy.mockRestore(); // Restore original clearInterval
-  });
-});
+export default trackEvents;
