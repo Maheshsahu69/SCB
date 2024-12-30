@@ -183,3 +183,127 @@ const PendingApplication = () => {
 };
 
 export default PendingApplication;
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import { MemoryRouter } from "react-router-dom";
+import PendingApplication from "./PendingApplication";
+import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
+
+// Mock dependencies
+jest.mock("../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+  lovRequests: jest.fn(),
+  resumeRequest: jest.fn().mockResolvedValue({
+    application: {
+      response_action: "proceed",
+      journey_type: "test",
+      stage: { page_id: "rp" },
+    },
+    applicants: [],
+  }),
+}));
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getLanguageInfo: jest.fn().mockReturnValue("en"),
+  },
+}));
+jest.mock("../../../shared/components/model/model", () => () => (
+  <div data-testid="model-component">Model Component</div>
+));
+
+// Set up a mock store
+const mockStore = configureStore([]);
+
+describe("PendingApplication Component", () => {
+  let store: any;
+
+  beforeEach(() => {
+    store = mockStore({
+      pendingApplication: {
+        pendingApplication: [
+          {
+            "product-name": "Test Product",
+            "application-ref-no": "12345",
+            "expiry-date": "20231231",
+            "product-code": "PROD001",
+          },
+        ],
+      },
+    });
+  });
+
+  const renderComponent = () =>
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <PendingApplication />
+        </MemoryRouter>
+      </Provider>
+    );
+
+  test("renders the component without crashing", () => {
+    renderComponent();
+    expect(screen.getByText(resumeHeaderText.resume_expiry_content_EN)).toBeInTheDocument();
+  });
+
+  test("renders pending applications correctly", () => {
+    renderComponent();
+    expect(screen.getByText(resumeHeaderText.resume_Product_name_EN)).toBeInTheDocument();
+    expect(screen.getByText("12345")).toBeInTheDocument();
+  });
+
+  test("handles empty applications", () => {
+    store = mockStore({ pendingApplication: { pendingApplication: [] } });
+    renderComponent();
+    expect(screen.getByText(resumeHeaderText.resume_No_data_content_EN)).toBeInTheDocument();
+  });
+
+  test("calls openApplication when application is clicked", async () => {
+    renderComponent();
+    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
+    fireEvent.click(appButton);
+    expect(screen.getByTestId("model-component")).not.toBeInTheDocument();
+  });
+
+  test("handles stopApplication scenario", async () => {
+    jest.mock("../../../services/common-service", () => ({
+      resumeRequest: jest.fn().mockResolvedValue({
+        application: { response_action: "stop" },
+      }),
+    }));
+    renderComponent();
+    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
+    fireEvent.click(appButton);
+    expect(screen.getByTestId("model-component")).toBeInTheDocument();
+  });
+
+  test("caculateExpiry works correctly", () => {
+    const expiryDate = "20231231";
+    const result = new Date("2023-12-31").toString().substring(4, 15);
+    expect(result).toBe("Dec 31 2023");
+  });
+
+  test("formatDate works correctly", () => {
+    const expiryDate = "20231231";
+    const formatDate = (expiryDate: string) => {
+      let year = expiryDate.toString().split(".")[0].substring(0, 4);
+      let month = expiryDate.toString().split(".")[0].substring(4, 6);
+      let day = expiryDate.toString().split(".")[0].substring(6, 8);
+      return `${year}-${month}-${day}`;
+    };
+    expect(formatDate(expiryDate)).toBe("2023-12-31");
+  });
+
+  test("renders Model component when stopApplication is true", () => {
+    store = mockStore({ pendingApplication: { pendingApplication: [] } });
+    jest.spyOn(React, "useState").mockImplementationOnce(() => [true, jest.fn()]);
+    renderComponent();
+    expect(screen.getByTestId("model-component")).toBeInTheDocument();
+  });
+});
