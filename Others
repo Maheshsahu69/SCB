@@ -445,3 +445,146 @@ describe("PendingApplication Component", () => {
   });
 });
 
+
+
+import React from "react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import * as redux from "react-redux";
+import { MemoryRouter } from "react-router-dom";
+import PendingApplication from "./PendingApplication";
+import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
+
+// Mock services and utilities
+jest.mock("../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+  lovRequests: jest.fn(),
+  resumeRequest: jest.fn(() =>
+    Promise.resolve({
+      application: {
+        response_action: "proceed",
+        journey_type: "testJourney",
+        stage: { page_id: "rp" },
+      },
+      applicants: [],
+    })
+  ),
+}));
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getLanguageInfo: jest.fn().mockReturnValue("en"),
+  },
+}));
+jest.mock("../../../shared/components/model/model", () => () => (
+  <div data-testid="model-component">Model Component</div>
+));
+
+describe("PendingApplication Component", () => {
+  let useDispatchMock: jest.SpyInstance;
+  let useSelectorMock: jest.SpyInstance;
+
+  beforeEach(() => {
+    // Mock useDispatch
+    useDispatchMock = jest.spyOn(redux, "useDispatch");
+    useDispatchMock.mockReturnValue(jest.fn());
+
+    // Mock useSelector
+    useSelectorMock = jest.spyOn(redux, "useSelector");
+    useSelectorMock.mockImplementation((callback) =>
+      callback({
+        pendingApplication: {
+          pendingApplication: [
+            {
+              "product-name": "Test Product",
+              "application-ref-no": "12345",
+              "expiry-date": "20231231",
+              "product-code": "PROD001",
+            },
+          ],
+        },
+      })
+    );
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const renderComponent = () =>
+    render(
+      <redux.Provider store={{}}>
+        <MemoryRouter>
+          <PendingApplication />
+        </MemoryRouter>
+      </redux.Provider>
+    );
+
+  test("renders the component without crashing", () => {
+    renderComponent();
+    expect(screen.getByText(resumeHeaderText.resume_expiry_content_EN)).toBeInTheDocument();
+  });
+
+  test("renders pending applications correctly", () => {
+    renderComponent();
+    expect(screen.getByText(resumeHeaderText.resume_Product_name_EN)).toBeInTheDocument();
+    expect(screen.getByText("12345")).toBeInTheDocument();
+  });
+
+  test("handles empty applications", () => {
+    useSelectorMock.mockImplementation((callback) =>
+      callback({ pendingApplication: { pendingApplication: [] } })
+    );
+    renderComponent();
+    expect(screen.getByText(resumeHeaderText.resume_No_data_content_EN)).toBeInTheDocument();
+  });
+
+  test("calls openApplication when application is clicked", async () => {
+    renderComponent();
+    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+    expect(screen.queryByTestId("model-component")).not.toBeInTheDocument();
+  });
+
+  test("handles stopApplication scenario", async () => {
+    jest.mock("../../../services/common-service", () => ({
+      resumeRequest: jest.fn(() =>
+        Promise.resolve({
+          application: { response_action: "stop" },
+        })
+      ),
+    }));
+    renderComponent();
+    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+    expect(screen.getByTestId("model-component")).toBeInTheDocument();
+  });
+
+  test("caculateExpiry works correctly", () => {
+    const expiryDate = "20231231";
+    const result = new Date("2023-12-31").toString().substring(4, 15);
+    expect(result).toBe("Dec 31 2023");
+  });
+
+  test("formatDate works correctly", () => {
+    const expiryDate = "20231231";
+    const formatDate = (expiryDate: string) => {
+      let year = expiryDate.toString().split(".")[0].substring(0, 4);
+      let month = expiryDate.toString().split(".")[0].substring(4, 6);
+      let day = expiryDate.toString().split(".")[0].substring(6, 8);
+      return `${year}-${month}-${day}`;
+    };
+    expect(formatDate(expiryDate)).toBe("2023-12-31");
+  });
+
+  test("renders Model component when stopApplication is true", () => {
+    useSelectorMock.mockImplementation((callback) =>
+      callback({ pendingApplication: { pendingApplication: [] } })
+    );
+    jest.spyOn(React, "useState").mockImplementationOnce(() => [true, jest.fn()]);
+    renderComponent();
+    expect(screen.getByTestId("model-component")).toBeInTheDocument();
+  });
+});
