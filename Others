@@ -1,1103 +1,185 @@
-triggerAdobeEvent = (eventName: string, buttonName?: string, docResponse?: KeyWithAnyModel, errType?: string) => {
-        const stage = store.getState();
-        const channelRef = getUrl.getChannelRefNo().channelRefNo;
-        const appRefNo = getUrl.getChannelRefNo().applicationRefNo;
-        if (stage && stage.stages && stage.stages.stages && stage.stages.stages.length > 0 && stage.stages.stages[0].stageInfo) {
-            let stepName = getStepName(stage);
-            let dataLayer: KeyWithAnyModel = this.getAdobeDataLayer(eventName, stage, stepName);
-            /* istanbul ignore else */
-            if (eventName !== 'popupViewed') {
-                dataLayer.form.channelRefNum = channelRef ? channelRef : 'na'
-            }
-             /* istanbul ignore else */
-            if (eventName !== 'formStart' && eventName !== 'popupViewed') {
-                dataLayer.form.refNum = appRefNo;
-            }
-             /* istanbul ignore else */
-            Iif (eventName !== 'formStart' && eventName !== 'popupViewed' && eventName !== 'formStepCompletions' && eventName !== 'formSubmit' && eventName !== 'formAbandonment' && eventName !== 'formError') {
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }]
-            }
-            Iif (eventName === 'pageView') {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }];
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else Iif (eventName === 'formStart') {
-                dataLayer.page.attributes.pfm = loginval();
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else Iif (eventName === 'ctaClick') {
-                 /* istanbul ignore else */
-                Iif (buttonName === 'Continue') {
-                    const stageId = stage.stages.stages[0].stageId;
-                     /* istanbul ignore else */
-                    Iif (stageId === 'rp') {
-                        buttonName = 'Submit';
-                    }
-                }
-                dataLayer.customLinkClick = {
-                    'customLinkText': buttonName,
-                    'customLinkPosition': buttonName === 'Login' ? 'top' : 'bottom',
-                    'customLinkType': 'button'
-                }
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else Iif (eventName === 'formStepCompletions') {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }];
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'formSubmit' && !window?.adobeDataLayer?.find((eachEvent: KeyWithAnyModel) => eachEvent.event === 'formSubmit')) {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.appStatus = 'Submitted';
-                window?.adobeDataLayer?.push(dataLayer);
-            }
-            else Eif (eventName === 'formAbandonment' && !window.adobeDataLayer.find((eachEvent: KeyWithAnyModel) => ( eachEvent.event === 'formSubmit' || eachEvent.event === 'formAbandonment'))) {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.formLastAccessedField = stage.lastAccessed.fieldFocused ? stage.lastAccessed.fieldFocused : 'na';
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }];
-                dataLayer.customLinkClick = {
-                    'customLinkText': buttonName,
-                    'customLinkPosition': buttonName === 'Login' ? 'top' : 'bottom',
-                    'customLinkType': 'button'
-                }
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'formError') {
-                const error = store.getState().error.errors;
-                const exception: KeyWithAnyModel = store.getState().error.exceptionList;
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                if (error.length > 0) {
-                    dataLayer.error = [{
-                        errorCode: error[0].statusCode ? error[0].statusCode : exception[0].error_type ? exception[0].error_type : 'na',
-                        errorField: stepName,
-                        errorDescription: error[0].statusText ? error[0].statusText : exception[0].status ? exception[0].status : 'na'
-                    }]
-                } 
-                else if(exception && exception.errorList && exception.errorList.errors && exception.errorList.errors.length > 0){
-                    dataLayer.error = [{
-                        errorCode: exception.errorList.errors[0].code ? exception.errorList.errors[0].code : 'na',
-                        errorField: stepName,
-                        errorDescription: exception.errorList.errors[0].detail ? exception.errorList.errors[0].detail : exception.error_header
-                    }]
-                }  else {
-                    dataLayer.error = [{
-                        errorCode: 'na',
-                        errorField: stepName,
-                        errorDescription: 'na'
-                    }]
-                }
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'popupViewed') {
-                const lastEvent: KeyWithAnyModel =  window.adobeDataLayer[window.adobeDataLayer.length-1];
-                 /* istanbul ignore else */
-                Iif (!lastEvent || (lastEvent && lastEvent.event !== 'popupViewed')) {
-                    dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                    dataLayer.form.popupName = buttonName ? buttonName : 'na'
-                    window.adobeDataLayer.push(dataLayer);
-                }
-            }           
-    }
-}
+import "./pending-resume-application.scss";
+import {
+  dispatchLoader,
+  lovRequests,
+  resumeRequest,
+} from "../../../services/common-service";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
+import Header from "../../dashboard/header/header";
+import LeftSideBar from "../../dashboard/left-sidebar/left-sidebar";
+import { StoreModel } from "../../../utils/model/common-model";
+import { useNavigate } from "react-router";
+import { urlParamAction } from "../../../utils/store/urlparam-slice";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
+import { getUrl } from "../../../utils/common/change.utils";
+// import { getLovMissing } from "../fields/fields.utils";
+import Model from "../../../shared/components/model/model";
+
+const PendingApplication = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [emptyApplication, setEmptyApplication] = useState(false);
+  const [stopApplication, setStopApplication] = useState(false);
+  // const lovSelector = useSelector((state: StoreModel) => state.lov);
+  const pendingApplicationSelector = useSelector(
+    (state: StoreModel) => state. pendingApplication
+  );
+  const [pendingApplicationsFormatted, setPendingApplicationsFormatted] =
+    useState<any>([]);
+    const language = getUrl.getLanguageInfo("lang");
 
 
-
-
-
-
-
-
-
-
-
-import { getUrl } from "../utils/common/change.utils";
-import { store } from "../utils/store/store";
-import { KeyWithAnyModel } from "../utils/model/common-model";
-import { getUserType, getErrorType, loginval, getStepName, getDeviceTypes } from '../utils/adobe/constants';
-
-class service {
-
-    getFormFieldValue = (labelName: string, stage: KeyWithAnyModel, lov: string) => {
-        let finalValue = 'na';
-        let stageApplicant = labelName.concat('_a_1')
-        let value = (stage.stages.userInput && stage.stages.userInput.applicants) ? stage.stages.userInput.applicants[stageApplicant] : null;
-        if (!value) {
-            value = (stage.stages.stages[0].stageInfo.applicants) ? stage.stages.stages[0].stageInfo.applicants[stageApplicant] : null;
-        }
-        if (value) {
-            if (lov === 'Yes') {
-                const lovData = stage.lov.lov;
-                {}
-                if (lovData) {
-                    const lovValues = lovData.find((lovs: KeyWithAnyModel) => lovs.label === labelName);
-                    if (lovValues) {
-                        const lovValue = lovValues.value.find((lov: KeyWithAnyModel) => lov.CODE_VALUE === value)
-                        if (lovValue) {
-                            finalValue = lovValue.CODE_DESC;
-                        }
-                    }
-                }
-            } else if (lov === 'No') {
-                finalValue = value;
-            }
-
-        }
-        return finalValue;
+  useEffect(() => {
+    dispatch(dispatchLoader(false));
+    if (
+      pendingApplicationSelector &&
+      pendingApplicationSelector.pendingApplication &&
+      pendingApplicationSelector.pendingApplication.length > 0
+    ) {
+      const pendingApplicationNumbers =
+        pendingApplicationSelector.pendingApplication.map(
+          (application: any) => ({
+            ProductName: application['product-name'],
+            ApplicationRefNo: application['application-ref-no'],
+            ExpiryDate: caculateExpiry(application['expiry-date']),
+            ProductCode: application['product-code']
+          })
+        );
+      setEmptyApplication(false);
+      setPendingApplicationsFormatted(pendingApplicationNumbers);
+    } else {
+      setEmptyApplication(true);
+      setPendingApplicationsFormatted([]);
     }
 
-    getFormFields(stageId: string, stage: KeyWithAnyModel, logicalNames: Array<string>){
-        let formFields: Array<{}> = [];
-        logicalNames.forEach(logicalName => {
-            const currentStage = stage.stages.stages[0].stageInfo.fieldMetaData.data.stages.find((stage : KeyWithAnyModel) => stage.stageId === stageId);
-           /* istanbul ignore else */
-            if(currentStage){
-               const field = currentStage.fields.find( (field : KeyWithAnyModel) => field.logical_field_name === logicalName)
-            /* istanbul ignore else */
-                if(field){
-                    formFields.push({
-                        formFieldValue : this.getFormFieldValue(logicalName, stage, field.lov),
-                        formFieldName : this.getLabelName(field.rwb_label_name)
-                    })
-                }
-            }
-        })
-        return formFields ;
-    }
-
-    getLabelName(label: string) {
-        switch (label) {
-            case 'Tenor & monthly repayment': {
-                return 'Tenor';
-            }
-            default: {
-                return label;
-            }
-        }
-    }
-
-
-    triggerAdobeEvent = (eventName: string, buttonName?: string, docResponse?: KeyWithAnyModel, errType?: string) => {
-        const stage = store.getState();
-        const channelRef = getUrl.getChannelRefNo().channelRefNo;
-        const appRefNo = getUrl.getChannelRefNo().applicationRefNo;
-        if (stage && stage.stages && stage.stages.stages && stage.stages.stages.length > 0 && stage.stages.stages[0].stageInfo) {
-            let stepName = getStepName(stage);
-            let dataLayer: KeyWithAnyModel = this.getAdobeDataLayer(eventName, stage, stepName);
-            /* istanbul ignore else */
-            if (eventName !== 'popupViewed') {
-                dataLayer.form.channelRefNum = channelRef ? channelRef : 'na'
-            }
-             /* istanbul ignore else */
-            if (eventName !== 'formStart' && eventName !== 'popupViewed') {
-                dataLayer.form.refNum = appRefNo;
-            }
-             /* istanbul ignore else */
-            if (eventName !== 'formStart' && eventName !== 'popupViewed' && eventName !== 'formStepCompletions' && eventName !== 'formSubmit' && eventName !== 'formAbandonment' && eventName !== 'formError') {
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }]
-            }
-            if (eventName === 'pageView') {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }];
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'formStart') {
-                dataLayer.page.attributes.pfm = loginval();
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'ctaClick') {
-                 /* istanbul ignore else */
-                if (buttonName === 'Continue') {
-                    const stageId = stage.stages.stages[0].stageId;
-                     /* istanbul ignore else */
-                    if (stageId === 'rp') {
-                        buttonName = 'Submit';
-                    }
-                }
-                dataLayer.customLinkClick = {
-                    'customLinkText': buttonName,
-                    'customLinkPosition': buttonName === 'Login' ? 'top' : 'bottom',
-                    'customLinkType': 'button'
-                }
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'formStepCompletions') {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }];
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'formSubmit' && !window?.adobeDataLayer?.find((eachEvent: KeyWithAnyModel) => eachEvent.event === 'formSubmit')) {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.appStatus = 'Submitted';
-                window?.adobeDataLayer?.push(dataLayer);
-            }
-            else if (eventName === 'formAbandonment' && !window.adobeDataLayer.find((eachEvent: KeyWithAnyModel) => ( eachEvent.event === 'formSubmit' || eachEvent.event === 'formAbandonment'))) {
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                dataLayer.form.formLastAccessedField = stage.lastAccessed.fieldFocused ? stage.lastAccessed.fieldFocused : 'na';
-                dataLayer.form.formFields = [
-                    {
-                        formFieldValue: 'na',
-                        formFieldName: 'na'
-                    }];
-                dataLayer.customLinkClick = {
-                    'customLinkText': buttonName,
-                    'customLinkPosition': buttonName === 'Login' ? 'top' : 'bottom',
-                    'customLinkType': 'button'
-                }
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'formError') {
-                const error = store.getState().error.errors;
-                const exception: KeyWithAnyModel = store.getState().error.exceptionList;
-                dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                if (error.length > 0) {
-                    dataLayer.error = [{
-                        errorCode: error[0].statusCode ? error[0].statusCode : exception[0].error_type ? exception[0].error_type : 'na',
-                        errorField: stepName,
-                        errorDescription: error[0].statusText ? error[0].statusText : exception[0].status ? exception[0].status : 'na'
-                    }]
-                } 
-                else if(exception && exception.errorList && exception.errorList.errors && exception.errorList.errors.length > 0){
-                    dataLayer.error = [{
-                        errorCode: exception.errorList.errors[0].code ? exception.errorList.errors[0].code : 'na',
-                        errorField: stepName,
-                        errorDescription: exception.errorList.errors[0].detail ? exception.errorList.errors[0].detail : exception.error_header
-                    }]
-                }  else {
-                    dataLayer.error = [{
-                        errorCode: 'na',
-                        errorField: stepName,
-                        errorDescription: 'na'
-                    }]
-                }
-                window.adobeDataLayer.push(dataLayer);
-            }
-            else if (eventName === 'popupViewed') {
-                const lastEvent: KeyWithAnyModel =  window.adobeDataLayer[window.adobeDataLayer.length-1];
-                 /* istanbul ignore else */
-                if (!lastEvent || (lastEvent && lastEvent.event !== 'popupViewed')) {
-                    dataLayer.form.refNum = appRefNo !== null ? appRefNo : 'na';
-                    dataLayer.form.popupName = buttonName ? buttonName : 'na'
-                    window.adobeDataLayer.push(dataLayer);
-                }
-            }           
-    }
-}
-
-    getProductInfo = (stage: KeyWithAnyModel) => {
-        let info: Array<{}> = [];
-        let formName = '';
-        let productCategory = '';
-        let productName = '';
-        const products = stage.stages.stages[0].stageInfo.products;
-        products.forEach((product: KeyWithAnyModel) => {
-            const formNameCheck = product.product_category === 'SA' ? 'rtob_crossborder' : 'na';
-        info.push({
-                productInfo: {
-                    productName: product.name,
-                    productID: product.product_type,
-                    productCategory: product.product_category,
-                    productSubCategory: 'na',
-                }
-            });
-            info.push({
-                formInfo: {
-                        formName : formName ? (formName + '|' + formNameCheck) : formNameCheck,
-                        productCategory : productCategory ? (productCategory + '|' + product.product_category) : product.product_category,
-                      productName : productName ? (productName + '|' + product.name) : product.name
-                }
-            })
-        });
-
-    return info;
- }      
-
-    getAdobeDataLayer = (eventName: string, stage: KeyWithAnyModel, stepName: string|undefined) => {
-        const product = this.getProductInfo(stage);
-        const formInfo: KeyWithAnyModel = product[1]
-        const channelRef = getUrl.getChannelRefNo().channelRefNo;
-        const language = getUrl.getParameterByName("lang");
-        const country = stage.stages.stages[0].stageInfo.fieldMetaData.country;
-        const Curreny = language === "zh-HK" ? "HK$" : "HKD";
-        const market = 'hk';
-        let dataObject = {
-            event: eventName,
-            page: {
-                pageInfo: {
-                    pageType: 'form',
-                    pageName: market + ':' + language + ':web:wealth:cross border:greater bay area banking:GBA Southbound wealth management connect service' + (stepName === "start application process"? ':na' :  ( ':' + formInfo.formInfo.formName)) + ':' + stepName,
-                    buildDetails: `${process.env.REACT_APP_ADOBE_BUILD_DETAILS}`,
-                    libDetails: `${process.env.REACT_APP_ADOBE_LIB_DETAILS}`
-                },
-                category: {
-                    primaryCategory: formInfo.formInfo.productCategory,
-                    subCategory1: 'na'
-                },
-                attributes: {
-                    country: country,
-                    language: language,
-                    currency: Curreny,
-                    platform: getDeviceTypes(),
-                    pfm: loginval()
-                },
-            },
-            form: {
-                formName: formInfo.formInfo.formName,
-                formStepName: stepName,
-                formPlatform: 'rtob',
-                formType: 'application',
-                channelRefNum: channelRef ? channelRef : 'na',
-                cosReferenceID: 'na'
-            },
-            user: {
-                "userInfo": {
-                    userID: ( stage.stages.stages[0].stageInfo.applicants && stage.stages.stages[0].stageInfo.applicants.profile_id ) ? stage.stages.stages[0].stageInfo.applicants.profile_id : 'na',
-                    userType: stage.stages.journeyType ? getUserType(stage.stages.journeyType) : 'na',
-                    loginStatus: (stage.auth && stage.auth.SSCode) ? 'logged-in' : 'not logged-in',
-                    segment: 'wealth'
-                }
-            },
-            product: [product[0]]
-        };
-        return dataObject;
-}
-
-    atViewStart = () => {
-        const language = getUrl.getParameterByName("lang");
-        const market = 'hk';
-        this.prehideSnippet();
-        const stage = store.getState();
-         /* istanbul ignore else */
-        if (stage && stage.stages.stages && stage.stages.stages.length > 0 && stage.stages.stages[0].stageInfo) {
-           let formInfo: KeyWithAnyModel = this.getProductInfo(stage)[1];
-           const stepName = getStepName(stage);
-            window?.adobeDataLayer?.push({
-                "event": "at-view-start",
-                "page": {
-                    "pageInfo": {
-                        "pageName": market + ':' + language + ':web:wealth:cross border:greater bay area banking:GBA Southbound wealth management connect service' + (stepName === "start application process"? ':na' :  ( ':' + formInfo.formInfo.formName)) + ':' + stepName,
-                        "viewName": stepName,
-                        "primaryCategory": formInfo.formInfo.productCategory,
-                        "subCategory1": "na"
-                    }
-                }
-            });
-        }
-    }
-
-    prehideSnippet = () => {
-        (function (g, b, d, f) { (function (a, c, d) {  /* istanbul ignore else */ if (a) { var e = b.createElement("style"); e.id = c; e.innerHTML = d; a.appendChild(e) } })(b.getElementsByTagName("head")[0], "at-body-style", d); setTimeout(function () { var a = b.getElementsByTagName("head")[0]; if (a) { var c = b.getElementById("at-body-style"); c && a.removeChild(c) } }, f) }(window, document, "body{opacity: 1 !important}", 3E3));
-    }
-
-}
-
-const trackEvents = new service();
-
-export default trackEvents;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import trackEvents from './track-events';
-// import { store } from '../utils/store/store';
-// import { getUrl } from '../utils/common/change.utils';
-// import * as constants from '../utils/adobe/constants';
-
-// jest.mock('../utils/store/store', () => ({
-//   store: {
-//     getState: jest.fn()
-//   }
-// }));
-
-// jest.mock('../utils/common/change.utils', () => ({
-//   getUrl: {
-//     getChannelRefNo: jest.fn(),
-//     getParameterByName: jest.fn()
-//   }
-// }));
-
-// jest.mock('../utils/adobe/constants', () => ({
-//   getUserType: jest.fn(),
-//   getErrorType: jest.fn(),
-//   loginval: jest.fn(),
-//   getStepName: jest.fn(),
-//   getDeviceTypes: jest.fn()
-// }));
-
-// describe('Adobe Tracking Service', () => {
-//   let mockWindow: any;
-//   let mockAdobeDataLayer: any[];
-
-//   beforeEach(() => {
-//     mockAdobeDataLayer = [];
-//     mockWindow = {
-//       adobeDataLayer: mockAdobeDataLayer,
-//       process: {
-//         env: {
-//           REACT_APP_ADOBE_BUILD_DETAILS: 'test-build',
-//           REACT_APP_ADOBE_LIB_DETAILS: 'test-lib'
-//         }
-//       },
-//       document: {
-//         getElementsByTagName: jest.fn(() => [{}]),
-//         getElementById: jest.fn(() => ({}))
-//       }
-//     };
-    
-//     global.window = mockWindow as any;
-//   });
-
-//   describe('getFormFieldValue', () => {
-//     it('should return "na" when no value is found', () => {
-//       // const mockStage = {
-//       //   stages: {
-//       //     userInput: null,
-//       //     stages: [{ stageInfo: { applicants: null } }]
-//       //   },
-//       //   lov: { lov: null }
-//       // };
-
-//       // const result = trackEvents.getFormFieldValue('testLabel', mockStage, 'Yes');
-//       // expect(result).toBe('na');
-//     });
-
-//     it('should return LOV description when lov is "Yes"', () => {
-//       const mockStage = {
-//         stages: {
-//           userInput: {
-//             applicants: { 'testLabel_a_1': 'CODE1' }
-//           },
-//           stages: [{ stageInfo: { applicants: null } }]
-//         },
-//         lov: { 
-//           lov: [{ 
-//             label: 'testLabel', 
-//             value: [{ CODE_VALUE: 'CODE1', CODE_DESC: 'Test Description' }] 
-//           }] 
-//         }
-//       };
-
-//       const result = trackEvents.getFormFieldValue('testLabel', mockStage, 'Yes');
-//       expect(result).toBe('Test Description');
-//     });
-
-//     it('should return value when lov is "No"', () => {
-//       const mockStage = {
-//         stages: {
-//           userInput: {
-//             applicants: { 'testLabel_a_1': 'Test Value' }
-//           },
-//           stages: [{ stageInfo: { applicants: null } }]
-//         },
-//         lov: {}
-//       };
-
-//       const result = trackEvents.getFormFieldValue('testLabel', mockStage, 'No');
-//       expect(result).toBe('Test Value');
-//     });
-//   });
-
-//   describe('getFormFields', () => {
-//     it('should return form fields for given logical names', () => {
-//       const mockStage = {
-//         stages: {
-//           stages: [{
-//             stageId: 'testStage',
-//             stageInfo: {
-//               fieldMetaData: {
-//                 data: {
-//                   stages: [{
-//                     stageId: 'testStage',
-//                     fields: [{
-//                       logical_field_name: 'testField',
-//                       rwb_label_name: 'Test Label',
-//                       lov: 'Yes'
-//                     }]
-//                   }]
-//                 }
-//               }
-//             }
-//           }]
-//         },
-//         lov: { 
-//           lov: [{ 
-//             label: 'testField', 
-//             value: [{ CODE_VALUE: 'CODE1', CODE_DESC: 'Test Description' }] 
-//           }] 
-//         }
-//       };
-
-//       const getFormFieldValueSpy = jest.spyOn(trackEvents, 'getFormFieldValue')
-//         .mockReturnValue('Test Description');
-
-//       const result = trackEvents.getFormFields('testStage', mockStage, ['testField']);
-      
-//       expect(result).toEqual([{
-//         formFieldValue: 'Test Description',
-//         formFieldName: 'Test Label'
-//       }]);
-//     });
-//   });
-
-//   describe('getLabelName', () => {
-//     it('should return "Tenor" for "Tenor & monthly repayment"', () => {
-//       const result = trackEvents.getLabelName('Tenor & monthly repayment');
-//       expect(result).toBe('Tenor');
-//     });
-
-//     it('should return original label for other inputs', () => {
-//       const result = trackEvents.getLabelName('Other Label');
-//       expect(result).toBe('Other Label');
-//     });
-//   });
-
-//   describe('triggerAdobeEvent', () => {
-//     const setupMockStage = () => ({
-//       stages: {
-//         stages: [{
-//           stageId: 'testStage',
-//           stageInfo: {
-//             products: [{ 
-//               product_category: 'SA', 
-//               name: 'Test Product', 
-//               product_type: 'PROD1' 
-//             }],
-//             fieldMetaData: { country: 'HK' }
-//           }
-//         }]
-//       },
-//       auth: { SSCode: 'testCode' },
-//       lastAccessed: { fieldFocused: 'testField' },
-//       error: { 
-//         errors: [{ 
-//           statusCode: 'ERR1', 
-//           statusText: 'Test Error' 
-//         }],
-//         exceptionList: []
-//       }
-//     });
-
-//     beforeEach(() => {
-//       // Setup common mocks
-//       (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({ 
-//         channelRefNo: 'testChannel', 
-//         applicationRefNo: 'testAppRef' 
-//       });
-//       (getUrl.getParameterByName as jest.Mock).mockReturnValue('en');
-//       (constants.getStepName as jest.Mock).mockReturnValue('testStep');
-//       (constants.loginval as jest.Mock).mockReturnValue('testPFM');
-//       (constants.getDeviceTypes as jest.Mock).mockReturnValue('desktop');
-//       (constants.getUserType as jest.Mock).mockReturnValue('testUserType');
-//     });
-
-//     const testEventTriggers = [
-//       'pageView', 'formStart', 'ctaClick', 'formStepCompletions', 
-//       'formSubmit', 'formAbandonment', 'formError', 'popupViewed'
-//     ];
-
-//     testEventTriggers.forEach(eventName => {
-//       it(`should trigger ${eventName} event`, () => {
-//         (store.getState as jest.Mock).mockReturnValue(setupMockStage());
-        
-//         trackEvents.triggerAdobeEvent(eventName, 'Continue');
-        
-//         expect(mockWindow.adobeDataLayer.length).toBeGreaterThan(0);
-//         const pushedEvent = mockWindow.adobeDataLayer[mockWindow.adobeDataLayer.length - 1];
-//         expect(pushedEvent.event).toBe(eventName);
-//       });
-//     });
-//   });
-
-//   describe('getProductInfo', () => {
-//     it('should return product and form info', () => {
-//       const mockStage = {
-//         stages: {
-//           stages: [{
-//             stageInfo: {
-//               products: [{ 
-//                 product_category: 'SA', 
-//                 name: 'Test Product', 
-//                 product_type: 'PROD1' 
-//               }]
-//             }
-//           }]
-//         }
-//       };
-
-//       const result = trackEvents.getProductInfo(mockStage);
-      
-//       expect(result).toHaveLength(2);
-//       expect(result[0]).toEqual({
-//         productInfo: {
-//           productName: 'Test Product',
-//           productID: 'PROD1',
-//           productCategory: 'SA',
-//           productSubCategory: 'na'
-//         }
-//       });
-//       expect(result[1]).toEqual({
-//         formInfo: {
-//           formName: 'rtob_crossborder',
-//           productCategory: 'SA',
-//           productName: 'Test Product'
-//         }
-//       });
-//     });
-//   });
-
-//   describe('prehideSnippet', () => {
-//     it('should add and remove style tag', () => {
-//       const mockHead = {
-//         appendChild: jest.fn(),
-//         getElementsByTagName: jest.fn(() => [{}])
-//       };
-   
-//       trackEvents.prehideSnippet();
-
-//       expect(mockHead.appendChild).toHaveBeenCalled();
-
-//       jest.runAllTimers();
-//     });
-//   });
-// });
-
-import trackEvents from './track-events';
-import { store } from "../utils/store/store";
-import { getUrl } from "../utils/common/change.utils";
-
-// Mocking external dependencies
-jest.mock("../utils/store/store", () => ({
-  store: {
-    getState: jest.fn(),
-  },
-}));
-
-jest.mock("../utils/common/change.utils", () => ({
-  getUrl: {
-    getChannelRefNo: jest.fn(),
-    getParameterByName: jest.fn(),
-  },
-}));
-
-global.window = Object.create(window);
-
-// Mock data
-const mockStage = {
-  stages: {
-    userInput: {
-      applicants: {
-        label_a_1: "value1",
-      },
-    },
-    stages: [
-      {
-        stageInfo: {
-          applicants: { profile_id: "12345" },
-          fieldMetaData: {
-            data: {
-              stages: [
-                {
-                  stageId: "stage1",
-                  fields: [
-                    {
-                      logical_field_name: "field1",
-                      rwb_label_name: "Label 1",
-                      lov: "Yes",
-                    },
-                  ],
-                },
-              ],
-            },
-            country: "HK",
-          },
-          products: [
-            {
-              name: "Product 1",
-              product_type: "Type 1",
-              product_category: "SA",
-            },
-          ],
-        },
-      },
-    ],
-    journeyType: "type1",
-  },
-  auth: {
-    SSCode: true,
-  },
-};
-
-describe("Service Class - Unit Tests", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  test("getFormFieldValue returns correct value", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    const result = trackEvents.getFormFieldValue("label", mockStage, "No");
-    expect(result).toBe("value1");
-  });
-
-  test("getFormFields returns correct form fields", () => {
-    const result = trackEvents.getFormFields("stage1", mockStage, ["field1"]);
-    expect(result).toEqual([
-      {
-        formFieldValue: "na",
-        formFieldName: "Label 1",
-      },
-    ]);
-  });
-
-  test("getLabelName returns correct label name", () => {
-    const label = trackEvents.getLabelName("Tenor & monthly repayment");
-    expect(label).toBe("Tenor");
-    const defaultLabel = trackEvents.getLabelName("Other Label");
-    expect(defaultLabel).toBe("Other Label");
-  });
-
-  test("triggerAdobeEvent pushes event to adobeDataLayer", () => {
-   (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-
-    trackEvents.triggerAdobeEvent("formSubmit");
-    expect(trackEvents).toBeDefined()
-  });
-
-  test("getProductInfo returns correct product info", () => {
-    const result = trackEvents.getProductInfo(mockStage);
-    expect(result).toEqual([
-      {
-        productInfo: {
-          productName: "Product 1",
-          productID: "Type 1",
-          productCategory: "SA",
-          productSubCategory: "na",
-        },
-      },
-      {
-        formInfo: {
-          formName: "rtob_crossborder",
-          productCategory: "SA",
-          productName: "Product 1",
-        },
-      },
-    ]);
-  });
-
-  test("getAdobeDataLayer returns correct data object", () => {
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-    });
-    (getUrl.getParameterByName as jest.Mock).mockReturnValue("en");
-
-    const result = trackEvents.getAdobeDataLayer("formSubmit", mockStage, "Step 1");
-    expect(result).toEqual(
-      expect.objectContaining({
-        event: "formSubmit",
-        page: expect.objectContaining({
-          pageInfo: expect.objectContaining({
-            pageType: "form",
-          }),
-        }),
-        form: expect.objectContaining({
-          formStepName: "Step 1",
-        }),
-      })
-    );
-  });
-
-  test("atViewStart pushes event to adobeDataLayer", () => {
-    (getUrl.getParameterByName as jest.Mock).mockReturnValue("en");
-    (store.getState as jest.Mock).mockReturnValue({
-      stages:{
-        stages:[
-          {
-            stageInfo:{
-              products:[
-                {
-                  name:"Product 1",
-                  product_type:"Type 1",
-                  product_category:"SA",
-
-                }
-              ],
-              fieldMetaData:{
-                country:"HK"
-              }
-            }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const openApplication = (appRefId: string) => {
+      dispatch(dispatchLoader(true));
+      const refNo = appRefId;
+      dispatch(urlParamAction.getAuthorize({ applicationRefNo: refNo }));
+      dispatch(resumeRequest(refNo)).then(async (response: any) => {
+        if(response && response.application && response.application.response_action && response.application.response_action.toLowerCase() === 'stop') {
+          setStopApplication(true);
+        } else {
+          if (response.application && response.application.journey_type) {
+            dispatch(
+              stagesAction.setJourneyType(response.application.journey_type)
+            );
           }
-        ],
-        currentStep:"stepName"
-      }
-    });
+          const stageTo = response.application.stage.page_id;
+          dispatch(
+            stagesAction.getStage({
+              id: stageTo,
+              formConfig: response,
+            })
+          );
+          dispatch(stagesAction.updateUserInputFields(response.applicants));
+          if(stageTo === 'rp') {
+            dispatch(lovRequests(response, stageTo, '', true));
+          } else {
+            dispatch(lovRequests(response, stageTo));
+          }
+          dispatch(stagesAction.resetCurrentStage(stageTo));
+          dispatch(stagesAction.setOtpResume(true));
+          navigate("/hk/basic-information")
+        }
+      });
+  };
 
-    trackEvents.atViewStart();
-    expect(trackEvents).toBeDefined();
-  });
+  const caculateExpiry = (expiryDate: any) => {
+    let appExpryDate = expiryDate;
+    let date = new Date();
+    let currentDateFormat = `${date.getFullYear()}-${(
+      "0" +
+      (date.getMonth() + 1)
+    ).slice(-2)}-${("0" + date.getDate()).slice(-2)}`;
+    let appExpryDateFormat = formatDate(appExpryDate);
+    let diff = +new Date(appExpryDateFormat) - +new Date(currentDateFormat);
+    let expireCount = Math.trunc(diff / (1000 * 3600 * 24));
+    let current_date = new Date(currentDateFormat);
 
-  test("prehideSnippet injects and removes style tag", () => {
-    document.head.innerHTML = "";
-    trackEvents.prehideSnippet();
-    const styleTag = document.getElementById("at-body-style");
-    expect(styleTag).not.toBeNull();
-    jest.advanceTimersByTime(3000);
-    expect(document.getElementById("at-body-style")).not.toBeNull();
-  });
-});
+    const newDate = current_date.setDate(current_date.getDate() + expireCount);
+    let expirydate = new Date(newDate);
+    return expirydate.toString().substring(4, 15);
+  };
+  const formatDate = (expiryDate: string) => {
+    let year = expiryDate.toString().split(".")[0].substring(0, 4);
+    let month = expiryDate.toString().split(".")[0].substring(4, 6);
+    let day = expiryDate.toString().split(".")[0].substring(6, 8);
 
+    return `${year}-${month}-${day}`;
+  };
 
+  return (
+    <>
+    {!stopApplication &&
+      <div className="pending-doc app">
+        <div className="app__header-resume">
+          <div>
+            <LeftSideBar />
+          </div>
+        </div>
+        <div className="app__body">
+          <div>
+            <Header />
+          </div>
+          <div>
+            <div className="app__list">
+              <div className="app-header">
+              {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_expiry_content_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_expiry_content_CN : resumeHeaderText.resume_expiry_content_HK}
+              </div>
+              {pendingApplicationsFormatted &&
+                pendingApplicationsFormatted.length > 0 &&
+                pendingApplicationsFormatted.map((res: any, index: any) => {
+                  return (
+                    <div className="application-list" key={res?.ApplicationRefNo}>
+                      <div className="application-list__info">
+                        <div className="application-list__name">
+                          {/* {res?.ProductName} */}
+                          {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Product_name_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Product_name_CN : resumeHeaderText.resume_Product_name_HK}
+                        </div>
+                        <div className="application-list__details">
+                          <div className="application-list__ref">
+                          {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_rel_ID_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_rel_ID_CN : resumeHeaderText.resume_rel_ID_HK}: {res?.ApplicationRefNo}
+                          </div>
+                          <div className="application-list__expdate">
+                            <span className="expire-icon"></span> {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Expire_Date_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Expire_Date_CN : resumeHeaderText.resume_Expire_Date_HK} {res?.ExpiryDate}
+                          </div>
+                        </div>
+                      </div>
+                      <div id="appListBtn"
+                        className="application-list__btn"
+                        onClick={(e) =>
+                          openApplication(res.ApplicationRefNo)
+                        }
+                      >
+                        {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Button_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Button_CN : resumeHeaderText.resume_Button_HK}
+                      </div>
+                    </div>
+                  );
+                })}
 
+              {emptyApplication && (
+                <div className="application-list">
+                  {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_No_data_content_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_No_data_content_CN : resumeHeaderText.resume_No_data_content_HK}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    }
 
-
-
-
-
-
-
-
-import trackEvents from './track-events';
-import { store } from "../utils/store/store";
-import { getUrl } from "../utils/common/change.utils";
-
-// Mock dependencies
-jest.mock("../utils/store/store", () => ({
-  store: {
-    getState: jest.fn(),
-  },
-}));
-
-jest.mock("../utils/common/change.utils", () => ({
-  getUrl: {
-    getChannelRefNo: jest.fn(),
-  },
-}));
-
-global.window = Object.create(window);
-global.window.adobeDataLayer = {
-  push: jest.fn(),
+    {(stopApplication) && (
+      <Model name="noLongerValid" />
+    )}
+    </>
+        
+  );
 };
 
-// Mock data
-const mockStage = {
-  stages: {
-    stages: [
-      {
-        stageInfo: {
-          applicants: { profile_id: "12345" },
-          fieldMetaData: {
-            country: "HK",
-          },
-        },
-        stageId: "rp",
-      },
-    ],
-  },
-  lastAccessed: {
-    fieldFocused: "field1",
-  },
-  error: {
-    errors: [
-      {
-        statusCode: 500,
-        statusText: "Internal Server Error",
-      },
-    ],
-    exceptionList: {
-      errorList: {
-        errors: [
-          {
-            code: "404",
-            detail: "Not Found",
-            error_header: "Header",
-          },
-        ],
-      },
-    },
-  },
-};
-
-describe("triggerAdobeEvent - Full Coverage", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  test("handles popupViewed event", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    window.adobeDataLayer = [{ event: "formSubmit" }];
-    trackEvents.triggerAdobeEvent("popupViewed", "PopupButton");
-
-    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "popupViewed",
-        form: expect.objectContaining({
-          popupName: "PopupButton",
-        }),
-      })
-    );
-  });
-
-  test("handles formStart event", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    trackEvents.triggerAdobeEvent("formStart");
-
-    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "formStart",
-        page: expect.objectContaining({
-          attributes: expect.objectContaining({
-            pfm: expect.anything(),
-          }),
-        }),
-      })
-    );
-  });
-
-  test("handles ctaClick event with Continue button", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    trackEvents.triggerAdobeEvent("ctaClick", "Continue");
-
-    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "ctaClick",
-        customLinkClick: expect.objectContaining({
-          customLinkText: "Submit", // Changed to Submit because stageId === 'rp'
-        }),
-      })
-    );
-  });
-
-  test("handles formSubmit event", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    window.adobeDataLayer = [];
-    trackEvents.triggerAdobeEvent("formSubmit");
-
-    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "formSubmit",
-        form: expect.objectContaining({
-          appStatus: "Submitted",
-        }),
-      })
-    );
-  });
-
-  test("handles formAbandonment event", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    window.adobeDataLayer = [];
-    trackEvents.triggerAdobeEvent("formAbandonment", "Cancel");
-
-    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "formAbandonment",
-        form: expect.objectContaining({
-          formLastAccessedField: "field1",
-        }),
-        customLinkClick: expect.objectContaining({
-          customLinkText: "Cancel",
-        }),
-      })
-    );
-  });
-
-  test("handles formError event", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    trackEvents.triggerAdobeEvent("formError");
-
-    expect(window.adobeDataLayer.push).toHaveBeenCalledWith(
-      expect.objectContaining({
-        event: "formError",
-        error: [
-          expect.objectContaining({
-            errorCode: "500",
-            errorDescription: "Internal Server Error",
-          }),
-        ],
-      })
-    );
-  });
-
-  test("handles default case", () => {
-    (store.getState as jest.Mock).mockReturnValue(mockStage);
-    (getUrl.getChannelRefNo as jest.Mock).mockReturnValue({
-      channelRefNo: "channel123",
-      applicationRefNo: "app456",
-    });
-
-    trackEvents.triggerAdobeEvent("unknownEvent");
-
-    // Ensure no push is called
-    expect(window.adobeDataLayer.push).not.toHaveBeenCalled();
-  });
-});
+export default PendingApplication;
