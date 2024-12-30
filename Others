@@ -1,460 +1,259 @@
-import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
-import * as redux from "react-redux";
-import { MemoryRouter } from "react-router-dom";
-import PendingApplication from "./PendingApplication";
-import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
-
-// Mock services and utilities
-jest.mock("../../../services/common-service", () => ({
-  dispatchLoader: jest.fn(),
-  lovRequests: jest.fn(),
-  resumeRequest: jest.fn(() =>
-    Promise.resolve({
-      application: {
-        response_action: "proceed",
-        journey_type: "testJourney",
-        stage: { page_id: "rp" },
-      },
-      applicants: [],
-    })
-  ),
-}));
-jest.mock("../../../utils/common/change.utils", () => ({
-  getUrl: {
-    getLanguageInfo: jest.fn().mockReturnValue("en"),
-  },
-}));
-jest.mock("../../../shared/components/model/model", () => () => (
-  <div data-testid="model-component">Model Component</div>
-));
-
-jest.mock("react-router", () => ({
-  ...jest.requireActual("react-router"),
-  useNavigate: jest.fn(),
-}));
-
-describe("PendingApplication Component - openApplication", () => {
-  let mockDispatch: jest.Mock;
-  let useSelectorMock: jest.SpyInstance;
-  let useNavigateMock: jest.Mock;
-
-  beforeEach(() => {
-    mockDispatch = jest.fn();
-    useSelectorMock = jest.spyOn(redux, "useSelector");
-    useSelectorMock.mockImplementation((callback) =>
-      callback({
-        pendingApplication: {
-          pendingApplication: [
-            {
-              "product-name": "Test Product",
-              "application-ref-no": "12345",
-              "expiry-date": "20231231",
-              "product-code": "PROD001",
-            },
-          ],
-        },
-      })
-    );
-
-    jest.spyOn(redux, "useDispatch").mockReturnValue(mockDispatch);
-
-    useNavigateMock = require("react-router").useNavigate;
-    useNavigateMock.mockReturnValue(jest.fn());
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  const renderComponent = () =>
-    render(
-      <MemoryRouter>
-        <PendingApplication />
-      </MemoryRouter>
-    );
-
-  test("calls openApplication and dispatches the correct actions", async () => {
-    renderComponent();
-
-    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
-
-    // Simulate clicking the button to trigger openApplication
-    await act(async () => {
-      fireEvent.click(appButton);
-    });
-
-    // Check if dispatchLoader was called
-    expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
-
-    // Check if resumeRequest was called with the correct application reference
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "urlParam/getAuthorize",
-        payload: { applicationRefNo: "12345" },
-      })
-    );
-
-    // Ensure navigate was called with the correct path
-    expect(useNavigateMock).toHaveBeenCalledWith("/hk/basic-information");
-  });
-
-  test("handles stopApplication scenario correctly", async () => {
-    // Mock `resumeRequest` to return a `stop` response
-    jest.mock("../../../services/common-service", () => ({
-      resumeRequest: jest.fn(() =>
-        Promise.resolve({
-          application: { response_action: "stop" },
-        })
-      ),
-    }));
-
-    renderComponent();
-
-    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
-
-    // Simulate clicking the button
-    await act(async () => {
-      fireEvent.click(appButton);
-    });
-
-    // Ensure the model for stopApplication is displayed
-    expect(screen.getByTestId("model-component")).toBeInTheDocument();
-  });
-});
-
-
-
-
-
-import "./pending-resume-application.scss";
-import {
-  dispatchLoader,
-  lovRequests,
-  resumeRequest,
-} from "../../../services/common-service";
+import { useState, useEffect } from "react";
+import "./document-upload-main-scr.scss";
 import { useDispatch, useSelector } from "react-redux";
-import { useEffect, useState } from "react";
-import Header from "../../dashboard/header/header";
-import LeftSideBar from "../../dashboard/left-sidebar/left-sidebar";
-import { StoreModel } from "../../../utils/model/common-model";
-import { useNavigate } from "react-router";
-import { urlParamAction } from "../../../utils/store/urlparam-slice";
-import { stagesAction } from "../../../utils/store/stages-slice";
-import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
-import { getUrl } from "../../../utils/common/change.utils";
-// import { getLovMissing } from "../fields/fields.utils";
-import Model from "../../../shared/components/model/model";
+import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
 
-const PendingApplication = () => {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const [emptyApplication, setEmptyApplication] = useState(false);
-  const [stopApplication, setStopApplication] = useState(false);
-  // const lovSelector = useSelector((state: StoreModel) => state.lov);
-  const pendingApplicationSelector = useSelector(
-    (state: StoreModel) => state. pendingApplication
+import ColorIdentityProof from "../colourIdentityProof/colour-Identity-Proof";
+import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
+import { postDocSaveData, postFinalAcknowledge, postQRCodeZOLO, postTMXUserSession } from "../../../../preApproval/services/preApprovalPostServices";
+import DocumentTypeDynamic from "../documentType/document-type-dynamic";
+// import {document_list} from '../../../utils/common/constants';
+import { dispatchError, dispatchLoader } from "../../../../../services/common-service";
+import { StoreModel } from "../../../../../utils/model/common-model";
+import { stagesAction } from "../../../../../utils/store/stages-slice";
+import { CONSTANTS } from "../../../../../utils/common/constants";
+import Close from "../../../../../shared/components/close/close";
+import { AxiosError } from "axios";
+
+const DucumentUploadMainSCR = () => {
+  const uplaodDoc = "Please upload the following documents: ";
+  const provideDoc = "Please provide the following documents";
+  const docEnabledCount = "1";
+  const document_list = useSelector((state: StoreModel) => state.stages && state.stages.stages[0].stageInfo.applicant_documents[0].document_list)
+  const totalDocCount = document_list?.length;
+  const docCategory = "Colour Identity Proof";
+  const docCategory2 = "Income Proof";
+  const tooltipText =
+    "The document submitted will not be returned. Standard Chartered Bank (Hong Kong) Limited (the Bank) may request additional documents from you for approval purposes.";
+
+  const footerContent1 = "Uploading your documents";
+  const footerContent2 =
+    "Uploading your HKID image requires a smart phone device. You will be asked to capture the image of your HKID and make selfie images for authentication purpose.";
+  const footerContent3 =
+    "Other documents can be directly uploaded.  Please note that copies of the documents submitted must be complete, legible and without any masked information.";
+  const hkCopyRight = "© Standard Chartered Bank (HK) Limited";
+
+  const [showIncomeProof, setShowIncomeProof] = useState("");
+  const [success, setSucsess] = useState(true);
+  const [goBack, setGoBack] = useState(false);
+  const [showQRCodePage, setShowQRCodePage] = useState(false);
+  const [changeIconColorIdentityProof, setChangeIconColorIdentityProof] =
+    useState(true);
+  const [changeIconIncomeProof, setChangeIconIncomeProof] =
+    useState(true);
+  const [HKIDQRCodeData, setHKIDQRCodeData] = useState(null);
+  const [showUploadFileSuccess, setShowUploadFileSuccess] = useState(false);
+  const [HKIDVersion, setHKIDVersion] = useState("");
+  const [HKIDVersionValue, setHKIDVersionValue] = useState("");
+  const [documentCount, setDocumentCount] = useState(0);
+  const [showContinueBtn, setShowContinueBtn] = useState(false);
+  const [documentData, setDocumentData] = useState([]);
+  const [zolozDocumentData, setZolozDocumentData] = useState([]);
+
+  const static_channel_reference = "04041ed2f9a3a12024";
+  const channel_reference = useSelector((state: StoreModel) => state.stages && state.stages.stages[0].stageInfo.application.channel_reference);
+  const stageSelector = useSelector((state: StoreModel) => state.stages && state.stages.stages);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showSpinner, setShowSpinner] = useState(true);
+  const filesSelector = useSelector(
+    (state: StoreModel) => state.preApproval.incomeProofDocumentUpload
   );
-  const [pendingApplicationsFormatted, setPendingApplicationsFormatted] =
-    useState<any>([]);
-    const language = getUrl.getLanguageInfo("lang");
-
-
+  console.log(filesSelector)
   useEffect(() => {
-    dispatch(dispatchLoader(false));
-    if (
-      pendingApplicationSelector &&
-      pendingApplicationSelector.pendingApplication &&
-      pendingApplicationSelector.pendingApplication.length > 0
-    ) {
-      const pendingApplicationNumbers =
-        pendingApplicationSelector.pendingApplication.map(
-          (application: any) => ({
-            ProductName: application['product-name'],
-            ApplicationRefNo: application['application-ref-no'],
-            ExpiryDate: caculateExpiry(application['expiry-date']),
-            ProductCode: application['product-code']
-          })
-        );
-      setEmptyApplication(false);
-      setPendingApplicationsFormatted(pendingApplicationNumbers);
-    } else {
-      setEmptyApplication(true);
-      setPendingApplicationsFormatted([]);
-    }
+    const userAgent = navigator.userAgent.toLowerCase();
+    console.log("userAgent:", /mobile|android|iphone|ipaid|ipod/.test(userAgent));
+    setIsMobile(/mobile|android|iphone|ipaid|ipod/.test(userAgent));
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    dispatch(dispatchLoader(false));
+    //  if(isMobile){
+    //   window.location.href("https://origination.sc.com/onboarding/hk/zolozThankYou.html?scbToken=04071fe343abe12024&lang=en");
+    //  }
   }, []);
 
-  const openApplication = (appRefId: string) => {
-      dispatch(dispatchLoader(true));
-      const refNo = appRefId;
-      dispatch(urlParamAction.getAuthorize({ applicationRefNo: refNo }));
-      dispatch(resumeRequest(refNo)).then(async (response: any) => {
-        if(response && response.application && response.application.response_action && response.application.response_action.toLowerCase() === 'stop') {
-          setStopApplication(true);
-        } else {
-          if (response.application && response.application.journey_type) {
-            dispatch(
-              stagesAction.setJourneyType(response.application.journey_type)
-            );
-          }
-          const stageTo = response.application.stage.page_id;
-          dispatch(
-            stagesAction.getStage({
-              id: stageTo,
-              formConfig: response,
+  const openUploadHKdialog = (title: any) => {
+    setShowIncomeProof(title);
+    setShowContinueBtn(true);
+  };
+  const dispatch = useDispatch();
+
+  const changeIcon = (newIcon: any) => {
+    setChangeIconColorIdentityProof(newIcon);
+  };
+  const changeSuccessState = (success: any) => {
+    setSucsess(success);
+  };
+
+  const callQRCodeAPI = () => {
+    setShowSpinner(true);
+    dispatch(dispatchLoader(true));
+    console.log(channel_reference)
+    postQRCodeZOLO(channel_reference, HKIDVersionValue).then((response: any) => {
+      if (response.status === 200) {
+        setHKIDQRCodeData(response.data);
+        setShowSpinner(false);
+        dispatch(dispatchLoader(false));
+      }
+    }).catch((error: AxiosError) => {
+      dispatchError(error)
+    });
+  };
+
+  const nextStage = async () => {
+    dispatch(dispatchLoader(true));
+    await postTMXUserSession(channel_reference).then(async (res: any) => {
+      if (res.status === 200 && res.data.review_status.toLowerCase() === 'pass') {
+        await postFinalAcknowledge(channel_reference).then(async (res: any) => {
+          if (res.status === 202) {
+            console.log(HKIDQRCodeData)
+            await postDocSaveData(documentData, HKIDQRCodeData, zolozDocumentData).then((res: any) => {
+              dispatch(preApprovalAction.setCurrentStage("PD-3"));
+              dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.LD_1));
+              let stageData = JSON.parse(JSON.stringify(stageSelector[0].stageInfo));
+              stageData.applicants = [res.data.applicants];
+              stageData.application = res.data.application;
+              stageData.applicant_documents = res.data.applicant_documents;
+              console.log(stageData);
+              dispatch(stagesAction.getStage({
+                id: CONSTANTS.STAGE_NAMES.LD_1,
+                formConfig: stageData,
+              }))
+              dispatch(dispatchLoader(false));
             })
-          );
-          dispatch(stagesAction.updateUserInputFields(response.applicants));
-          if(stageTo === 'rp') {
-            dispatch(lovRequests(response, stageTo, '', true));
-          } else {
-            dispatch(lovRequests(response, stageTo));
           }
-          dispatch(stagesAction.resetCurrentStage(stageTo));
-          dispatch(stagesAction.setOtpResume(true));
-          navigate("/hk/basic-information")
-        }
-      });
-  };
-
-  const caculateExpiry = (expiryDate: any) => {
-    let appExpryDate = expiryDate;
-    let date = new Date();
-    let currentDateFormat = `${date.getFullYear()}-${(
-      "0" +
-      (date.getMonth() + 1)
-    ).slice(-2)}-${("0" + date.getDate()).slice(-2)}`;
-    let appExpryDateFormat = formatDate(appExpryDate);
-    let diff = +new Date(appExpryDateFormat) - +new Date(currentDateFormat);
-    let expireCount = Math.trunc(diff / (1000 * 3600 * 24));
-    let current_date = new Date(currentDateFormat);
-
-    const newDate = current_date.setDate(current_date.getDate() + expireCount);
-    let expirydate = new Date(newDate);
-    return expirydate.toString().substring(4, 15);
-  };
-  const formatDate = (expiryDate: string) => {
-    let year = expiryDate.toString().split(".")[0].substring(0, 4);
-    let month = expiryDate.toString().split(".")[0].substring(4, 6);
-    let day = expiryDate.toString().split(".")[0].substring(6, 8);
-
-    return `${year}-${month}-${day}`;
-  };
-
+        })
+      }
+    })
+  }
+  console.log(HKIDVersionValue)
+  console.log(HKIDVersion)
+  console.log(HKIDQRCodeData)
   return (
     <>
-    {!stopApplication &&
-      <div className="pending-doc app">
-        <div className="app__header-resume">
-          <div>
-            <LeftSideBar />
-          </div>
-        </div>
-        <div className="app__body">
-          <div>
-            <Header />
-          </div>
-          <div>
-            <div className="app__list">
-              <div data-testid="app-header" className="app-header">
-              {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_expiry_content_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_expiry_content_CN : resumeHeaderText.resume_expiry_content_HK}
-              </div>
-              {pendingApplicationsFormatted &&
-                pendingApplicationsFormatted.length > 0 &&
-                pendingApplicationsFormatted.map((res: any, index: any) => {
-                  return (
-                    <div className="application-list" key={res?.ApplicationRefNo}>
-                      <div className="application-list__info">
-                        <div className="application-list__name">
-                          {/* {res?.ProductName} */}
-                          {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Product_name_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Product_name_CN : resumeHeaderText.resume_Product_name_HK}
-                        </div>
-                        <div className="application-list__details">
-                          <div data-testid="application-list__ref" className="application-list__ref">
-                          {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_rel_ID_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_rel_ID_CN : resumeHeaderText.resume_rel_ID_HK}: {res?.ApplicationRefNo}
-                          </div>
-                          <div className="application-list__expdate">
-                            <span className="expire-icon"></span> {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Expire_Date_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Expire_Date_CN : resumeHeaderText.resume_Expire_Date_HK} {res?.ExpiryDate}
-                          </div>
-                        </div>
-                      </div>
-                      <div id="appListBtn"
-                        className="application-list__btn"
-                        onClick={(e) =>
-                          openApplication(res.ApplicationRefNo)
-                        }
-                      >
-                        {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Button_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Button_CN : resumeHeaderText.resume_Button_HK}
-                      </div>
-                    </div>
-                  );
-                })}
+      <div className={HKIDVersion || showIncomeProof ? "" : "document-view"}>
 
-              {emptyApplication && (
-                <div data-testid="application-list" className="application-list">
-                  {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_No_data_content_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_No_data_content_CN : resumeHeaderText.resume_No_data_content_HK}
+        {showIncomeProof !== "Income Proof" && showIncomeProof !== "Colour Identity Proof" && (
+          <>
+            <div>
+              <div className="sc-icons">
+                <span className="banner-icon banner-icon-mobile"></span>
+                <div className="card-titleHead">
+                  <div className="card-titleDoc">{uplaodDoc}</div>
+                  <div className="hk-headerclose-btnH">
+                    <Close authType="resume" />
+                  </div>
                 </div>
-              )}
+              </div>
+              <div className="row doc-details" id="row-doc-details">
+                <p className="col-md-10 col-sm-10 col-xs-10 col-lg-10 doc-field-Label">
+                  {provideDoc}
+                </p>
+                <p className="col-md-2 col-sm-2 col-xs-2 col-lg-2">
+                  {" "}
+                  <span className="count-doc">
+                    {documentCount}/{totalDocCount}
+                  </span>
+                </p>
+              </div>
+              <DocumentTypeDynamic
+                changeIconColorIdentityProof={changeIconColorIdentityProof}
+                openUploadHKdialog={openUploadHKdialog}
+                docCategory={docCategory}
+                success={success}
+                docCategory2={docCategory2}
+                title={document_list && document_list[0]?.document_category}
+                document_list={document_list}
+                HKIDVersion={HKIDVersion}
+                setHKIDVersion={setHKIDVersion}
+                changeIconIncomeProof={changeIconIncomeProof}
+              />
+              <div className="noteTipDiv">
+                <p className="noteTip">{tooltipText}</p>
+              </div>
+              {changeIconColorIdentityProof &&
+                <div className="document-footer-main-document">
+                  <div
+                    className="footer-banner">
+                    <div className="footer-content">
+                      <p className="footer-content1">{footerContent1}</p>
+                      <p className="footer-content2">{footerContent2}</p>
+                      <p className="footer-content3">{footerContent3}</p>
+                    </div>
+                    <span className="images"></span>
+                  </div>
+                  <div className="hk-copy-rights">
+                    <p>{hkCopyRight}</p>
+                  </div>
+                </div>
+              }
             </div>
-          </div>
-        </div>
-      </div>
-    }
+          </>
+        )}
+        {showIncomeProof === "Income Proof" && (
+          <DocumentUploadSRC2
+            showIncomeProof={showIncomeProof}
+            setShowIncomeProof={setShowIncomeProof}
+            setDocumentCount={setDocumentCount}
+            documentCount={documentCount}
+            success={success}
+            setSucsess={setSucsess}
+            changeSuccessState={changeSuccessState}
+            goBack={goBack}
+            setGoBack={setGoBack}
+            showQRCodePage={showQRCodePage}
+            setShowQRCodePage={setShowQRCodePage}
+            changeIconColorIdentityProof={changeIconColorIdentityProof}
+            setChangeIconColorIdentityProof={changeIcon}
+            showUploadFileSuccess={showUploadFileSuccess}
+            setShowUploadFileSuccess={setShowUploadFileSuccess}
+            channel_reference={channel_reference}
+            HKIDQRCodeData={HKIDQRCodeData}
+            HKIDVersion={HKIDVersion}
+            HKIDVersionValue={HKIDVersionValue}
+            setHKIDVersion={setHKIDVersion}
+            setHKIDVersionValue={setHKIDVersionValue}
+            showContinueBtn={showContinueBtn}
+            setShowContinueBtn={setShowContinueBtn}
+            setDocumentData={setDocumentData}
+            setZolozDocumentData={setZolozDocumentData}
+            setChangeIconIncomeProof={setChangeIconIncomeProof}
+            changeIconIncomeProof={changeIconIncomeProof}
+          />
+        )}
 
-    {(stopApplication) && (
-      <Model name="noLongerValid" />
-    )}
+        {showIncomeProof === "Colour Identity Proof" && (
+          <ColorIdentityProof
+            showIncomeProof={showIncomeProof}
+            setShowIncomeProof={setShowIncomeProof}
+            goBack={goBack}
+            setGoBack={setGoBack}
+            showQRCodePage={showQRCodePage}
+            setShowQRCodePage={setShowQRCodePage}
+            changeIconColorIdentityProof={changeIconColorIdentityProof}
+            setChangeIconColorIdentityProof={changeIcon}
+            showUploadFileSuccess={showUploadFileSuccess}
+            setShowUploadFileSuccess={setShowUploadFileSuccess}
+            callQRCodeAPI={callQRCodeAPI}
+            HKIDVersion={HKIDVersion}
+            HKIDVersionValue={HKIDVersionValue}
+            setHKIDVersion={setHKIDVersion}
+            setHKIDVersionValue={setHKIDVersionValue}
+            setShowContinueBtn={setShowContinueBtn}
+          />
+        )}
+      </div>
+      {success && <>
+        <div className={showContinueBtn ? "footer1" : "footer footer-set"}
+        >
+          {/* <div className="back" onClick={()=> dispatch(preApprovalAction.setCurrentStage("LD"))}>
+              <span className="arrow"></span> Back
+          </div> */}
+          <button role="button" type="submit" className={success && changeIconColorIdentityProof ? `continue form-invalid` : `continue form-valid`} onClick={nextStage} disabled={success && changeIconColorIdentityProof}>
+            Continue
+          </button>
+        </div>
+      </>}
     </>
-        
   );
 };
 
-export default PendingApplication;
-
-
-
-
-
-import React from "react";
-import { render, screen, fireEvent, act } from "@testing-library/react";
-import * as redux from "react-redux";
-import { MemoryRouter } from "react-router-dom";
-import PendingApplication from "./PendingApplication";
-
-// Mock services and utilities
-jest.mock("../../../services/common-service", () => ({
-  dispatchLoader: jest.fn(),
-  lovRequests: jest.fn(),
-  resumeRequest: jest.fn(),
-}));
-jest.mock("../../../utils/common/change.utils", () => ({
-  getUrl: {
-    getLanguageInfo: jest.fn().mockReturnValue("en"),
-  },
-}));
-jest.mock("../../../shared/components/model/model", () => () => (
-  <div data-testid="model-component">Model Component</div>
-));
-jest.mock("react-router", () => ({
-  ...jest.requireActual("react-router"),
-  useNavigate: jest.fn(),
-}));
-
-describe("PendingApplication Component - openApplication", () => {
-  let mockDispatch: jest.Mock;
-  let useSelectorMock: jest.SpyInstance;
-  let useNavigateMock: jest.Mock;
-
-  beforeEach(() => {
-    mockDispatch = jest.fn();
-    useSelectorMock = jest.spyOn(redux, "useSelector");
-    useSelectorMock.mockImplementation((callback) =>
-      callback({
-        pendingApplication: {
-          pendingApplication: [
-            {
-              "product-name": "Test Product",
-              "application-ref-no": "12345",
-              "expiry-date": "20231231",
-              "product-code": "PROD001",
-            },
-          ],
-        },
-      })
-    );
-
-    jest.spyOn(redux, "useDispatch").mockReturnValue(mockDispatch);
-
-    useNavigateMock = require("react-router").useNavigate;
-    useNavigateMock.mockReturnValue(jest.fn());
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  const renderComponent = () =>
-    render(
-      <MemoryRouter>
-        <PendingApplication />
-      </MemoryRouter>
-    );
-
-  test("dispatches correct actions and navigates to the correct route on success", async () => {
-    const { dispatchLoader, resumeRequest } = require("../../../services/common-service");
-    const navigateMock = require("react-router").useNavigate();
-
-    // Mock the API response for success
-    resumeRequest.mockResolvedValueOnce({
-      application: {
-        response_action: "proceed",
-        journey_type: "testJourney",
-        stage: { page_id: "rp" },
-      },
-      applicants: [],
-    });
-
-    renderComponent();
-
-    // Simulate clicking the application button
-    const appButton = screen.getByText("Resume");
-    await act(async () => {
-      fireEvent.click(appButton);
-    });
-
-    // Check that dispatchLoader was called
-    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true));
-
-    // Check that urlParamAction.getAuthorize was dispatched
-    expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "urlParam/getAuthorize",
-        payload: { applicationRefNo: "12345" },
-      })
-    );
-
-    // Ensure navigate was called with the correct path
-    expect(navigateMock).toHaveBeenCalledWith("/hk/basic-information");
-  });
-
-  test("displays modal when stopApplication is true", async () => {
-    const { resumeRequest } = require("../../../services/common-service");
-
-    // Mock the API response for stop
-    resumeRequest.mockResolvedValueOnce({
-      application: { response_action: "stop" },
-    });
-
-    renderComponent();
-
-    // Simulate clicking the application button
-    const appButton = screen.getByText("Resume");
-    await act(async () => {
-      fireEvent.click(appButton);
-    });
-
-    // Ensure the stopApplication modal is displayed
-    expect(screen.getByTestId("model-component")).toBeInTheDocument();
-  });
-
-  test("handles API failure gracefully", async () => {
-    const { resumeRequest } = require("../../../services/common-service");
-
-    // Mock the API to throw an error
-    resumeRequest.mockRejectedValueOnce(new Error("API error"));
-
-    renderComponent();
-
-    // Simulate clicking the application button
-    const appButton = screen.getByText("Resume");
-    await act(async () => {
-      fireEvent.click(appButton);
-    });
-
-    // Check that stopApplication is not displayed
-    expect(screen.queryByTestId("model-component")).not.toBeInTheDocument();
-    // You can also assert that specific error handling is done
-  });
-});
+export default DucumentUploadMainSCR;
