@@ -138,3 +138,132 @@ describe("PendingApplication Component", () => {
     expect(screen.getByTestId("model-component")).toBeInTheDocument();
   });
 });
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import * as redux from "react-redux";
+import { MemoryRouter } from "react-router-dom";
+import PendingApplication from "./PendingApplication";
+import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
+
+// Mock services and utilities
+jest.mock("../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+  lovRequests: jest.fn(),
+  resumeRequest: jest.fn(() =>
+    Promise.resolve({
+      application: {
+        response_action: "proceed",
+        journey_type: "testJourney",
+        stage: { page_id: "rp" },
+      },
+      applicants: [],
+    })
+  ),
+}));
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getLanguageInfo: jest.fn().mockReturnValue("en"),
+  },
+}));
+jest.mock("../../../shared/components/model/model", () => () => (
+  <div data-testid="model-component">Model Component</div>
+));
+
+jest.mock("react-router", () => ({
+  ...jest.requireActual("react-router"),
+  useNavigate: jest.fn(),
+}));
+
+describe("PendingApplication Component - openApplication", () => {
+  let mockDispatch: jest.Mock;
+  let useSelectorMock: jest.SpyInstance;
+  let useNavigateMock: jest.Mock;
+
+  beforeEach(() => {
+    mockDispatch = jest.fn();
+    useSelectorMock = jest.spyOn(redux, "useSelector");
+    useSelectorMock.mockImplementation((callback) =>
+      callback({
+        pendingApplication: {
+          pendingApplication: [
+            {
+              "product-name": "Test Product",
+              "application-ref-no": "12345",
+              "expiry-date": "20231231",
+              "product-code": "PROD001",
+            },
+          ],
+        },
+      })
+    );
+
+    jest.spyOn(redux, "useDispatch").mockReturnValue(mockDispatch);
+
+    useNavigateMock = require("react-router").useNavigate;
+    useNavigateMock.mockReturnValue(jest.fn());
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const renderComponent = () =>
+    render(
+      <MemoryRouter>
+        <PendingApplication />
+      </MemoryRouter>
+    );
+
+  test("calls openApplication and dispatches the correct actions", async () => {
+    renderComponent();
+
+    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
+
+    // Simulate clicking the button to trigger openApplication
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+
+    // Check if dispatchLoader was called
+    expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
+
+    // Check if resumeRequest was called with the correct application reference
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "urlParam/getAuthorize",
+        payload: { applicationRefNo: "12345" },
+      })
+    );
+
+    // Ensure navigate was called with the correct path
+    expect(useNavigateMock).toHaveBeenCalledWith("/hk/basic-information");
+  });
+
+  test("handles stopApplication scenario correctly", async () => {
+    // Mock `resumeRequest` to return a `stop` response
+    jest.mock("../../../services/common-service", () => ({
+      resumeRequest: jest.fn(() =>
+        Promise.resolve({
+          application: { response_action: "stop" },
+        })
+      ),
+    }));
+
+    renderComponent();
+
+    const appButton = screen.getByText(resumeHeaderText.resume_Button_EN);
+
+    // Simulate clicking the button
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+
+    // Ensure the model for stopApplication is displayed
+    expect(screen.getByTestId("model-component")).toBeInTheDocument();
+  });
+});
+
