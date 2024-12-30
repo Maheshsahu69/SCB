@@ -371,3 +371,119 @@ describe("DocumentUploadMainSRC component", () => {
   });
 
 });
+
+
+
+
+
+
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider, useDispatch, useSelector } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import DucumentUploadMainSCR from "./document-upload-main-scr";
+import {
+  postTMXUserSession,
+  postFinalAcknowledge,
+  postDocSaveData,
+} from "../../../../preApproval/services/preApprovalPostServices";
+import { dispatchLoader } from "../../../../../services/common-service";
+import { stagesAction } from "../../../../../utils/store/stages-slice";
+import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
+
+jest.mock("../../../../preApproval/services/preApprovalPostServices", () => ({
+  postTMXUserSession: jest.fn(),
+  postFinalAcknowledge: jest.fn(),
+  postDocSaveData: jest.fn(),
+}));
+
+jest.mock("react-redux", () => ({
+  useDispatch: jest.fn(),
+  useSelector: jest.fn(),
+}));
+
+describe("nextStage function", () => {
+  const mockDispatch = jest.fn();
+  const mockSelector = {
+    stages: {
+      stages: [
+        {
+          stageInfo: {
+            applicant_documents: [{ document_list: [{ document_category: "Test Category" }] }],
+            application: { channel_reference: "test-channel-reference" },
+          },
+        },
+      ],
+    },
+    preApproval: {
+      incomeProofDocumentUpload: [],
+    },
+  };
+
+  beforeEach(() => {
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+    (useSelector as jest.Mock).mockImplementation((callback) => callback(mockSelector));
+    jest.clearAllMocks();
+  });
+
+  test("calls all APIs in sequence and updates the stage on success", async () => {
+    // Mock API responses
+    (postTMXUserSession as jest.Mock).mockResolvedValueOnce({
+      status: 200,
+      data: { review_status: "PASS" },
+    });
+    (postFinalAcknowledge as jest.Mock).mockResolvedValueOnce({ status: 202 });
+    (postDocSaveData as jest.Mock).mockResolvedValueOnce({
+      data: {
+        applicants: [{ name: "John Doe" }],
+        application: { id: "app123" },
+        applicant_documents: [{ id: "doc123" }],
+      },
+    });
+
+    render(<DucumentUploadMainSCR />);
+
+    // Trigger the nextStage function
+    const continueButton = screen.getByRole("button", { name: /Continue/i });
+    fireEvent.click(continueButton);
+
+    // Wait for API calls to complete
+    await waitFor(() => {
+      expect(postTMXUserSession).toHaveBeenCalledWith("test-channel-reference");
+      expect(postFinalAcknowledge).toHaveBeenCalledWith("test-channel-reference");
+      expect(postDocSaveData).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything()
+      );
+
+      // Check Redux dispatch calls
+      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true)); // Loader on
+      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false)); // Loader off
+      expect(mockDispatch).toHaveBeenCalledWith(preApprovalAction.setCurrentStage("PD-3"));
+      expect(mockDispatch).toHaveBeenCalledWith(
+        stagesAction.updateStageId(expect.anything())
+      );
+    });
+  });
+
+  test("handles API errors gracefully", async () => {
+    // Mock API failure
+    (postTMXUserSession as jest.Mock).mockRejectedValueOnce(new Error("API Error"));
+
+    render(<DucumentUploadMainSCR />);
+
+    // Trigger the nextStage function
+    const continueButton = screen.getByRole("button", { name: /Continue/i });
+    fireEvent.click(continueButton);
+
+    // Wait for error handling
+    await waitFor(() => {
+      expect(postTMXUserSession).toHaveBeenCalledWith("test-channel-reference");
+      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false)); // Loader off on error
+    });
+
+    // Ensure subsequent API calls were not made
+    expect(postFinalAcknowledge).not.toHaveBeenCalled();
+    expect(postDocSaveData).not.toHaveBeenCalled();
+  });
+});
