@@ -312,3 +312,149 @@ const PendingApplication = () => {
 };
 
 export default PendingApplication;
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import * as redux from "react-redux";
+import { MemoryRouter } from "react-router-dom";
+import PendingApplication from "./PendingApplication";
+
+// Mock services and utilities
+jest.mock("../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+  lovRequests: jest.fn(),
+  resumeRequest: jest.fn(),
+}));
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getLanguageInfo: jest.fn().mockReturnValue("en"),
+  },
+}));
+jest.mock("../../../shared/components/model/model", () => () => (
+  <div data-testid="model-component">Model Component</div>
+));
+jest.mock("react-router", () => ({
+  ...jest.requireActual("react-router"),
+  useNavigate: jest.fn(),
+}));
+
+describe("PendingApplication Component - openApplication", () => {
+  let mockDispatch: jest.Mock;
+  let useSelectorMock: jest.SpyInstance;
+  let useNavigateMock: jest.Mock;
+
+  beforeEach(() => {
+    mockDispatch = jest.fn();
+    useSelectorMock = jest.spyOn(redux, "useSelector");
+    useSelectorMock.mockImplementation((callback) =>
+      callback({
+        pendingApplication: {
+          pendingApplication: [
+            {
+              "product-name": "Test Product",
+              "application-ref-no": "12345",
+              "expiry-date": "20231231",
+              "product-code": "PROD001",
+            },
+          ],
+        },
+      })
+    );
+
+    jest.spyOn(redux, "useDispatch").mockReturnValue(mockDispatch);
+
+    useNavigateMock = require("react-router").useNavigate;
+    useNavigateMock.mockReturnValue(jest.fn());
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const renderComponent = () =>
+    render(
+      <MemoryRouter>
+        <PendingApplication />
+      </MemoryRouter>
+    );
+
+  test("dispatches correct actions and navigates to the correct route on success", async () => {
+    const { dispatchLoader, resumeRequest } = require("../../../services/common-service");
+    const navigateMock = require("react-router").useNavigate();
+
+    // Mock the API response for success
+    resumeRequest.mockResolvedValueOnce({
+      application: {
+        response_action: "proceed",
+        journey_type: "testJourney",
+        stage: { page_id: "rp" },
+      },
+      applicants: [],
+    });
+
+    renderComponent();
+
+    // Simulate clicking the application button
+    const appButton = screen.getByText("Resume");
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+
+    // Check that dispatchLoader was called
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true));
+
+    // Check that urlParamAction.getAuthorize was dispatched
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "urlParam/getAuthorize",
+        payload: { applicationRefNo: "12345" },
+      })
+    );
+
+    // Ensure navigate was called with the correct path
+    expect(navigateMock).toHaveBeenCalledWith("/hk/basic-information");
+  });
+
+  test("displays modal when stopApplication is true", async () => {
+    const { resumeRequest } = require("../../../services/common-service");
+
+    // Mock the API response for stop
+    resumeRequest.mockResolvedValueOnce({
+      application: { response_action: "stop" },
+    });
+
+    renderComponent();
+
+    // Simulate clicking the application button
+    const appButton = screen.getByText("Resume");
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+
+    // Ensure the stopApplication modal is displayed
+    expect(screen.getByTestId("model-component")).toBeInTheDocument();
+  });
+
+  test("handles API failure gracefully", async () => {
+    const { resumeRequest } = require("../../../services/common-service");
+
+    // Mock the API to throw an error
+    resumeRequest.mockRejectedValueOnce(new Error("API error"));
+
+    renderComponent();
+
+    // Simulate clicking the application button
+    const appButton = screen.getByText("Resume");
+    await act(async () => {
+      fireEvent.click(appButton);
+    });
+
+    // Check that stopApplication is not displayed
+    expect(screen.queryByTestId("model-component")).not.toBeInTheDocument();
+    // You can also assert that specific error handling is done
+  });
+});
