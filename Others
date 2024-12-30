@@ -122,3 +122,193 @@ describe("PendingApplication Component - openApplication", () => {
     expect(screen.getByTestId("model-component")).toBeInTheDocument();
   });
 });
+
+
+
+
+
+import "./pending-resume-application.scss";
+import {
+  dispatchLoader,
+  lovRequests,
+  resumeRequest,
+} from "../../../services/common-service";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
+import Header from "../../dashboard/header/header";
+import LeftSideBar from "../../dashboard/left-sidebar/left-sidebar";
+import { StoreModel } from "../../../utils/model/common-model";
+import { useNavigate } from "react-router";
+import { urlParamAction } from "../../../utils/store/urlparam-slice";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { CONSTANTS, resumeHeaderText } from "../../../utils/common/constants";
+import { getUrl } from "../../../utils/common/change.utils";
+// import { getLovMissing } from "../fields/fields.utils";
+import Model from "../../../shared/components/model/model";
+
+const PendingApplication = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [emptyApplication, setEmptyApplication] = useState(false);
+  const [stopApplication, setStopApplication] = useState(false);
+  // const lovSelector = useSelector((state: StoreModel) => state.lov);
+  const pendingApplicationSelector = useSelector(
+    (state: StoreModel) => state. pendingApplication
+  );
+  const [pendingApplicationsFormatted, setPendingApplicationsFormatted] =
+    useState<any>([]);
+    const language = getUrl.getLanguageInfo("lang");
+
+
+  useEffect(() => {
+    dispatch(dispatchLoader(false));
+    if (
+      pendingApplicationSelector &&
+      pendingApplicationSelector.pendingApplication &&
+      pendingApplicationSelector.pendingApplication.length > 0
+    ) {
+      const pendingApplicationNumbers =
+        pendingApplicationSelector.pendingApplication.map(
+          (application: any) => ({
+            ProductName: application['product-name'],
+            ApplicationRefNo: application['application-ref-no'],
+            ExpiryDate: caculateExpiry(application['expiry-date']),
+            ProductCode: application['product-code']
+          })
+        );
+      setEmptyApplication(false);
+      setPendingApplicationsFormatted(pendingApplicationNumbers);
+    } else {
+      setEmptyApplication(true);
+      setPendingApplicationsFormatted([]);
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const openApplication = (appRefId: string) => {
+      dispatch(dispatchLoader(true));
+      const refNo = appRefId;
+      dispatch(urlParamAction.getAuthorize({ applicationRefNo: refNo }));
+      dispatch(resumeRequest(refNo)).then(async (response: any) => {
+        if(response && response.application && response.application.response_action && response.application.response_action.toLowerCase() === 'stop') {
+          setStopApplication(true);
+        } else {
+          if (response.application && response.application.journey_type) {
+            dispatch(
+              stagesAction.setJourneyType(response.application.journey_type)
+            );
+          }
+          const stageTo = response.application.stage.page_id;
+          dispatch(
+            stagesAction.getStage({
+              id: stageTo,
+              formConfig: response,
+            })
+          );
+          dispatch(stagesAction.updateUserInputFields(response.applicants));
+          if(stageTo === 'rp') {
+            dispatch(lovRequests(response, stageTo, '', true));
+          } else {
+            dispatch(lovRequests(response, stageTo));
+          }
+          dispatch(stagesAction.resetCurrentStage(stageTo));
+          dispatch(stagesAction.setOtpResume(true));
+          navigate("/hk/basic-information")
+        }
+      });
+  };
+
+  const caculateExpiry = (expiryDate: any) => {
+    let appExpryDate = expiryDate;
+    let date = new Date();
+    let currentDateFormat = `${date.getFullYear()}-${(
+      "0" +
+      (date.getMonth() + 1)
+    ).slice(-2)}-${("0" + date.getDate()).slice(-2)}`;
+    let appExpryDateFormat = formatDate(appExpryDate);
+    let diff = +new Date(appExpryDateFormat) - +new Date(currentDateFormat);
+    let expireCount = Math.trunc(diff / (1000 * 3600 * 24));
+    let current_date = new Date(currentDateFormat);
+
+    const newDate = current_date.setDate(current_date.getDate() + expireCount);
+    let expirydate = new Date(newDate);
+    return expirydate.toString().substring(4, 15);
+  };
+  const formatDate = (expiryDate: string) => {
+    let year = expiryDate.toString().split(".")[0].substring(0, 4);
+    let month = expiryDate.toString().split(".")[0].substring(4, 6);
+    let day = expiryDate.toString().split(".")[0].substring(6, 8);
+
+    return `${year}-${month}-${day}`;
+  };
+
+  return (
+    <>
+    {!stopApplication &&
+      <div className="pending-doc app">
+        <div className="app__header-resume">
+          <div>
+            <LeftSideBar />
+          </div>
+        </div>
+        <div className="app__body">
+          <div>
+            <Header />
+          </div>
+          <div>
+            <div className="app__list">
+              <div data-testid="app-header" className="app-header">
+              {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_expiry_content_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_expiry_content_CN : resumeHeaderText.resume_expiry_content_HK}
+              </div>
+              {pendingApplicationsFormatted &&
+                pendingApplicationsFormatted.length > 0 &&
+                pendingApplicationsFormatted.map((res: any, index: any) => {
+                  return (
+                    <div className="application-list" key={res?.ApplicationRefNo}>
+                      <div className="application-list__info">
+                        <div className="application-list__name">
+                          {/* {res?.ProductName} */}
+                          {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Product_name_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Product_name_CN : resumeHeaderText.resume_Product_name_HK}
+                        </div>
+                        <div className="application-list__details">
+                          <div data-testid="application-list__ref" className="application-list__ref">
+                          {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_rel_ID_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_rel_ID_CN : resumeHeaderText.resume_rel_ID_HK}: {res?.ApplicationRefNo}
+                          </div>
+                          <div className="application-list__expdate">
+                            <span className="expire-icon"></span> {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Expire_Date_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Expire_Date_CN : resumeHeaderText.resume_Expire_Date_HK} {res?.ExpiryDate}
+                          </div>
+                        </div>
+                      </div>
+                      <div id="appListBtn"
+                        className="application-list__btn"
+                        onClick={(e) =>
+                          openApplication(res.ApplicationRefNo)
+                        }
+                      >
+                        {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_Button_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_Button_CN : resumeHeaderText.resume_Button_HK}
+                      </div>
+                    </div>
+                  );
+                })}
+
+              {emptyApplication && (
+                <div data-testid="application-list" className="application-list">
+                  {language === CONSTANTS.LANG_EN ? resumeHeaderText.resume_No_data_content_EN : language === CONSTANTS.LANG_CN ? resumeHeaderText.resume_No_data_content_CN : resumeHeaderText.resume_No_data_content_HK}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    {(stopApplication) && (
+      <Model name="noLongerValid" />
+    )}
+    </>
+        
+  );
+};
+
+export default PendingApplication;
