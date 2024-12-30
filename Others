@@ -257,3 +257,117 @@ const DucumentUploadMainSCR = () => {
 };
 
 export default DucumentUploadMainSCR;
+
+
+
+
+
+
+
+
+
+
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider, useDispatch, useSelector } from "react-redux";
+import { configureStore } from "@reduxjs/toolkit";
+import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
+import DucumentUploadMainSCR from "./document-upload-main-scr";
+import { dispatchLoader } from "../../../../../services/common-service";
+import { CONSTANTS } from "../../../../../utils/common/constants";
+import { stagesAction } from "../../../../../utils/store/stages-slice";
+import {
+  postQRCodeZOLO,
+  postFinalAcknowledge,
+  postTMXUserSession,
+  postDocSaveData,
+} from "../../../../preApproval/services/preApprovalPostServices";
+import axios from "axios";
+import { store } from "../../../../../utils/store/store" ;
+import PreApprovalUtil from "../../../services/preApprovalUtils";
+import { dispatchError } from "../../../../../services/common-service";
+
+const mockStore = configureStore({
+  reducer: {
+    preApprovalAction: preApprovalAction.setDocumentZoloCheckRes,
+  },
+});
+jest.mock("axios");
+const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+jest.mock("axios", () => ({
+  __esModule: true,
+}));
+
+jest.mock("@lottiefiles/react-lottie-player", () => ({
+  __esModule: true,
+  Player: jest.fn().mockReturnValue(null),
+}));
+
+jest.mock("'../../../../preApproval/services/preApprovalPostServices", () => ({
+  postZoloCheck: jest.fn(() => Promise.resolve({ data: { docId: "123" } })),
+  getImagePreview: jest.fn(() => Promise.resolve({ data: "blob_data" })),
+  postAchnowledge: jest.fn(() =>
+    Promise.resolve({ data: { responseStatus: "Success" } })
+  ),
+}));
+
+jest.mock("react-redux", () => ({
+  useDispatch: jest.fn(),
+  useSelector: jest.fn(),
+}));
+describe("DocumentUploadMainSRC component", () => {
+  const mockDispatch = jest.fn();
+  const mockSelector = {
+    stages: {
+      stages: [
+        {
+          stageInfo: {
+            applicant_documents: [
+              {
+                document_list: [{ document_category: "Colour Identity Proof" }],
+              },
+            ],
+            application: {
+              channel_reference: "12345",
+            },
+          },
+        },
+      ],
+    },
+    preApproval: {
+      incomeProofDocumentUpload: [],
+    },
+  };
+  const mockState = {};
+  beforeEach(() => {
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("render the DucumentUploadMainSCR component", () => {
+    render(<DucumentUploadMainSCR />);
+    expect(screen.getByText("Uploading your documents")).toBeInTheDocument();
+    expect(
+      screen.getByText("Please upload the following documents:")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Please provide the following documents")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("© Standard Chartered Bank (HK) Limited")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Income Proof")).not.toBeInTheDocument();
+  });
+  test("calls nextStage function when 'Continue' button is clicked", async () => {
+ 
+
+    render(<DucumentUploadMainSCR />);
+
+    const continueButton = screen.getByRole("button", { name: /Continue/i });
+    fireEvent.click(continueButton);
+  });
+
+});
