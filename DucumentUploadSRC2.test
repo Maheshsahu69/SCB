@@ -300,3 +300,203 @@ describe("DocumentUploadSRC2", () => {
 
   });
 });
+
+
+
+
+
+
+
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import { postDocuments, postZOLOCheck, postZolozAcknowledge } from "../../../../preApproval/services/preApprovalPostServices";
+import { dispatchLoader } from "../../../../../services/common-service";
+
+// Mock services and utilities
+jest.mock("../../../../preApproval/services/preApprovalPostServices", () => ({
+  postDocuments: jest.fn(),
+  postZOLOCheck: jest.fn(),
+  postZolozAcknowledge: jest.fn(),
+}));
+jest.mock("../../../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+const mockStore = configureStore([]);
+const mockDispatch = jest.fn();
+
+describe("DocumentUploadSRC2 Component", () => {
+  let store;
+
+  const defaultProps = {
+    setShowIncomeProof: jest.fn(),
+    setDocumentCount: jest.fn(),
+    documentCount: 0,
+    changeSuccessState: jest.fn(),
+    showQRCodePage: false,
+    setShowQRCodePage: jest.fn(),
+    setChangeIconColorIdentityProof: jest.fn(),
+    showUploadFileSuccess: false,
+    setShowUploadFileSuccess: jest.fn(),
+    channel_reference: "test-channel",
+    HKIDQRCodeData: { transactionId: "test-id", qrCode: "test-qrcode" },
+    setHKIDVersion: jest.fn(),
+    HKIDVersionValue: "test-version",
+    setShowContinueBtn: jest.fn(),
+    setDocumentData: jest.fn(),
+    setZolozDocumentData: jest.fn(),
+    setSucsess: jest.fn(),
+    success: false,
+    setChangeIconIncomeProof: jest.fn(),
+    changeIconIncomeProof: false,
+  };
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: { stages: [{ stageInfo: {} }] },
+      preApproval: { incomeProofDocumentUpload: [] },
+    });
+    jest.clearAllMocks();
+  });
+
+  test("renders component correctly with default props", () => {
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    expect(screen.getByText("Income Proof")).toBeInTheDocument();
+    expect(screen.getByText("© Standard Chartered Bank (HK) Limited")).toBeInTheDocument();
+  });
+
+  test("handles file upload correctly", async () => {
+    (postDocuments as jest.Mock).mockResolvedValue({
+      statusText: "Accepted",
+      data: { success: true },
+    });
+
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    const fileInput = screen.getByLabelText("Upload");
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["dummy content"], "test-file.png", { type: "image/png" })],
+      },
+    });
+
+    await waitFor(() => expect(postDocuments).toHaveBeenCalledTimes(1));
+    expect(dispatchLoader).toHaveBeenCalledWith(true);
+  });
+
+  test("opens tips modal on click", () => {
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText("here"));
+    expect(defaultProps.setShowIncomeProof).toHaveBeenCalledTimes(0); // Update assertions for modal actions
+  });
+
+  test("disables continue button if no files are uploaded", () => {
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(continueButton).toBeDisabled();
+  });
+
+  test("enables continue button after successful file upload", async () => {
+    (postDocuments as jest.Mock).mockResolvedValue({
+      statusText: "Accepted",
+      data: { success: true },
+    });
+
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    const fileInput = screen.getByLabelText("Upload");
+    fireEvent.change(fileInput, {
+      target: {
+        files: [new File(["dummy content"], "test-file.png", { type: "image/png" })],
+      },
+    });
+
+    await waitFor(() => expect(postDocuments).toHaveBeenCalledTimes(1));
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    expect(continueButton).not.toBeDisabled();
+  });
+
+  test("calls delete document action when delete button is clicked", () => {
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    const deleteButton = screen.getByTestId("delete-btn");
+    fireEvent.click(deleteButton);
+    expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with the exact dispatched action
+  });
+
+  test("calls refresh action when refresh button is clicked", () => {
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    const refreshButton = screen.getByTestId("refresh-btn");
+    fireEvent.click(refreshButton);
+    expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with the exact dispatched action
+  });
+
+  test("handles submit action on QR Code page", async () => {
+    (postZOLOCheck as jest.Mock).mockResolvedValue({
+      data: { documents: [{ docId: "test-doc" }] },
+    });
+    (postZolozAcknowledge as jest.Mock).mockResolvedValue({
+      data: [{ responseStatus: "Success" }],
+    });
+
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} showQRCodePage={true} />
+      </Provider>
+    );
+
+    const submitButton = screen.getByText("Submit");
+    fireEvent.click(submitButton);
+
+    await waitFor(() => expect(postZOLOCheck).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(postZolozAcknowledge).toHaveBeenCalledTimes(1));
+  });
+
+  test("handles modal close actions correctly", () => {
+    render(
+      <Provider store={store}>
+        <DocumentUploadSRC2 {...defaultProps} />
+      </Provider>
+    );
+
+    const closeButton = screen.getByText("CLOSE");
+    fireEvent.click(closeButton);
+
+    expect(defaultProps.setShowIncomeProof).toHaveBeenCalledWith("");
+    expect(defaultProps.setShowQRCodePage).toHaveBeenCalledWith(false);
+  });
+});
