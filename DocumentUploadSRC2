@@ -334,15 +334,17 @@ const DocumentUploadSRC2: React.FC<any> = ({
                         <div className="progress-text-icon"></div>
                         {item.documentStatus === "UPLOADED" && (
                           <div
+                            data-testid="delete-btn"
                             role="button"
                             className="trash-icon"
                             onClick={() => {
                               handleDelete(item.docId);
                             }}
                           ></div>
-                        )}
+                         )} 
                         {item.documentStatus === "Upload failed" && (
                           <div
+                            data-testid="refresh-btn"
                             className="retry-icon"
                             onClick={() => {
                               handleRefresh(item.docId, index);
