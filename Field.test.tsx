@@ -193,3 +193,173 @@ describe("Fields Component", () => {
   });
 });
 
+
+
+
+
+import { renderHook, act } from "@testing-library/react";
+import { useDispatch } from "react-redux";
+import { SetNextStageDetaisAfterSave } from "./fields";
+import { postBasicData, postSaveData } from "../../preApproval/services/preApprovalPostServices";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { errorAction } from "../../../utils/store/error-slice";
+import { lovRequests } from "../../../services/common-service";
+
+jest.mock("react-redux", () => ({
+  useDispatch: jest.fn(),
+}));
+
+jest.mock("../../preApproval/services/preApprovalPostServices", () => ({
+  postBasicData: jest.fn(),
+  postSaveData: jest.fn(),
+}));
+
+jest.mock("../../../services/common-service", () => ({
+  lovRequests: jest.fn(),
+}));
+
+jest.mock("../../../utils/store/stages-slice", () => ({
+  stagesAction: {
+    updateStageId: jest.fn(),
+    getStage: jest.fn(),
+  },
+}));
+
+jest.mock("../../../utils/store/error-slice", () => ({
+  errorAction: {
+    getError: jest.fn(),
+    getExceptionList: jest.fn(),
+  },
+}));
+
+describe("SetNextStageDetailsAfterSave", () => {
+  const mockDispatch = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+  });
+
+  it("should update the stage ID and call postBasicData for BD_1", async () => {
+    (postBasicData as jest.Mock).mockResolvedValue({
+      status: 200,
+      data: {
+        application: { response_type: "INFO", response_action: "SUCCESS" },
+        applicants: [{}],
+      },
+    });
+
+    await act(async () => {
+      SetNextStageDetaisAfterSave("BD_1", "BD_1A");
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith(stagesAction.updateStageId("BD_1"));
+    expect(postBasicData).toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledWith(
+      stagesAction.getStage({
+        id: "BD_1",
+        formConfig: expect.any(Object),
+      })
+    );
+  });
+
+  it("should update the stage ID and call postSaveData for non-BD_1 stages", async () => {
+    (postSaveData as jest.Mock).mockResolvedValue({
+      status: 200,
+      data: {
+        application: { response_type: "INFO", response_action: "SUCCESS" },
+        applicants: [{}],
+      },
+    });
+
+    await act(async () => {
+      SetNextStageDetaisAfterSave("AD_1", "BD_1");
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith(stagesAction.updateStageId("AD_1"));
+    expect(postSaveData).toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledWith(
+      stagesAction.getStage({
+        id: "AD_1",
+        formConfig: expect.any(Object),
+      })
+    );
+  });
+
+  it("should handle HARD STOP errors correctly", async () => {
+    (postSaveData as jest.Mock).mockResolvedValue({
+      status: 200,
+      data: {
+        application: {
+          response_type: "HARD",
+          response_action: "STOP",
+          error: {
+            application_error: [
+              { error_description: "Technical Error", rtobCode: "E01" },
+            ],
+          },
+        },
+      },
+    });
+
+    await act(async () => {
+      SetNextStageDetaisAfterSave("AD_1", "BD_1");
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      errorAction.getExceptionList([
+        {
+          statusCode: "E01",
+          statusText: "Technical Error",
+          responseAction: "STOP",
+          responseType: "HARD",
+        },
+      ])
+    );
+  });
+
+  it("should handle error if API fails", async () => {
+    (postSaveData as jest.Mock).mockRejectedValue(new Error("API Error"));
+
+    await act(async () => {
+      await SetNextStageDetaisAfterSave("AD_1", "BD_1");
+    });
+
+    expect(mockDispatch).not.toHaveBeenCalledWith(stagesAction.getStage());
+    expect(mockDispatch).not.toHaveBeenCalledWith(
+      stagesAction.updateStageId("AD_1")
+    );
+  });
+
+  it("should dispatch an error when response contains application error", async () => {
+    (postSaveData as jest.Mock).mockResolvedValue({
+      status: 200,
+      data: {
+        application: {
+          response_type: "HARD",
+          response_action: "STOP",
+          error: {
+            application_error: [
+              { error_description: "Application Error", rtobCode: "E02" },
+            ],
+          },
+        },
+      },
+    });
+
+    await act(async () => {
+      await SetNextStageDetaisAfterSave("AD_1", "BD_1");
+    });
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      errorAction.getExceptionList([
+        {
+          statusCode: "E02",
+          statusText: "Application Error",
+          responseAction: "STOP",
+          responseType: "HARD",
+        },
+      ])
+    );
+  });
+});
