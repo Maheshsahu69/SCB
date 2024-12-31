@@ -558,3 +558,172 @@ export const getStagePayload = (stageSelector: KeyWithAnyModel, applicantsSelect
   );
   // }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// fields.utils.test.tsx
+import { render, screen, act } from '@testing-library/react';
+import { stageFields, stageSelectFields, submitRequest, userInputPayload } from './fields.utils';
+import { stagesAction } from '../../../utils/store/stages-slice';
+import { fieldErrorAction } from '../../../utils/store/field-error-slice';
+import { postRequest } from '../../../services/common-service';
+
+jest.mock('../../../services/common-service', () => ({
+  postRequest: jest.fn(),
+  preserveRequest: jest.fn(),
+}));
+
+jest.mock('../../../utils/store/stages-slice', () => ({
+  stagesAction: {
+    updateStageId: jest.fn(),
+    resetCurrentStage: jest.fn(),
+    updateStageFields: jest.fn(),
+  },
+}));
+
+jest.mock('../../../utils/store/field-error-slice', () => ({
+  fieldErrorAction: {
+    getMandatoryFields: jest.fn(),
+    getFieldError: jest.fn(),
+  },
+}));
+
+describe('Fields.utils.ts', () => {
+  describe('stageFields', () => {
+    it('should return filtered fields for a valid stage', () => {
+      const mockStageSelector = [
+        {
+          stageInfo: {
+            fieldMetaData: {
+              data: {
+                stages: [
+                  {
+                    stageId: 'bd-1',
+                    fields: [
+                      { field_set_name: 'Basic Info', rwb_category: 'bd-1' },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ];
+
+      const result = stageFields(mockStageSelector, 'bd-1');
+      expect(result.fields).toBeDefined();
+      expect(result.fields.fields.length).toBe(1);
+    });
+
+    it('should return undefined fields for an invalid stage', () => {
+      const mockStageSelector = [
+        {
+          stageInfo: {
+            fieldMetaData: { data: { stages: [] } },
+          },
+        },
+      ];
+      const result = stageFields(mockStageSelector, 'invalid-stage');
+      expect(result.fields).toBeUndefined();
+    });
+  });
+
+  describe('stageSelectFields', () => {
+    it('should group fields correctly', () => {
+      const mockStageSelector = [
+        {
+          stageInfo: {
+            fieldMetaData: {
+              data: {
+                stages: [
+                  {
+                    stageId: 'bd-1',
+                    fields: [{ field_set_name: 'Basic Info' }],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      ];
+
+      const result = stageSelectFields(mockStageSelector, 'bd-1', {
+        fields: [{ logical_field_name: 'field1' }],
+      });
+      expect(result.fields).toBeDefined();
+    });
+  });
+
+  describe('userInputPayload', () => {
+    it('should update stage fields with user inputs', () => {
+      const mockDispatch = jest.fn();
+      const applicantsSelector = { field1: 'value1' };
+      const stageSelector = [{ stageInfo: { applicants: [{}] } }];
+
+      userInputPayload(applicantsSelector, stageSelector)(mockDispatch);
+
+      expect(mockDispatch).toHaveBeenCalledWith(
+        stagesAction.updateStageFields(expect.anything())
+      );
+    });
+  });
+
+  describe('submitRequest', () => {
+    const mockDispatch = jest.fn();
+
+    const mockArgs = {
+      applicantsSelector: { field1: 'value1' },
+      stageSelector: {
+        stageId: 'bd-1',
+        stageInfo: { applicants: [{}] },
+      },
+      valueSelector: { changesUpdate: { changes: false } },
+      lovSelector: {},
+      applicationJourney: null,
+      userInputSelector: { applicants: [{}] },
+      errorSelector: { retry: false },
+      resumeFlag: {},
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should dispatch stage updates on success', async () => {
+      postRequest.mockResolvedValueOnce({});
+      await submitRequest(...Object.values(mockArgs))(mockDispatch);
+
+      expect(mockDispatch).toHaveBeenCalledWith(
+        stagesAction.updateStageId(expect.anything())
+      );
+    });
+
+    it('should handle errors and dispatch error actions', async () => {
+      postRequest.mockRejectedValueOnce(new Error('Error'));
+
+      try {
+        await submitRequest(...Object.values(mockArgs))(mockDispatch);
+      } catch (error) {
+        expect(mockDispatch).toHaveBeenCalledWith(
+          fieldErrorAction.getFieldError(expect.anything())
+        );
+      }
+    });
+  });
+});
