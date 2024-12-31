@@ -197,25 +197,22 @@ describe("Fields Component", () => {
 
 
 
-import { renderHook, act } from "@testing-library/react";
-import { useDispatch } from "react-redux";
-import { SetNextStageDetaisAfterSave } from "./fields";
+import React from "react";
+import { render, screen, act } from "@testing-library/react";
+import { useDispatch, useSelector } from "react-redux";
+import Fields from "./Fields";
 import { postBasicData, postSaveData } from "../../preApproval/services/preApprovalPostServices";
 import { stagesAction } from "../../../utils/store/stages-slice";
 import { errorAction } from "../../../utils/store/error-slice";
-import { lovRequests } from "../../../services/common-service";
 
 jest.mock("react-redux", () => ({
   useDispatch: jest.fn(),
+  useSelector: jest.fn(),
 }));
 
 jest.mock("../../preApproval/services/preApprovalPostServices", () => ({
   postBasicData: jest.fn(),
   postSaveData: jest.fn(),
-}));
-
-jest.mock("../../../services/common-service", () => ({
-  lovRequests: jest.fn(),
 }));
 
 jest.mock("../../../utils/store/stages-slice", () => ({
@@ -232,12 +229,14 @@ jest.mock("../../../utils/store/error-slice", () => ({
   },
 }));
 
-describe("SetNextStageDetailsAfterSave", () => {
+describe("Fields Component - SetNextStageDetaisAfterSave", () => {
   const mockDispatch = jest.fn();
+  const mockSelector = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+    (useSelector as jest.Mock).mockImplementation(mockSelector);
   });
 
   it("should update the stage ID and call postBasicData for BD_1", async () => {
@@ -249,8 +248,16 @@ describe("SetNextStageDetailsAfterSave", () => {
       },
     });
 
+    mockSelector.mockReturnValue({
+      stages: { stageId: "BD_1" },
+    });
+
+    // Render component and trigger SetNextStageDetaisAfterSave
+    render(<Fields />);
+    const instance: any = screen;
+
     await act(async () => {
-      SetNextStageDetaisAfterSave("BD_1", "BD_1A");
+      instance.SetNextStageDetaisAfterSave("BD_1", "BD_1A");
     });
 
     expect(mockDispatch).toHaveBeenCalledWith(stagesAction.updateStageId("BD_1"));
@@ -272,8 +279,16 @@ describe("SetNextStageDetailsAfterSave", () => {
       },
     });
 
+    mockSelector.mockReturnValue({
+      stages: { stageId: "AD_1" },
+    });
+
+    // Render component and trigger SetNextStageDetaisAfterSave
+    render(<Fields />);
+    const instance: any = screen;
+
     await act(async () => {
-      SetNextStageDetaisAfterSave("AD_1", "BD_1");
+      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
     });
 
     expect(mockDispatch).toHaveBeenCalledWith(stagesAction.updateStageId("AD_1"));
@@ -302,8 +317,16 @@ describe("SetNextStageDetailsAfterSave", () => {
       },
     });
 
+    mockSelector.mockReturnValue({
+      stages: { stageId: "AD_1" },
+    });
+
+    // Render component and trigger SetNextStageDetaisAfterSave
+    render(<Fields />);
+    const instance: any = screen;
+
     await act(async () => {
-      SetNextStageDetaisAfterSave("AD_1", "BD_1");
+      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
     });
 
     expect(mockDispatch).toHaveBeenCalledWith(
@@ -321,8 +344,16 @@ describe("SetNextStageDetailsAfterSave", () => {
   it("should handle error if API fails", async () => {
     (postSaveData as jest.Mock).mockRejectedValue(new Error("API Error"));
 
+    mockSelector.mockReturnValue({
+      stages: { stageId: "AD_1" },
+    });
+
+    // Render component and trigger SetNextStageDetaisAfterSave
+    render(<Fields />);
+    const instance: any = screen;
+
     await act(async () => {
-      await SetNextStageDetaisAfterSave("AD_1", "BD_1");
+      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
     });
 
     expect(mockDispatch).not.toHaveBeenCalledWith(stagesAction.getStage());
@@ -347,8 +378,16 @@ describe("SetNextStageDetailsAfterSave", () => {
       },
     });
 
+    mockSelector.mockReturnValue({
+      stages: { stageId: "AD_1" },
+    });
+
+    // Render component and trigger SetNextStageDetaisAfterSave
+    render(<Fields />);
+    const instance: any = screen;
+
     await act(async () => {
-      await SetNextStageDetaisAfterSave("AD_1", "BD_1");
+      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
     });
 
     expect(mockDispatch).toHaveBeenCalledWith(
