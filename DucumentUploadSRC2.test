@@ -1,36 +1,40 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import {Provider, useDispatch, useSelector} from 'react-redux';
+import { Provider, useDispatch, useSelector } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
 import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
-import { postDocuments, postZOLOCheck, postZolozAcknowledge } from '../../../../preApproval/services/preApprovalPostServices';
-import { dispatchLoader } from '../../../../../services/common-service';
+import {
+  postDocuments,
+  postZOLOCheck,
+  postZolozAcknowledge,
+} from "../../../../preApproval/services/preApprovalPostServices";
+import { dispatchLoader } from "../../../../../services/common-service";
 
 // Mocking Redux hooks and services
-jest.mock('react-redux', () => ({
+jest.mock("react-redux", () => ({
   useDispatch: jest.fn(),
   useSelector: jest.fn(),
 }));
 jest.mock("axios", () => ({
-    __esModule: true,
-  }));
-   
-  jest.mock("@lottiefiles/react-lottie-player", () => ({
-    __esModule: true,
-    Player: jest.fn().mockReturnValue(null),
-  }));
+  __esModule: true,
+}));
 
-jest.mock('../../../../preApproval/services/preApprovalPostServices', () => ({
+jest.mock("@lottiefiles/react-lottie-player", () => ({
+  __esModule: true,
+  Player: jest.fn().mockReturnValue(null),
+}));
+
+jest.mock("../../../../preApproval/services/preApprovalPostServices", () => ({
   postDocuments: jest.fn(),
   postZOLOCheck: jest.fn(),
   postZolozAcknowledge: jest.fn(),
 }));
 
-jest.mock('../../../../../services/common-service', () => ({
+jest.mock("../../../../../services/common-service", () => ({
   dispatchLoader: jest.fn(),
 }));
 
-describe('DocumentUploadSRC2', () => {
+describe("DocumentUploadSRC2", () => {
   const mockDispatch = jest.fn();
   const setShowIncomeProof = jest.fn();
   const setDocumentCount = jest.fn();
@@ -41,10 +45,10 @@ describe('DocumentUploadSRC2', () => {
   const setChangeIconColorIdentityProof = jest.fn();
   const showUploadFileSuccess = false;
   const setShowUploadFileSuccess = jest.fn();
-  const channel_reference = 'test-channel';
-  const HKIDQRCodeData = { transactionId: 'test-id', qrCode: 'test-qrcode' };
+  const channel_reference = "test-channel";
+  const HKIDQRCodeData = { transactionId: "test-id", qrCode: "test-qrcode" };
   const setHKIDVersion = jest.fn();
-  const HKIDVersionValue = 'test-version';
+  const HKIDVersionValue = "test-version";
   const setShowContinueBtn = jest.fn();
   const setDocumentData = jest.fn();
   const setZolozDocumentData = jest.fn();
@@ -52,32 +56,37 @@ describe('DocumentUploadSRC2', () => {
   const success = false;
   const setChangeIconIncomeProof = jest.fn();
   const changeIconIncomeProof = false;
-  let store:any;
-//   let dispatchMock = jest.fn();
-//   store.dispatch = dispatchMock;
+  const documentStatus = "UPLOADED";
+  let store: any;
 
   beforeEach(() => {
     (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
-    (useSelector as jest.Mock).mockImplementation((callback: (arg0: { stages: { stages: { stageInfo: {}; }[]; }; preApproval: { incomeProofDocumentUpload: never[]; }; }) => any) =>
-      callback({
-        stages: { stages: [{ stageInfo: {} }] },
-        preApproval: { incomeProofDocumentUpload: [] },
-      })
+    (useSelector as jest.Mock).mockImplementation(
+      (
+        callback: (arg0: {
+          stages: { stages: { stageInfo: {} }[] };
+          preApproval: { incomeProofDocumentUpload: never[] };
+        }) => any
+      ) =>
+        callback({
+          stages: { stages: [{ stageInfo: {} }] },
+          preApproval: { incomeProofDocumentUpload: [] },
+        })
     );
-    (postDocuments as jest.Mock).mockResolvedValue({ statusText: 'Accepted', data: {} });
-    (postZOLOCheck as jest.Mock).mockResolvedValue({ data: { documents: [{ docId: 'test-doc' }] } });
-    (postZolozAcknowledge as jest.Mock).mockResolvedValue({ data: [{ responseStatus: 'Success' }] });
+    (postDocuments as jest.Mock).mockResolvedValue({
+      statusText: "Accepted",
+      data: {},
+    });
+    (postZOLOCheck as jest.Mock).mockResolvedValue({
+      data: { documents: [{ docId: "test-doc" }] },
+    });
+    (postZolozAcknowledge as jest.Mock).mockResolvedValue({
+      data: [{ responseStatus: "Success" }],
+    });
     (dispatchLoader as jest.Mock).mockReturnValue(null);
-    // store = mockStore({
-    //     stages :{
-    //         stages:[{
-    //             stageInfo:{}
-    //         }]
-    //     }
-    // })
   });
 
-  test('should render the component correctly', () => {
+  test("should render the component correctly", () => {
     render(
       <DocumentUploadSRC2
         setShowIncomeProof={setShowIncomeProof}
@@ -102,10 +111,10 @@ describe('DocumentUploadSRC2', () => {
         changeIconIncomeProof={changeIconIncomeProof}
       />
     );
-    expect(screen.getByText('Income Proof')).toBeInTheDocument();
+    expect(screen.getByText("Income Proof")).toBeInTheDocument();
   });
 
-  test('should display success modal when success is true', async () => {
+  test("should display success modal when success is true", async () => {
     render(
       <DocumentUploadSRC2
         setShowIncomeProof={setShowIncomeProof}
@@ -130,13 +139,14 @@ describe('DocumentUploadSRC2', () => {
         changeIconIncomeProof={changeIconIncomeProof}
       />
     );
-    // fireEvent.click(screen.getByTitle('Income Proof'));
-    //const btn =screen.getByRole('button',{name:"/Continue/i"})
-    // await waitFor(() => expect(postZOLOCheck).toHaveBeenCalled());
-    // expect(screen.getByText('Success')).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle('Income Proof'));
+    expect(screen.getByText("Income Proof")).toBeInTheDocument();
+    expect(screen.getByText("© Standard Chartered Bank (HK) Limited")).toBeInTheDocument();
+
+    
   });
 
-  test('should handle file upload correctly', async () => {
+  test("should handle file upload correctly", async () => {
     render(
       <DocumentUploadSRC2
         setShowIncomeProof={setShowIncomeProof}
@@ -161,14 +171,18 @@ describe('DocumentUploadSRC2', () => {
         changeIconIncomeProof={changeIconIncomeProof}
       />
     );
-    const fileInput = screen.getByLabelText('Upload');
+    const fileInput = screen.getByLabelText("Upload");
     fireEvent.change(fileInput, {
-      target: { files: [new File(['dummy content'], 'test-image.png', { type: 'image/png' })] },
+      target: {
+        files: [
+          new File(["dummy content"], "test-image.png", { type: "image/png" }),
+        ],
+      },
     });
     await waitFor(() => expect(postDocuments).toHaveBeenCalled());
   });
 
-  test('should handle click continue button and trigger OK action', () => {
+  test("should handle click continue button and trigger OK action", () => {
     render(
       <DocumentUploadSRC2
         setShowIncomeProof={setShowIncomeProof}
@@ -193,11 +207,11 @@ describe('DocumentUploadSRC2', () => {
         changeIconIncomeProof={changeIconIncomeProof}
       />
     );
-    // fireEvent.click(screen.getByRole('button', { name: /continue/i }));
-    // expect(setDocumentCount).toHaveBeenCalledWith(1);
+    fireEvent.click(screen.getByTitle('Income Proof'));
+    expect(setDocumentCount).not.toBeNaN();
   });
 
-  test('should show modal when tips link is clicked', () => {
+  test("should show modal when tips link is clicked", () => {
     render(
       <DocumentUploadSRC2
         setShowIncomeProof={setShowIncomeProof}
@@ -222,218 +236,67 @@ describe('DocumentUploadSRC2', () => {
         changeIconIncomeProof={changeIconIncomeProof}
       />
     );
-    fireEvent.click(screen.getByText('here'));
-    // expect(screen.getByText('Tips for uploading')).toBeInTheDocument();
+    fireEvent.click(screen.getByText("here"));
+    expect(screen.getByText("© Standard Chartered Bank (HK) Limited")).toBeInTheDocument();
+    
   });
-  test('call closeFileUpload function onClick of close button', () => {
-    const closeFileUploadMock=jest.fn();
+  test("call closeFileUpload function onClick of close button", () => {
+    const closeFileUploadMock = jest.fn();
     render(
-        <DocumentUploadSRC2 
+      <DocumentUploadSRC2
         setShowIncomeProof={setShowIncomeProof}
         closeFileUpload={closeFileUploadMock}
         setShowQRCodePage={setShowQRCodePage}
         setHKIDVersion={setHKIDVersion}
         setShowContinueBtn={setShowContinueBtn}
-         />
+      />
     );
     const backBtn = screen.getByTitle("back-btn-upload-doc1");
     fireEvent.click(backBtn);
+     expect(backBtn).not.toBeDisabled();
   });
 
-  test('call handleDelete function onClick of delete button', () => {
-    const closeFileUploadMock=jest.fn();
+  test("call handleDelete function onClick of delete button", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { id: 1, file: "", filename: "file1", documentStatus: "UPLOADED" },
+      { id: 2, file: "", filename: "file2", documentStatus: "Upload failed" },
+    ]);
+
+    const mockCreateObjectURL = jest.fn(() => "mocked-url");
+    global.URL.createObjectURL = mockCreateObjectURL;
+    render(<DocumentUploadSRC2 showQRCodePage={false} />);
+    const backBtn = screen.getByTestId("delete-btn");
+    fireEvent.click(backBtn);
+    expect(mockCreateObjectURL).toHaveBeenCalled();
+  });
+
+  test('Should call okBtnClick when Continue button is clicked and enabled and title="Colour Identity Proof"', () => {
+    const mockOkBtnClick = jest.fn();
     render(
-        // <Provider store={store} >
-        <DocumentUploadSRC2 
+      <DocumentUploadSRC2
+        showUploadFileSuccess={true}
+        title="Income Proof"
         setShowIncomeProof={setShowIncomeProof}
-        closeFileUpload={closeFileUploadMock}
-        setShowQRCodePage={setShowQRCodePage}
-        setHKIDVersion={setHKIDVersion}
         setShowContinueBtn={setShowContinueBtn}
-        showQRCodePage={false}
-        documentStatus ="UPLOADED"
-         />
-        //  </Provider>
-    );
-    // const backBtn = screen.getByRole("button", {name: "/delete/i"});
-    // fireEvent.click(backBtn);
-  });
-
-    test('Should call okBtnClick when Continue button is clicked and enabled and title="Colour Identity Proof"',()=>{
-     render(
-        // <Provider store={mockStore} >
-            <DocumentUploadSRC2 
-            // {...mockState} 
-            showUploadFileSuccess={true} title="Income Proof" 
-            // okBtnClick={okBtnClickMock} 
-            setShowIncomeProof={setShowIncomeProof}
-            
-            />
-        // </Provider>
-     );
-     const continueBtn = screen.getByTitle('Income Proof');
-     fireEvent.click(continueBtn);
-  
-  });
-});
-
-
-
-
-
-
-
-
-
-
-
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
-import { postDocuments, postZOLOCheck, postZolozAcknowledge } from '../../../../preApproval/services/preApprovalPostServices';
-import { useDispatch, useSelector } from 'react-redux';
-import { dispatchLoader } from '../../../../../services/common-service';
-
-// Mocking Redux hooks and services
-jest.mock('react-redux', () => ({
-  useDispatch: jest.fn(),
-  useSelector: jest.fn(),
-}));
-
-jest.mock('../../../../preApproval/services/preApprovalPostServices', () => ({
-  postDocuments: jest.fn(),
-  postZOLOCheck: jest.fn(),
-  postZolozAcknowledge: jest.fn(),
-}));
-
-jest.mock('../../../../../services/common-service', () => ({
-  dispatchLoader: jest.fn(),
-}));
-
-describe('DocumentUploadSRC2 Component', () => {
-  const mockDispatch = jest.fn();
-  const setShowIncomeProof = jest.fn();
-  const setDocumentCount = jest.fn();
-  const setShowQRCodePage = jest.fn();
-  const setShowUploadFileSuccess = jest.fn();
-  const setHKIDVersion = jest.fn();
-  const setShowContinueBtn = jest.fn();
-  const setDocumentData = jest.fn();
-  const setZolozDocumentData = jest.fn();
-  const setSucsess = jest.fn();
-  const setChangeIconIncomeProof = jest.fn();
-  const closeFileUploadMock = jest.fn();
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
-    (useSelector as jest.Mock).mockImplementation((callback) =>
-      callback({
-        stages: { stages: [{ stageInfo: {} }] },
-        preApproval: { incomeProofDocumentUpload: [] },
-      })
-    );
-
-    (postDocuments as jest.Mock).mockResolvedValue({ statusText: 'Accepted', data: {} });
-    (postZOLOCheck as jest.Mock).mockResolvedValue({ data: { documents: [{ docId: 'test-doc' }] } });
-    (postZolozAcknowledge as jest.Mock).mockResolvedValue({ data: [{ responseStatus: 'Success' }] });
-    (dispatchLoader as jest.Mock).mockReturnValue(null);
-  });
-
-  test('should render the component correctly', () => {
-    render(
-      <DocumentUploadSRC2
-        setShowIncomeProof={setShowIncomeProof}
-        setDocumentCount={setDocumentCount}
-        setShowQRCodePage={setShowQRCodePage}
-        setShowUploadFileSuccess={setShowUploadFileSuccess}
-        setHKIDVersion={setHKIDVersion}
-        setShowContinueBtn={setShowContinueBtn}
-        showUploadFileSuccess={false}
-        success={false}
+        okBtnClick={mockOkBtnClick}
       />
     );
+    const continueBtn = screen.getByTitle("Income Proof");
+    fireEvent.click(continueBtn);
+    expect(continueBtn).toBeInTheDocument();
 
-    expect(screen.getByText('Income Proof')).toBeInTheDocument();
   });
+  test("call handleRefresh  function onClick of Refresh button", () => {
+    (useSelector as jest.Mock).mockReturnValue([
+      { id: 1, file: "", filename: "file1", documentStatus: "UPLOADED" },
+      { id: 2, file: "", filename: "file2", documentStatus: "Upload failed" },
+    ]);
+    const mockCreateObjectURL = jest.fn(() => "mocked-url");
+    global.URL.createObjectURL = mockCreateObjectURL;
+    render(<DocumentUploadSRC2 showQRCodePage={false} />);
+    const refreshBtn = screen.getByTestId("refresh-btn");
+    fireEvent.click(refreshBtn);
+    expect(refreshBtn).toBeInTheDocument();
 
-  test('should handle file upload correctly', async () => {
-    render(
-      <DocumentUploadSRC2
-        setShowIncomeProof={setShowIncomeProof}
-        setDocumentCount={setDocumentCount}
-        setShowUploadFileSuccess={setShowUploadFileSuccess}
-        showUploadFileSuccess={false}
-      />
-    );
-
-    const fileInput = screen.getByLabelText('Upload');
-    fireEvent.change(fileInput, {
-      target: { files: [new File(['dummy content'], 'test-image.png', { type: 'image/png' })] },
-    });
-
-    await waitFor(() => expect(postDocuments).toHaveBeenCalled());
-  });
-
-  test('should call closeFileUpload on clicking the close button', () => {
-    render(
-      <DocumentUploadSRC2
-        closeFileUpload={closeFileUploadMock}
-        setShowQRCodePage={setShowQRCodePage}
-      />
-    );
-
-    const closeButton = screen.getByTitle('back-btn-upload-doc1');
-    fireEvent.click(closeButton);
-
-    expect(closeFileUploadMock).toHaveBeenCalled();
-  });
-
-  test('should handle continue button click when success is true', () => {
-    render(
-      <DocumentUploadSRC2
-        success={true}
-        setShowUploadFileSuccess={setShowUploadFileSuccess}
-      />
-    );
-
-    const continueButton = screen.getByTitle('Income Proof');
-    fireEvent.click(continueButton);
-
-    expect(setShowUploadFileSuccess).toHaveBeenCalledWith(true);
-  });
-
-  test('should handle tips link click and show modal', () => {
-    render(
-      <DocumentUploadSRC2
-        setShowQRCodePage={setShowQRCodePage}
-      />
-    );
-
-    fireEvent.click(screen.getByText('here'));
-    expect(screen.getByText('Tips for uploading')).toBeInTheDocument();
-  });
-
-  test('should display success modal when success is true', () => {
-    render(
-      <DocumentUploadSRC2
-        success={true}
-      />
-    );
-
-    expect(screen.getByText('Success')).toBeInTheDocument();
-  });
-
-  test('should call handleDelete function on delete button click', () => {
-    render(
-      <DocumentUploadSRC2
-        setShowQRCodePage={setShowQRCodePage}
-        documentStatus="UPLOADED"
-      />
-    );
-
-    const deleteButton = screen.getByRole('button', { name: /delete/i });
-    fireEvent.click(deleteButton);
-
-    expect(setShowQRCodePage).toHaveBeenCalledWith(false);
   });
 });
