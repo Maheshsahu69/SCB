@@ -1,489 +1,231 @@
-import { useState, useEffect } from "react";
-import "./document-upload-main-scr.scss";
-import { useDispatch, useSelector } from "react-redux";
-import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
-
-import ColorIdentityProof from "../colourIdentityProof/colour-Identity-Proof";
-import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
-import { postDocSaveData, postFinalAcknowledge, postQRCodeZOLO, postTMXUserSession } from "../../../../preApproval/services/preApprovalPostServices";
-import DocumentTypeDynamic from "../documentType/document-type-dynamic";
-// import {document_list} from '../../../utils/common/constants';
-import { dispatchError, dispatchLoader } from "../../../../../services/common-service";
-import { StoreModel } from "../../../../../utils/model/common-model";
-import { stagesAction } from "../../../../../utils/store/stages-slice";
-import { CONSTANTS } from "../../../../../utils/common/constants";
-import Close from "../../../../../shared/components/close/close";
-import { AxiosError } from "axios";
-
-const DucumentUploadMainSCR = () => {
-  const uplaodDoc = "Please upload the following documents: ";
-  const provideDoc = "Please provide the following documents";
-  const docEnabledCount = "1";
-  const document_list = useSelector((state: StoreModel) => state.stages && state.stages.stages[0].stageInfo.applicant_documents[0].document_list)
-  const totalDocCount = document_list?.length;
-  const docCategory = "Colour Identity Proof";
-  const docCategory2 = "Income Proof";
-  const tooltipText =
-    "The document submitted will not be returned. Standard Chartered Bank (Hong Kong) Limited (the Bank) may request additional documents from you for approval purposes.";
-
-  const footerContent1 = "Uploading your documents";
-  const footerContent2 =
-    "Uploading your HKID image requires a smart phone device. You will be asked to capture the image of your HKID and make selfie images for authentication purpose.";
-  const footerContent3 =
-    "Other documents can be directly uploaded.  Please note that copies of the documents submitted must be complete, legible and without any masked information.";
-  const hkCopyRight = "© Standard Chartered Bank (HK) Limited";
-
-  const [showIncomeProof, setShowIncomeProof] = useState("");
-  const [success, setSucsess] = useState(true);
-  const [goBack, setGoBack] = useState(false);
-  const [showQRCodePage, setShowQRCodePage] = useState(false);
-  const [changeIconColorIdentityProof, setChangeIconColorIdentityProof] =
-    useState(true);
-  const [changeIconIncomeProof, setChangeIconIncomeProof] =
-    useState(true);
-  const [HKIDQRCodeData, setHKIDQRCodeData] = useState(null);
-  const [showUploadFileSuccess, setShowUploadFileSuccess] = useState(false);
-  const [HKIDVersion, setHKIDVersion] = useState("");
-  const [HKIDVersionValue, setHKIDVersionValue] = useState("");
-  const [documentCount, setDocumentCount] = useState(0);
-  const [showContinueBtn, setShowContinueBtn] = useState(false);
-  const [documentData, setDocumentData] = useState([]);
-  const [zolozDocumentData, setZolozDocumentData] = useState([]);
-
-  const static_channel_reference = "04041ed2f9a3a12024";
-  const channel_reference = useSelector((state: StoreModel) => state.stages && state.stages.stages[0].stageInfo.application.channel_reference);
-  const stageSelector = useSelector((state: StoreModel) => state.stages && state.stages.stages);
-  const [isMobile, setIsMobile] = useState(false);
-  const [showSpinner, setShowSpinner] = useState(true);
-  const filesSelector = useSelector(
-    (state: StoreModel) => state.preApproval.incomeProofDocumentUpload
-  );
-  console.log(filesSelector)
-  useEffect(() => {
-    const userAgent = navigator.userAgent.toLowerCase();
-    console.log("userAgent:", /mobile|android|iphone|ipaid|ipod/.test(userAgent));
-    setIsMobile(/mobile|android|iphone|ipaid|ipod/.test(userAgent));
-
-    dispatch(dispatchLoader(false));
-    //  if(isMobile){
-    //   window.location.href("https://origination.sc.com/onboarding/hk/zolozThankYou.html?scbToken=04071fe343abe12024&lang=en");
-    //  }
-  }, []);
-
-  const openUploadHKdialog = (title: any) => {
-    setShowIncomeProof(title);
-    setShowContinueBtn(true);
-  };
-  const dispatch = useDispatch();
-
-  const changeIcon = (newIcon: any) => {
-    setChangeIconColorIdentityProof(newIcon);
-  };
-  const changeSuccessState = (success: any) => {
-    setSucsess(success);
-  };
-
-  const callQRCodeAPI = () => {
-    setShowSpinner(true);
-    dispatch(dispatchLoader(true));
-    console.log(channel_reference)
-    postQRCodeZOLO(channel_reference, HKIDVersionValue).then((response: any) => {
-      if (response.status === 200) {
-        setHKIDQRCodeData(response.data);
-        setShowSpinner(false);
-        dispatch(dispatchLoader(false));
-      }
-    }).catch((error: AxiosError) => {
-      dispatchError(error)
-    });
-  };
-
-  const nextStage = async () => {
-    dispatch(dispatchLoader(true));
-    await postTMXUserSession(channel_reference).then(async (res: any) => {
-      if (res.status === 200 && res.data.review_status.toLowerCase() === 'pass') {
-        await postFinalAcknowledge(channel_reference).then(async (res: any) => {
-          if (res.status === 202) {
-            console.log(HKIDQRCodeData)
-            await postDocSaveData(documentData, HKIDQRCodeData, zolozDocumentData).then((res: any) => {
-              dispatch(preApprovalAction.setCurrentStage("PD-3"));
-              dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.LD_1));
-              let stageData = JSON.parse(JSON.stringify(stageSelector[0].stageInfo));
-              stageData.applicants = [res.data.applicants];
-              stageData.application = res.data.application;
-              stageData.applicant_documents = res.data.applicant_documents;
-              console.log(stageData);
-              dispatch(stagesAction.getStage({
-                id: CONSTANTS.STAGE_NAMES.LD_1,
-                formConfig: stageData,
-              }))
-              dispatch(dispatchLoader(false));
-            })
-          }
-        })
-      }
-    })
-  }
-  console.log(HKIDVersionValue)
-  console.log(HKIDVersion)
-  console.log(HKIDQRCodeData)
-  return (
-    <>
-      <div className={HKIDVersion || showIncomeProof ? "" : "document-view"}>
-
-        {showIncomeProof !== "Income Proof" && showIncomeProof !== "Colour Identity Proof" && (
-          <>
-            <div>
-              <div className="sc-icons">
-                <span className="banner-icon banner-icon-mobile"></span>
-                <div className="card-titleHead">
-                  <div className="card-titleDoc">{uplaodDoc}</div>
-                  <div className="hk-headerclose-btnH">
-                    <Close authType="resume" />
-                  </div>
-                </div>
-              </div>
-              <div className="row doc-details" id="row-doc-details">
-                <p className="col-md-10 col-sm-10 col-xs-10 col-lg-10 doc-field-Label">
-                  {provideDoc}
-                </p>
-                <p className="col-md-2 col-sm-2 col-xs-2 col-lg-2">
-                  {" "}
-                  <span className="count-doc">
-                    {documentCount}/{totalDocCount}
-                  </span>
-                </p>
-              </div>
-              <DocumentTypeDynamic
-                changeIconColorIdentityProof={changeIconColorIdentityProof}
-                openUploadHKdialog={openUploadHKdialog}
-                docCategory={docCategory}
-                success={success}
-                docCategory2={docCategory2}
-                title={document_list && document_list[0]?.document_category}
-                document_list={document_list}
-                HKIDVersion={HKIDVersion}
-                setHKIDVersion={setHKIDVersion}
-                changeIconIncomeProof={changeIconIncomeProof}
-              />
-              <div className="noteTipDiv">
-                <p className="noteTip">{tooltipText}</p>
-              </div>
-              {changeIconColorIdentityProof &&
-                <div className="document-footer-main-document">
-                  <div
-                    className="footer-banner">
-                    <div className="footer-content">
-                      <p className="footer-content1">{footerContent1}</p>
-                      <p className="footer-content2">{footerContent2}</p>
-                      <p className="footer-content3">{footerContent3}</p>
-                    </div>
-                    <span className="images"></span>
-                  </div>
-                  <div className="hk-copy-rights">
-                    <p>{hkCopyRight}</p>
-                  </div>
-                </div>
-              }
-            </div>
-          </>
-        )}
-        {showIncomeProof === "Income Proof" && (
-          <DocumentUploadSRC2
-            showIncomeProof={showIncomeProof}
-            setShowIncomeProof={setShowIncomeProof}
-            setDocumentCount={setDocumentCount}
-            documentCount={documentCount}
-            success={success}
-            setSucsess={setSucsess}
-            changeSuccessState={changeSuccessState}
-            goBack={goBack}
-            setGoBack={setGoBack}
-            showQRCodePage={showQRCodePage}
-            setShowQRCodePage={setShowQRCodePage}
-            changeIconColorIdentityProof={changeIconColorIdentityProof}
-            setChangeIconColorIdentityProof={changeIcon}
-            showUploadFileSuccess={showUploadFileSuccess}
-            setShowUploadFileSuccess={setShowUploadFileSuccess}
-            channel_reference={channel_reference}
-            HKIDQRCodeData={HKIDQRCodeData}
-            HKIDVersion={HKIDVersion}
-            HKIDVersionValue={HKIDVersionValue}
-            setHKIDVersion={setHKIDVersion}
-            setHKIDVersionValue={setHKIDVersionValue}
-            showContinueBtn={showContinueBtn}
-            setShowContinueBtn={setShowContinueBtn}
-            setDocumentData={setDocumentData}
-            setZolozDocumentData={setZolozDocumentData}
-            setChangeIconIncomeProof={setChangeIconIncomeProof}
-            changeIconIncomeProof={changeIconIncomeProof}
-          />
-        )}
-
-        {showIncomeProof === "Colour Identity Proof" && (
-          <ColorIdentityProof
-            showIncomeProof={showIncomeProof}
-            setShowIncomeProof={setShowIncomeProof}
-            goBack={goBack}
-            setGoBack={setGoBack}
-            showQRCodePage={showQRCodePage}
-            setShowQRCodePage={setShowQRCodePage}
-            changeIconColorIdentityProof={changeIconColorIdentityProof}
-            setChangeIconColorIdentityProof={changeIcon}
-            showUploadFileSuccess={showUploadFileSuccess}
-            setShowUploadFileSuccess={setShowUploadFileSuccess}
-            callQRCodeAPI={callQRCodeAPI}
-            HKIDVersion={HKIDVersion}
-            HKIDVersionValue={HKIDVersionValue}
-            setHKIDVersion={setHKIDVersion}
-            setHKIDVersionValue={setHKIDVersionValue}
-            setShowContinueBtn={setShowContinueBtn}
-          />
-        )}
-      </div>
-      {success && <>
-        <div className={showContinueBtn ? "footer1" : "footer footer-set"}
-        >
-          {/* <div className="back" onClick={()=> dispatch(preApprovalAction.setCurrentStage("LD"))}>
-              <span className="arrow"></span> Back
-          </div> */}
-          <button role="button" type="submit" className={success && changeIconColorIdentityProof ? `continue form-invalid` : `continue form-valid`} onClick={nextStage} disabled={success && changeIconColorIdentityProof}>
-            Continue
-          </button>
-        </div>
-      </>}
-    </>
-  );
-};
-
-export default DucumentUploadMainSCR;
-
-
-
-
-
-
-
-
-
-
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { Provider, useDispatch, useSelector } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
-import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
-import DucumentUploadMainSCR from "./document-upload-main-scr";
-import { dispatchLoader } from "../../../../../services/common-service";
-import { CONSTANTS } from "../../../../../utils/common/constants";
-import { stagesAction } from "../../../../../utils/store/stages-slice";
 import {
-  postQRCodeZOLO,
-  postFinalAcknowledge,
-  postTMXUserSession,
-  postDocSaveData,
-} from "../../../../preApproval/services/preApprovalPostServices";
-import axios from "axios";
-import { store } from "../../../../../utils/store/store" ;
-import PreApprovalUtil from "../../../services/preApprovalUtils";
-import { dispatchError } from "../../../../../services/common-service";
+  stageFields,
+  stageSelectFields,
+  userInputPayload,
+  submitRequest,
+  fieldGroupingFunc,
+  compareStageRequest,
+} from "./fields.utils";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { errorAction } from "../../../utils/store/error-slice";
+import { CONSTANTS } from "../../../utils/common/constants";
 
-const mockStore = configureStore({
-  reducer: {
-    preApprovalAction: preApprovalAction.setDocumentZoloCheckRes,
+// Mock dependencies
+jest.mock("../../../utils/store/stages-slice", () => ({
+  stagesAction: {
+    updateStageFields: jest.fn(),
+    resetCurrentStage: jest.fn(),
+    updateStageId: jest.fn(),
   },
-});
-jest.mock("axios");
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-
-jest.mock("axios", () => ({
-  __esModule: true,
+}));
+jest.mock("../../../utils/store/field-error-slice", () => ({
+  fieldErrorAction: {
+    getMandatoryFields: jest.fn(),
+    getFieldError: jest.fn(),
+  },
+}));
+jest.mock("../../../utils/store/error-slice", () => ({
+  errorAction: {
+    getRetryStatus: jest.fn(),
+  },
+}));
+jest.mock("../../../services/common-service", () => ({
+  postRequest: jest.fn(),
+  preserveRequest: jest.fn(),
+  getLovData: jest.fn(),
+}));
+jest.mock("../../../utils/common/change.utils", () => ({
+  FindIndex: jest.fn(),
 }));
 
-jest.mock("@lottiefiles/react-lottie-player", () => ({
-  __esModule: true,
-  Player: jest.fn().mockReturnValue(null),
-}));
+describe("fields.utils", () => {
+  describe("stageFields", () => {
+    const mockStageSelector = [
+      {
+        stageInfo: {
+          fieldMetaData: {
+            data: {
+              stages: [
+                {
+                  fields: [
+                    { field_set_name: "set1", rwb_category: "cat1" },
+                    { field_set_name: "set2", rwb_category: "cat2" },
+                  ],
+                },
+              ],
+            },
+          },
+          application: {},
+        },
+        stageId: "bd-1",
+      },
+    ];
 
-jest.mock("'../../../../preApproval/services/preApprovalPostServices", () => ({
-  postZoloCheck: jest.fn(() => Promise.resolve({ data: { docId: "123" } })),
-  getImagePreview: jest.fn(() => Promise.resolve({ data: "blob_data" })),
-  postAchnowledge: jest.fn(() =>
-    Promise.resolve({ data: { responseStatus: "Success" } })
-  ),
-}));
+    it("should return empty fields if stageSelector is empty", () => {
+      const result = stageFields([], "bd-1");
+      expect(result).toEqual({ fields: undefined });
+    });
 
-jest.mock("react-redux", () => ({
-  useDispatch: jest.fn(),
-  useSelector: jest.fn(),
-}));
-describe("DocumentUploadMainSRC component", () => {
-  const mockDispatch = jest.fn();
-  const mockSelector = {
-    stages: {
-      stages: [
-        {
-          stageInfo: {
-            applicant_documents: [
-              {
-                document_list: [{ document_category: "Colour Identity Proof" }],
-              },
-            ],
-            application: {
-              channel_reference: "12345",
+    it("should return filtered fields for valid stageSelector", () => {
+      const result = stageFields(mockStageSelector, "bd-1");
+      expect(result).toHaveProperty("fields");
+    });
+
+    it("should apply rules based on stageId (e.g., bd-2)", () => {
+      const result = stageFields(mockStageSelector, "bd-2");
+      expect(result).toHaveProperty("fields");
+    });
+  });
+
+  describe("stageSelectFields", () => {
+    const mockStageSelector = [
+      {
+        stageInfo: {
+          fieldMetaData: {
+            data: {
+              stages: [
+                {
+                  fields: [{ field_set_name: "set1" }],
+                },
+              ],
             },
           },
         },
-      ],
-    },
-    preApproval: {
-      incomeProofDocumentUpload: [],
-    },
-  };
-  const mockState = {};
-  beforeEach(() => {
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+      },
+    ];
+
+    it("should return empty fields for empty stageSelector", () => {
+      const result = stageSelectFields([], "bd-1");
+      expect(result).toEqual({ fields: undefined });
+    });
+
+    it("should process and return fields for valid stageSelector", () => {
+      const result = stageSelectFields(mockStageSelector, "bd-1");
+      expect(result).toHaveProperty("fields");
+    });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
+  describe("userInputPayload", () => {
+    const mockDispatch = jest.fn();
+    const mockApplicantsSelector = { field1: "value1" };
+    const mockStageSelector = [
+      {
+        stageInfo: {
+          applicants: [{}],
+        },
+      },
+    ];
 
-  test("render the DucumentUploadMainSCR component", () => {
-    render(<DucumentUploadMainSCR />);
-    expect(screen.getByText("Uploading your documents")).toBeInTheDocument();
-    expect(
-      screen.getByText("Please upload the following documents:")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Please provide the following documents")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("© Standard Chartered Bank (HK) Limited")
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Income Proof")).not.toBeInTheDocument();
-  });
-  test("calls nextStage function when 'Continue' button is clicked", async () => {
- 
+    it("should dispatch updateStageFields with updated payload", () => {
+      const action = userInputPayload(mockApplicantsSelector, mockStageSelector);
+      action(mockDispatch);
 
-    render(<DucumentUploadMainSCR />);
-
-    const continueButton = screen.getByRole("button", { name: /Continue/i });
-    fireEvent.click(continueButton);
-  });
-
-});
-
-
-
-
-
-
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { Provider, useDispatch, useSelector } from "react-redux";
-import { configureStore } from "@reduxjs/toolkit";
-import DucumentUploadMainSCR from "./document-upload-main-scr";
-import {
-  postTMXUserSession,
-  postFinalAcknowledge,
-  postDocSaveData,
-} from "../../../../preApproval/services/preApprovalPostServices";
-import { dispatchLoader } from "../../../../../services/common-service";
-import { stagesAction } from "../../../../../utils/store/stages-slice";
-import { preApprovalAction } from "../../../../preApproval/store/preApproval-slice";
-
-jest.mock("../../../../preApproval/services/preApprovalPostServices", () => ({
-  postTMXUserSession: jest.fn(),
-  postFinalAcknowledge: jest.fn(),
-  postDocSaveData: jest.fn(),
-}));
-
-jest.mock("react-redux", () => ({
-  useDispatch: jest.fn(),
-  useSelector: jest.fn(),
-}));
-
-describe("nextStage function", () => {
-  const mockDispatch = jest.fn();
-  const mockSelector = {
-    stages: {
-      stages: [
-        {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        stagesAction.updateStageFields({
           stageInfo: {
-            applicant_documents: [{ document_list: [{ document_category: "Test Category" }] }],
-            application: { channel_reference: "test-channel-reference" },
+            applicants: [{ field1_a_1: "value1" }],
+          },
+        })
+      );
+    });
+  });
+
+  describe("submitRequest", () => {
+    const mockDispatch = jest.fn();
+    const mockApplicantsSelector = { field1: "value1" };
+    const mockStageSelector = {
+      stageId: "bd-1",
+      stageInfo: {
+        applicants: [{}],
+        fieldMetaData: {
+          data: {
+            stages: [
+              {
+                fields: [
+                  { logical_field_name: "field1", component_type: "type1" },
+                ],
+              },
+            ],
           },
         },
-      ],
-    },
-    preApproval: {
-      incomeProofDocumentUpload: [],
-    },
-  };
-
-  beforeEach(() => {
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
-    (useSelector as jest.Mock).mockImplementation((callback) => callback(mockSelector));
-    jest.clearAllMocks();
-  });
-
-  test("calls all APIs in sequence and updates the stage on success", async () => {
-    // Mock API responses
-    (postTMXUserSession as jest.Mock).mockResolvedValueOnce({
-      status: 200,
-      data: { review_status: "PASS" },
-    });
-    (postFinalAcknowledge as jest.Mock).mockResolvedValueOnce({ status: 202 });
-    (postDocSaveData as jest.Mock).mockResolvedValueOnce({
-      data: {
-        applicants: [{ name: "John Doe" }],
-        application: { id: "app123" },
-        applicant_documents: [{ id: "doc123" }],
       },
+    };
+    const mockValueSelector = {
+      changesUpdate: { changes: false, lastStageId: "bd-1" },
+    };
+    const mockLovSelector = {};
+    const mockUserInputSelector = { applicants: [{}] };
+
+    it("should dispatch preserveRequest when isPreserveCall is true", async () => {
+      const action = submitRequest(
+        mockApplicantsSelector,
+        mockStageSelector,
+        mockValueSelector,
+        mockLovSelector,
+        "journey",
+        mockUserInputSelector,
+        {},
+        {},
+        true
+      );
+      await action(mockDispatch);
+
+      expect(mockDispatch).toHaveBeenCalled();
     });
 
-    render(<DucumentUploadMainSCR />);
-
-    // Trigger the nextStage function
-    const continueButton = screen.getByRole("button", { name: /Continue/i });
-    fireEvent.click(continueButton);
-
-    // Wait for API calls to complete
-    await waitFor(() => {
-      expect(postTMXUserSession).toHaveBeenCalledWith("test-channel-reference");
-      expect(postFinalAcknowledge).toHaveBeenCalledWith("test-channel-reference");
-      expect(postDocSaveData).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.anything(),
-        expect.anything()
+    it("should dispatch postRequest when isPreserveCall is false", async () => {
+      const action = submitRequest(
+        mockApplicantsSelector,
+        mockStageSelector,
+        mockValueSelector,
+        mockLovSelector,
+        "journey",
+        mockUserInputSelector,
+        {},
+        {},
+        false
       );
+      await action(mockDispatch);
 
-      // Check Redux dispatch calls
-      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true)); // Loader on
-      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false)); // Loader off
-      expect(mockDispatch).toHaveBeenCalledWith(preApprovalAction.setCurrentStage("PD-3"));
-      expect(mockDispatch).toHaveBeenCalledWith(
-        stagesAction.updateStageId(expect.anything())
-      );
+      expect(mockDispatch).toHaveBeenCalled();
     });
   });
 
-  test("handles API errors gracefully", async () => {
-    // Mock API failure
-    (postTMXUserSession as jest.Mock).mockRejectedValueOnce(new Error("API Error"));
+  describe("fieldGroupingFunc", () => {
+    it("should add items to an existing field group", () => {
+      const prev = [{ field_set_name: "set1", fields: [] }];
+      fieldGroupingFunc(0, prev, "set1", { item: "value" });
 
-    render(<DucumentUploadMainSCR />);
-
-    // Trigger the nextStage function
-    const continueButton = screen.getByRole("button", { name: /Continue/i });
-    fireEvent.click(continueButton);
-
-    // Wait for error handling
-    await waitFor(() => {
-      expect(postTMXUserSession).toHaveBeenCalledWith("test-channel-reference");
-      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false)); // Loader off on error
+      expect(prev[0].fields).toEqual([{ item: "value" }]);
     });
 
-    // Ensure subsequent API calls were not made
-    expect(postFinalAcknowledge).not.toHaveBeenCalled();
-    expect(postDocSaveData).not.toHaveBeenCalled();
+    it("should create a new field group if not existing", () => {
+      const prev = [];
+      fieldGroupingFunc(-1, prev, "set2", { item: "value" });
+
+      expect(prev).toEqual([{ field_set_name: "set2", fields: [{ item: "value" }] }]);
+    });
+  });
+
+  describe("compareStageRequest", () => {
+    const mockStageSelectorApplicants = { field1: "value1", field2: "value2" };
+    const mockUserInputSelectorApplicants = { field1: "value1", field2: "value3" };
+
+    it("should return false if fields differ", () => {
+      const result = compareStageRequest(
+        mockStageSelectorApplicants,
+        mockUserInputSelectorApplicants
+      );
+      expect(result).toBe(false);
+    });
+
+    it("should return true if fields match", () => {
+      const result = compareStageRequest(
+        mockStageSelectorApplicants,
+        { ...mockStageSelectorApplicants }
+      );
+      expect(result).toBe(true);
+    });
   });
 });
