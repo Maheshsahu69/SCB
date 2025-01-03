@@ -294,3 +294,66 @@ describe("getStageName", () => {
     expect(getStageName("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.SSF_1);
   });
 });
+
+
+
+describe("nextStage", () => {
+  it("should return the correct next stage for each stage input", () => {
+    Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
+      const result = nextStage(stage, null);
+
+      // Manually match the expected output based on the nextStage function logic
+      let expectedNextStage;
+      switch (stage) {
+        case CONSTANTS.STAGE_NAMES.RP:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.FFD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.SSF_1:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_2;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_2:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_3;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_3:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_4;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_4:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_5;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_5:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.PD_1:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_1A;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_1A:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_1:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_1A:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_2;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_2:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_3;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_3:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_6;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_6:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.RP;
+          break;
+        default:
+          expectedNextStage = CONSTANTS.STAGE_NAMES.PD_1;
+      }
+
+      // Assert the result matches the expected value
+      expect(result).toBe(expectedNextStage);
+    });
+  });
+
+  it("should return PD_1 for unknown stages", () => {
+    expect(nextStage("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.PD_1);
+  });
+});
