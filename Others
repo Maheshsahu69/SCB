@@ -139,3 +139,95 @@ export const nextStage = (stage: string, applicationJourney: string | null) => {
   };
   return nextStateUrl(stage);
 };
+
+
+
+
+
+
+
+
+import { CONSTANTS } from "../../../utils/common/constants";
+import {
+  stateUrl,
+  getStageName,
+  pageScrollTop,
+  nextStage,
+} from "./stage.utils";
+
+describe("stage.utils", () => {
+  const mockReplaceState = jest.fn();
+
+  beforeEach(() => {
+    jest.spyOn(window.history, "replaceState").mockImplementation(mockReplaceState);
+    document.body.innerHTML = '<div class="appHeight"></div>';
+    mockReplaceState.mockClear();
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe("stateUrl", () => {
+    it("should call replaceState with the correct URL for each stage", () => {
+      Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
+        stateUrl(stage);
+        const expectedUrl = CONSTANTS.STATE_URLS[key] || CONSTANTS.STATE_URLS.ONBOARDING_PAGE;
+        expect(mockReplaceState).toHaveBeenCalledWith("", "", `/${expectedUrl}`);
+      });
+    });
+
+    it("should call replaceState with the default URL for an unknown stage", () => {
+      stateUrl("UNKNOWN_STAGE");
+      expect(mockReplaceState).toHaveBeenCalledWith(
+        "",
+        "",
+        `/${CONSTANTS.STATE_URLS.ONBOARDING_PAGE}`
+      );
+    });
+  });
+
+  describe("getStageName", () => {
+    it("should return the correct stage name for each stage input", () => {
+      Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
+        const result = getStageName(stage, null);
+        const expectedStage = CONSTANTS.STAGE_NAMES[key] || CONSTANTS.STAGE_NAMES.SSF_1;
+        expect(result).toBe(expectedStage);
+      });
+    });
+
+    it("should return SSF_1 for unknown stages", () => {
+      expect(getStageName("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.SSF_1);
+    });
+  });
+
+  describe("pageScrollTop", () => {
+    it("should set scrollTop to 0 if the appHeight element exists", () => {
+      const mainDiv = document.querySelector(".appHeight") as HTMLElement;
+      mainDiv.scrollTop = 100;
+
+      pageScrollTop();
+
+      expect(mainDiv.scrollTop).toBe(0);
+    });
+
+    it("should not throw an error if the appHeight element does not exist", () => {
+      document.body.innerHTML = ""; // Remove appHeight element
+      expect(() => pageScrollTop()).not.toThrow();
+    });
+  });
+
+  describe("nextStage", () => {
+    it("should return the correct next stage for each stage input", () => {
+      Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
+        const result = nextStage(stage, null);
+        const expectedNextStage = CONSTANTS.STAGE_NAMES[key] || CONSTANTS.STAGE_NAMES.PD_1;
+        expect(result).toBe(expectedNextStage);
+      });
+    });
+
+    it("should return PD_1 for unknown stages", () => {
+      expect(nextStage("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.PD_1);
+    });
+  });
+});
