@@ -1,231 +1,141 @@
-import {
-  stageFields,
-  stageSelectFields,
-  userInputPayload,
-  submitRequest,
-  fieldGroupingFunc,
-  compareStageRequest,
-} from "./fields.utils";
-import { stagesAction } from "../../../utils/store/stages-slice";
-import { fieldErrorAction } from "../../../utils/store/field-error-slice";
-import { errorAction } from "../../../utils/store/error-slice";
 import { CONSTANTS } from "../../../utils/common/constants";
 
-// Mock dependencies
-jest.mock("../../../utils/store/stages-slice", () => ({
-  stagesAction: {
-    updateStageFields: jest.fn(),
-    resetCurrentStage: jest.fn(),
-    updateStageId: jest.fn(),
-  },
-}));
-jest.mock("../../../utils/store/field-error-slice", () => ({
-  fieldErrorAction: {
-    getMandatoryFields: jest.fn(),
-    getFieldError: jest.fn(),
-  },
-}));
-jest.mock("../../../utils/store/error-slice", () => ({
-  errorAction: {
-    getRetryStatus: jest.fn(),
-  },
-}));
-jest.mock("../../../services/common-service", () => ({
-  postRequest: jest.fn(),
-  preserveRequest: jest.fn(),
-  getLovData: jest.fn(),
-}));
-jest.mock("../../../utils/common/change.utils", () => ({
-  FindIndex: jest.fn(),
-}));
+export const stateUrl = (props: string) => {
+  const getStateUrl = (stage: string) => {
+    switch (stage) {
+      case CONSTANTS.STAGE_NAMES.PD_1:
+        return CONSTANTS.STATE_URLS.PERSONAL_DETAILS;
+      case CONSTANTS.STAGE_NAMES.BD_1A:
+        return CONSTANTS.STATE_URLS.LOAN_DETAILS;
+      case CONSTANTS.STAGE_NAMES.BD_1:
+        return CONSTANTS.STATE_URLS.BASIC_INFO;
+      case CONSTANTS.STAGE_NAMES.SSF_1:
+        return CONSTANTS.STATE_URLS.BASIC_INFORMATION;
+      case CONSTANTS.STAGE_NAMES.BD_2:
+        return CONSTANTS.STATE_URLS.PARTNER_BANK_DETAILS;
+      case CONSTANTS.STAGE_NAMES.BD_4:
+        return CONSTANTS.STATE_URLS.PERSONAL_DETAILS;
+      case CONSTANTS.STAGE_NAMES.BD_5:
+        return CONSTANTS.STATE_URLS.ADDRESS;
+      case CONSTANTS.STAGE_NAMES.AD_3:
+        return CONSTANTS.STATE_URLS.CREATE_LOGIN_ID;
+      case CONSTANTS.STAGE_NAMES.BD_3:
+        return CONSTANTS.STATE_URLS.ELIGIBILITY_ASSESMENT;
+      case CONSTANTS.STAGE_NAMES.AD_1:
+        return CONSTANTS.STATE_URLS.TAX_INFORMATION;
+      case CONSTANTS.STAGE_NAMES.AD_2:
+        return CONSTANTS.STATE_URLS.BANKING_SERVICES;
+      case CONSTANTS.STAGE_NAMES.RP:
+        return CONSTANTS.STATE_URLS.REVIEW;
+      case CONSTANTS.STAGE_NAMES.ACD_1:
+        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
+      case CONSTANTS.STAGE_NAMES.ACD_2:
+        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
+      case CONSTANTS.STAGE_NAMES.ACD_3:
+        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
+      case CONSTANTS.STAGE_NAMES.ACD_4:
+        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
+      case CONSTANTS.STAGE_NAMES.DOC_3:
+        return CONSTANTS.STATE_URLS.DOCUMENTS;
+      case CONSTANTS.STAGE_NAMES.LD_1:
+        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
+      case CONSTANTS.STAGE_NAMES.FFD_1:
+        return CONSTANTS.STATE_URLS.PRFERENCE;
+      case CONSTANTS.STAGE_NAMES.AD_1A:
+        return CONSTANTS.STATE_URLS.SOURCEOFINCOME;
+      default:
+        return CONSTANTS.STATE_URLS.ONBOARDING_PAGE;
+    }
+  };
+  window.history.replaceState("", "", "/" + getStateUrl(props));
+};
 
-describe("fields.utils", () => {
-  describe("stageFields", () => {
-    const mockStageSelector = [
-      {
-        stageInfo: {
-          fieldMetaData: {
-            data: {
-              stages: [
-                {
-                  fields: [
-                    { field_set_name: "set1", rwb_category: "cat1" },
-                    { field_set_name: "set2", rwb_category: "cat2" },
-                  ],
-                },
-              ],
-            },
-          },
-          application: {},
-        },
-        stageId: "bd-1",
-      },
-    ];
+export const getStageName = (
+  stage: string,
+  applicationJourney: string | null
+) => {
+  const getStateUrl = (stage: string) => {
+    switch (stage) {
+      case CONSTANTS.STAGE_NAMES.FFD_1:
+        return CONSTANTS.STAGE_NAMES.RP;
+      case CONSTANTS.STAGE_NAMES.BD_1A:
+        return CONSTANTS.STAGE_NAMES.PD_1;
+      case CONSTANTS.STAGE_NAMES.BD_1:
+        return CONSTANTS.STAGE_NAMES.BD_1A;
+      case CONSTANTS.STAGE_NAMES.AD_1:
+        return CONSTANTS.STAGE_NAMES.BD_1;
+      case CONSTANTS.STAGE_NAMES.AD_1A:
+        return CONSTANTS.STAGE_NAMES.AD_1;
+      case CONSTANTS.STAGE_NAMES.AD_2:
+        return CONSTANTS.STAGE_NAMES.AD_1A;
+      case CONSTANTS.STAGE_NAMES.AD_3:
+        return CONSTANTS.STAGE_NAMES.AD_2;
+      case CONSTANTS.STAGE_NAMES.AD_6:
+        return CONSTANTS.STAGE_NAMES.AD_3;
+      case CONSTANTS.STAGE_NAMES.RP:
+        return CONSTANTS.STAGE_NAMES.AD_6;
+      case CONSTANTS.STAGE_NAMES.ACD_1:
+        return CONSTANTS.STAGE_NAMES.RP;
+      case CONSTANTS.STAGE_NAMES.LD_1:
+        return CONSTANTS.STAGE_NAMES.DOC_3;
+      case CONSTANTS.STAGE_NAMES.FFD_1:
+        return CONSTANTS.STAGE_NAMES.LD_1;
+      default:
+        return CONSTANTS.STAGE_NAMES.SSF_1;
+    }
+  };
+  return getStateUrl(stage);
+};
 
-    it("should return empty fields if stageSelector is empty", () => {
-      const result = stageFields([], "bd-1");
-      expect(result).toEqual({ fields: undefined });
-    });
+export const pageScrollTop = () => {
+  //Below code is required till environment is up
+  // const main = document.getElementsByClassName("appHeight");
+  // main[0]["scrollTop"] = 0;
+  // window.scrollTo(0, 0);
 
-    it("should return filtered fields for valid stageSelector", () => {
-      const result = stageFields(mockStageSelector, "bd-1");
-      expect(result).toHaveProperty("fields");
-    });
+  const main = document.getElementsByClassName("appHeight")[0];
+  /* istanbul ignore else */
+  if(main){
+    main.scrollTop=0;
+  }
+};
 
-    it("should apply rules based on stageId (e.g., bd-2)", () => {
-      const result = stageFields(mockStageSelector, "bd-2");
-      expect(result).toHaveProperty("fields");
-    });
-  });
-
-  describe("stageSelectFields", () => {
-    const mockStageSelector = [
-      {
-        stageInfo: {
-          fieldMetaData: {
-            data: {
-              stages: [
-                {
-                  fields: [{ field_set_name: "set1" }],
-                },
-              ],
-            },
-          },
-        },
-      },
-    ];
-
-    it("should return empty fields for empty stageSelector", () => {
-      const result = stageSelectFields([], "bd-1");
-      expect(result).toEqual({ fields: undefined });
-    });
-
-    it("should process and return fields for valid stageSelector", () => {
-      const result = stageSelectFields(mockStageSelector, "bd-1");
-      expect(result).toHaveProperty("fields");
-    });
-  });
-
-  describe("userInputPayload", () => {
-    const mockDispatch = jest.fn();
-    const mockApplicantsSelector = { field1: "value1" };
-    const mockStageSelector = [
-      {
-        stageInfo: {
-          applicants: [{}],
-        },
-      },
-    ];
-
-    it("should dispatch updateStageFields with updated payload", () => {
-      const action = userInputPayload(mockApplicantsSelector, mockStageSelector);
-      action(mockDispatch);
-
-      expect(mockDispatch).toHaveBeenCalledWith(
-        stagesAction.updateStageFields({
-          stageInfo: {
-            applicants: [{ field1_a_1: "value1" }],
-          },
-        })
-      );
-    });
-  });
-
-  describe("submitRequest", () => {
-    const mockDispatch = jest.fn();
-    const mockApplicantsSelector = { field1: "value1" };
-    const mockStageSelector = {
-      stageId: "bd-1",
-      stageInfo: {
-        applicants: [{}],
-        fieldMetaData: {
-          data: {
-            stages: [
-              {
-                fields: [
-                  { logical_field_name: "field1", component_type: "type1" },
-                ],
-              },
-            ],
-          },
-        },
-      },
-    };
-    const mockValueSelector = {
-      changesUpdate: { changes: false, lastStageId: "bd-1" },
-    };
-    const mockLovSelector = {};
-    const mockUserInputSelector = { applicants: [{}] };
-
-    it("should dispatch preserveRequest when isPreserveCall is true", async () => {
-      const action = submitRequest(
-        mockApplicantsSelector,
-        mockStageSelector,
-        mockValueSelector,
-        mockLovSelector,
-        "journey",
-        mockUserInputSelector,
-        {},
-        {},
-        true
-      );
-      await action(mockDispatch);
-
-      expect(mockDispatch).toHaveBeenCalled();
-    });
-
-    it("should dispatch postRequest when isPreserveCall is false", async () => {
-      const action = submitRequest(
-        mockApplicantsSelector,
-        mockStageSelector,
-        mockValueSelector,
-        mockLovSelector,
-        "journey",
-        mockUserInputSelector,
-        {},
-        {},
-        false
-      );
-      await action(mockDispatch);
-
-      expect(mockDispatch).toHaveBeenCalled();
-    });
-  });
-
-  describe("fieldGroupingFunc", () => {
-    it("should add items to an existing field group", () => {
-      const prev = [{ field_set_name: "set1", fields: [] }];
-      fieldGroupingFunc(0, prev, "set1", { item: "value" });
-
-      expect(prev[0].fields).toEqual([{ item: "value" }]);
-    });
-
-    it("should create a new field group if not existing", () => {
-      const prev = [];
-      fieldGroupingFunc(-1, prev, "set2", { item: "value" });
-
-      expect(prev).toEqual([{ field_set_name: "set2", fields: [{ item: "value" }] }]);
-    });
-  });
-
-  describe("compareStageRequest", () => {
-    const mockStageSelectorApplicants = { field1: "value1", field2: "value2" };
-    const mockUserInputSelectorApplicants = { field1: "value1", field2: "value3" };
-
-    it("should return false if fields differ", () => {
-      const result = compareStageRequest(
-        mockStageSelectorApplicants,
-        mockUserInputSelectorApplicants
-      );
-      expect(result).toBe(false);
-    });
-
-    it("should return true if fields match", () => {
-      const result = compareStageRequest(
-        mockStageSelectorApplicants,
-        { ...mockStageSelectorApplicants }
-      );
-      expect(result).toBe(true);
-    });
-  });
-});
+export const nextStage = (stage: string, applicationJourney: string | null) => {
+  const nextStateUrl = (stage: string) => {
+    switch (stage) {
+      case CONSTANTS.STAGE_NAMES.RP:
+        return CONSTANTS.STAGE_NAMES.FFD_1;
+      case CONSTANTS.STAGE_NAMES.SSF_1:
+        return CONSTANTS.STAGE_NAMES.BD_2;
+      case CONSTANTS.STAGE_NAMES.BD_2:
+        return CONSTANTS.STAGE_NAMES.BD_3;
+      case CONSTANTS.STAGE_NAMES.BD_3:
+        return CONSTANTS.STAGE_NAMES.BD_4;
+      case CONSTANTS.STAGE_NAMES.BD_4:
+        return CONSTANTS.STAGE_NAMES.BD_5;
+      case CONSTANTS.STAGE_NAMES.BD_5:
+        return CONSTANTS.STAGE_NAMES.AD_1;
+      case CONSTANTS.STAGE_NAMES.AD_1:
+        return CONSTANTS.STAGE_NAMES.AD_3;
+      case CONSTANTS.STAGE_NAMES.PD_1:
+        return CONSTANTS.STAGE_NAMES.BD_1A;
+      case CONSTANTS.STAGE_NAMES.BD_1A:
+        return CONSTANTS.STAGE_NAMES.BD_1;
+      case CONSTANTS.STAGE_NAMES.BD_1:
+        return CONSTANTS.STAGE_NAMES.AD_1;
+      case CONSTANTS.STAGE_NAMES.AD_1:
+        return CONSTANTS.STAGE_NAMES.AD_1A;
+      case CONSTANTS.STAGE_NAMES.AD_1A:
+        return CONSTANTS.STAGE_NAMES.AD_2;
+      case CONSTANTS.STAGE_NAMES.AD_2:
+        return CONSTANTS.STAGE_NAMES.AD_3;
+      case CONSTANTS.STAGE_NAMES.AD_3:
+        return CONSTANTS.STAGE_NAMES.AD_6;
+      case CONSTANTS.STAGE_NAMES.AD_6:
+        return CONSTANTS.STAGE_NAMES.RP;
+      default:
+        return CONSTANTS.STAGE_NAMES.PD_1;
+    }
+  };
+  return nextStateUrl(stage);
+};
