@@ -231,3 +231,66 @@ describe("stage.utils", () => {
     });
   });
 });
+
+
+
+
+
+
+describe("getStageName", () => {
+  it("should return the correct stage name for each stage input", () => {
+    Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
+      const result = getStageName(stage, null);
+
+      // Manually match the expected output based on the getStageName function logic
+      let expectedStage;
+      switch (stage) {
+        case CONSTANTS.STAGE_NAMES.FFD_1:
+          expectedStage = CONSTANTS.STAGE_NAMES.RP;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_1A:
+          expectedStage = CONSTANTS.STAGE_NAMES.PD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.BD_1:
+          expectedStage = CONSTANTS.STAGE_NAMES.BD_1A;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_1:
+          expectedStage = CONSTANTS.STAGE_NAMES.BD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_1A:
+          expectedStage = CONSTANTS.STAGE_NAMES.AD_1;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_2:
+          expectedStage = CONSTANTS.STAGE_NAMES.AD_1A;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_3:
+          expectedStage = CONSTANTS.STAGE_NAMES.AD_2;
+          break;
+        case CONSTANTS.STAGE_NAMES.AD_6:
+          expectedStage = CONSTANTS.STAGE_NAMES.AD_3;
+          break;
+        case CONSTANTS.STAGE_NAMES.RP:
+          expectedStage = CONSTANTS.STAGE_NAMES.AD_6;
+          break;
+        case CONSTANTS.STAGE_NAMES.ACD_1:
+          expectedStage = CONSTANTS.STAGE_NAMES.RP;
+          break;
+        case CONSTANTS.STAGE_NAMES.LD_1:
+          expectedStage = CONSTANTS.STAGE_NAMES.DOC_3;
+          break;
+        case CONSTANTS.STAGE_NAMES.FFD_1:
+          expectedStage = CONSTANTS.STAGE_NAMES.LD_1;
+          break;
+        default:
+          expectedStage = CONSTANTS.STAGE_NAMES.SSF_1;
+      }
+
+      // Assert the result matches the expected value
+      expect(result).toBe(expectedStage);
+    });
+  });
+
+  it("should return SSF_1 for unknown stages", () => {
+    expect(getStageName("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.SSF_1);
+  });
+});
