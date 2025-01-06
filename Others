@@ -1,28 +1,35 @@
-import { fieldGroupingFunc } from './Fields.utils'; // Import the function to mock
-
-jest.mock('./Fields.utils', () => ({
-  fieldGroupingFunc: jest.fn(),
-}));
-
-describe('groupObj function', () => {
-  const mockResponse = {
-    fields: [
-      { field_set_name: 'group1', field_name: 'field1', value: 'val1' },
-      { field_set_name: 'group1', field_name: 'field2', value: 'val2' },
-      { field_set_name: 'group2', field_name: 'field3', value: 'val3' },
-    ],
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should group fields correctly', () => {
-    const groupObj = (response: any) => {
-      return response.fields.reduce(
-        (prev: any[], { field_set_name, ...items }) => {
+xport const stageFields = (
+  stageSelector: Array<StageDetails>,
+  stageId: string,
+  employeeToggleSelector?: any,
+  other?: string | undefined
+) => {
+  let stageFields: Array<StageFieldModel> = [];
+  if (
+    stageSelector && stageSelector.length>0 &&
+    stageSelector[0].stageInfo &&
+    stageSelector[0].stageInfo.fieldMetaData &&
+    stageSelector[0].stageInfo.fieldMetaData.data.stages
+  ) {
+    let currentStage =
+      stageId === CONSTANTS.STAGE_NAMES.LD_1 
+        ? ["ad-11"]
+        : [stageId];
+    currentStage.forEach((name) => {
+      const stageIndex = FindIndex(stageSelector[0].stageInfo, name);
+      stageFields.push(
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[stageIndex]
+      );
+    });
+  }
+  let currentStageFields: any;
+  if (stageFields) {
+    let fieldsetGroup: Array<FieldSetGroupModel[]> = [];
+    const groupObj = (response: StageFieldModel) => {
+      return response?.fields?.reduce(
+        (prev: Array<FieldSetGroupModel>, { field_set_name, ...items }) => {
           let id = prev.findIndex(
-            (item: any) => item.field_set_name === field_set_name
+            (item: KeyWithAnyModel) => item.field_set_name === field_set_name
           );
           fieldGroupingFunc(id, prev, field_set_name, items);
           return prev;
@@ -31,91 +38,104 @@ describe('groupObj function', () => {
       );
     };
 
-    // Mock implementation of fieldGroupingFunc
-    fieldGroupingFunc.mockImplementation((id, prev, field_set_name, items) => {
-      if (id >= 0) {
-        prev[id].fields.push(items);
+    let filteredData: any =stageFields.length > 0 ? stageFields[0]?.fields?.filter((item:KeyWithAnyModel) => item.rwb_category===stageSelector[0].stageId) : [];
+
+   
+    let stageFieldData= JSON.parse(JSON.stringify(stageFields));
+    /* istanbul ignore else */
+  if( !Array.isArray(stageFieldData) && stageFieldData.length>0 ){
+    stageFieldData[0].fields= filteredData;
+  }
+
+    stageFieldData.forEach((data: StageFieldModel) => {
+
+      if (fieldsetGroup.length > 0) {
+        fieldsetGroup[0].push(groupObj(data)[0]);
       } else {
-        prev.push({ field_set_name, fields: [items] });
+        fieldsetGroup.push(groupObj(data));
       }
     });
-
-    const result = groupObj(mockResponse);
-
-    expect(result).toEqual([
-      {
-        field_set_name: 'group1',
-        fields: [
-          { field_name: 'field1', value: 'val1' },
-          { field_name: 'field2', value: 'val2' },
-        ],
-      },
-      {
-        field_set_name: 'group2',
-        fields: [{ field_name: 'field3', value: 'val3' }],
-      },
-    ]);
-
-    // Verify fieldGroupingFunc calls
-    expect(fieldGroupingFunc).toHaveBeenCalledTimes(3);
-    expect(fieldGroupingFunc).toHaveBeenCalledWith(
-      -1,
-      expect.any(Array),
-      'group1',
-      { field_name: 'field1', value: 'val1' }
-    );
-    expect(fieldGroupingFunc).toHaveBeenCalledWith(
-      0,
-      expect.any(Array),
-      'group1',
-      { field_name: 'field2', value: 'val2' }
-    );
-    expect(fieldGroupingFunc).toHaveBeenCalledWith(
-      -1,
-      expect.any(Array),
-      'group2',
-      { field_name: 'field3', value: 'val3' }
-    );
-  });
-
-  it('should handle empty fields array', () => {
-    const groupObj = (response: any) => {
-      return response.fields.reduce(
-        (prev: any[], { field_set_name, ...items }) => {
-          let id = prev.findIndex(
-            (item: any) => item.field_set_name === field_set_name
-          );
-          fieldGroupingFunc(id, prev, field_set_name, items);
-          return prev;
-        },
-        []
+    if (stageId === "bd-2") {
+      currentStageFields = Rules_bd_2(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.application
       );
-    };
-
-    const result = groupObj({ fields: [] });
-
-    expect(result).toEqual([]);
-    expect(fieldGroupingFunc).not.toHaveBeenCalled();
-  });
-
-  it('should handle missing field_set_name gracefully', () => {
-    const invalidResponse = {
-      fields: [{ field_name: 'field1', value: 'val1' }],
-    };
-
-    const groupObj = (response: any) => {
-      return response.fields.reduce(
-        (prev: any[], { field_set_name, ...items }) => {
-          let id = prev.findIndex(
-            (item: any) => item.field_set_name === field_set_name
-          );
-          fieldGroupingFunc(id, prev, field_set_name, items);
-          return prev;
-        },
-        []
+    } else if (stageId === "bd-1") {
+      currentStageFields = Rules_bd_1(
+        fieldsetGroup,
+        stageSelector?.[0]?.stageInfo?.fieldMetaData?.data?.stages?.[0]?.fields
       );
-    };
+    }
+    else if (stageId === "pd-1") {
 
-    expect(() => groupObj(invalidResponse)).toThrow(); // Optional: Check behavior on missing data
-  });
-});
+      currentStageFields = Rules_bd_1(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    }
+    else if (stageId === "bd-1a") {
+
+      currentStageFields = Rules_bd_1(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    }
+    else if (stageId === "bd-3") {
+      currentStageFields = Rules_bd_3(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.application
+      );
+    } else if (stageId === "bd-4") {
+      currentStageFields = Rules_bd_4(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.application,
+        employeeToggleSelector
+      );
+    }
+    else if (stageId === "ad-1") {
+      currentStageFields = Rules_ad_1(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    }
+    else if (stageId === "ad-1a") {
+      currentStageFields = Rules_ad_1(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    }
+    else if (stageId === "ad-2") {
+      currentStageFields = Rules_ad_2(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    } 
+    else if (stageId === "ad-3") {
+      currentStageFields = Rules_ad_2(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    } 
+    else if (stageId === "ad-6") {
+      currentStageFields = Rules_ad_6(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    } 
+    else if (stageId === "ld-1") {
+      currentStageFields = Rules_ad_2(
+        fieldsetGroup,
+        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+      );
+    } 
+    else {
+      currentStageFields = RulesSSF(
+        fieldsetGroup,
+        stageSelector[0] && stageSelector[0].stageInfo.application,
+      );
+    }
+  }
+  return {
+    fields: currentStageFields,
+  };
+};
