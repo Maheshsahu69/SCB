@@ -540,7 +540,6 @@ export const getStagePayload = (stageSelector: KeyWithAnyModel, applicantsSelect
     stageSelector[0].stageInfo,
     stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.LD_1 ? "ad-11" : stageSelector[0].stageId
   );
-  // if (stageSelector.stageId !== "rp") {
   let metagata = {
     ...stageSelector[0]?.stageInfo?.fieldMetaData.data.stages[stageIndex],
   };
@@ -556,5 +555,4 @@ export const getStagePayload = (stageSelector: KeyWithAnyModel, applicantsSelect
     },
     {}
   );
-  // }
 }
