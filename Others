@@ -1,359 +1,121 @@
-import { CONSTANTS } from "../../../utils/common/constants";
+import { fieldGroupingFunc } from './Fields.utils'; // Import the function to mock
 
-export const stateUrl = (props: string) => {
-  const getStateUrl = (stage: string) => {
-    switch (stage) {
-      case CONSTANTS.STAGE_NAMES.PD_1:
-        return CONSTANTS.STATE_URLS.PERSONAL_DETAILS;
-      case CONSTANTS.STAGE_NAMES.BD_1A:
-        return CONSTANTS.STATE_URLS.LOAN_DETAILS;
-      case CONSTANTS.STAGE_NAMES.BD_1:
-        return CONSTANTS.STATE_URLS.BASIC_INFO;
-      case CONSTANTS.STAGE_NAMES.SSF_1:
-        return CONSTANTS.STATE_URLS.BASIC_INFORMATION;
-      case CONSTANTS.STAGE_NAMES.BD_2:
-        return CONSTANTS.STATE_URLS.PARTNER_BANK_DETAILS;
-      case CONSTANTS.STAGE_NAMES.BD_4:
-        return CONSTANTS.STATE_URLS.PERSONAL_DETAILS;
-      case CONSTANTS.STAGE_NAMES.BD_5:
-        return CONSTANTS.STATE_URLS.ADDRESS;
-      case CONSTANTS.STAGE_NAMES.AD_3:
-        return CONSTANTS.STATE_URLS.CREATE_LOGIN_ID;
-      case CONSTANTS.STAGE_NAMES.BD_3:
-        return CONSTANTS.STATE_URLS.ELIGIBILITY_ASSESMENT;
-      case CONSTANTS.STAGE_NAMES.AD_1:
-        return CONSTANTS.STATE_URLS.TAX_INFORMATION;
-      case CONSTANTS.STAGE_NAMES.AD_2:
-        return CONSTANTS.STATE_URLS.BANKING_SERVICES;
-      case CONSTANTS.STAGE_NAMES.RP:
-        return CONSTANTS.STATE_URLS.REVIEW;
-      case CONSTANTS.STAGE_NAMES.ACD_1:
-        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
-      case CONSTANTS.STAGE_NAMES.ACD_2:
-        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
-      case CONSTANTS.STAGE_NAMES.ACD_3:
-        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
-      case CONSTANTS.STAGE_NAMES.ACD_4:
-        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
-      case CONSTANTS.STAGE_NAMES.DOC_3:
-        return CONSTANTS.STATE_URLS.DOCUMENTS;
-      case CONSTANTS.STAGE_NAMES.LD_1:
-        return CONSTANTS.STATE_URLS.LOAN_DISBURSEMENT;
-      case CONSTANTS.STAGE_NAMES.FFD_1:
-        return CONSTANTS.STATE_URLS.PRFERENCE;
-      case CONSTANTS.STAGE_NAMES.AD_1A:
-        return CONSTANTS.STATE_URLS.SOURCEOFINCOME;
-      default:
-        return CONSTANTS.STATE_URLS.ONBOARDING_PAGE;
-    }
+jest.mock('./Fields.utils', () => ({
+  fieldGroupingFunc: jest.fn(),
+}));
+
+describe('groupObj function', () => {
+  const mockResponse = {
+    fields: [
+      { field_set_name: 'group1', field_name: 'field1', value: 'val1' },
+      { field_set_name: 'group1', field_name: 'field2', value: 'val2' },
+      { field_set_name: 'group2', field_name: 'field3', value: 'val3' },
+    ],
   };
-  window.history.replaceState("", "", "/" + getStateUrl(props));
-};
-
-export const getStageName = (
-  stage: string,
-  applicationJourney: string | null
-) => {
-  const getStateUrl = (stage: string) => {
-    switch (stage) {
-      case CONSTANTS.STAGE_NAMES.FFD_1:
-        return CONSTANTS.STAGE_NAMES.RP;
-      case CONSTANTS.STAGE_NAMES.BD_1A:
-        return CONSTANTS.STAGE_NAMES.PD_1;
-      case CONSTANTS.STAGE_NAMES.BD_1:
-        return CONSTANTS.STAGE_NAMES.BD_1A;
-      case CONSTANTS.STAGE_NAMES.AD_1:
-        return CONSTANTS.STAGE_NAMES.BD_1;
-      case CONSTANTS.STAGE_NAMES.AD_1A:
-        return CONSTANTS.STAGE_NAMES.AD_1;
-      case CONSTANTS.STAGE_NAMES.AD_2:
-        return CONSTANTS.STAGE_NAMES.AD_1A;
-      case CONSTANTS.STAGE_NAMES.AD_3:
-        return CONSTANTS.STAGE_NAMES.AD_2;
-      case CONSTANTS.STAGE_NAMES.AD_6:
-        return CONSTANTS.STAGE_NAMES.AD_3;
-      case CONSTANTS.STAGE_NAMES.RP:
-        return CONSTANTS.STAGE_NAMES.AD_6;
-      case CONSTANTS.STAGE_NAMES.ACD_1:
-        return CONSTANTS.STAGE_NAMES.RP;
-      case CONSTANTS.STAGE_NAMES.LD_1:
-        return CONSTANTS.STAGE_NAMES.DOC_3;
-      case CONSTANTS.STAGE_NAMES.FFD_1:
-        return CONSTANTS.STAGE_NAMES.LD_1;
-      default:
-        return CONSTANTS.STAGE_NAMES.SSF_1;
-    }
-  };
-  return getStateUrl(stage);
-};
-
-export const pageScrollTop = () => {
-  //Below code is required till environment is up
-  // const main = document.getElementsByClassName("appHeight");
-  // main[0]["scrollTop"] = 0;
-  // window.scrollTo(0, 0);
-
-  const main = document.getElementsByClassName("appHeight")[0];
-  /* istanbul ignore else */
-  if(main){
-    main.scrollTop=0;
-  }
-};
-
-export const nextStage = (stage: string, applicationJourney: string | null) => {
-  const nextStateUrl = (stage: string) => {
-    switch (stage) {
-      case CONSTANTS.STAGE_NAMES.RP:
-        return CONSTANTS.STAGE_NAMES.FFD_1;
-      case CONSTANTS.STAGE_NAMES.SSF_1:
-        return CONSTANTS.STAGE_NAMES.BD_2;
-      case CONSTANTS.STAGE_NAMES.BD_2:
-        return CONSTANTS.STAGE_NAMES.BD_3;
-      case CONSTANTS.STAGE_NAMES.BD_3:
-        return CONSTANTS.STAGE_NAMES.BD_4;
-      case CONSTANTS.STAGE_NAMES.BD_4:
-        return CONSTANTS.STAGE_NAMES.BD_5;
-      case CONSTANTS.STAGE_NAMES.BD_5:
-        return CONSTANTS.STAGE_NAMES.AD_1;
-      case CONSTANTS.STAGE_NAMES.AD_1:
-        return CONSTANTS.STAGE_NAMES.AD_3;
-      case CONSTANTS.STAGE_NAMES.PD_1:
-        return CONSTANTS.STAGE_NAMES.BD_1A;
-      case CONSTANTS.STAGE_NAMES.BD_1A:
-        return CONSTANTS.STAGE_NAMES.BD_1;
-      case CONSTANTS.STAGE_NAMES.BD_1:
-        return CONSTANTS.STAGE_NAMES.AD_1;
-      case CONSTANTS.STAGE_NAMES.AD_1:
-        return CONSTANTS.STAGE_NAMES.AD_1A;
-      case CONSTANTS.STAGE_NAMES.AD_1A:
-        return CONSTANTS.STAGE_NAMES.AD_2;
-      case CONSTANTS.STAGE_NAMES.AD_2:
-        return CONSTANTS.STAGE_NAMES.AD_3;
-      case CONSTANTS.STAGE_NAMES.AD_3:
-        return CONSTANTS.STAGE_NAMES.AD_6;
-      case CONSTANTS.STAGE_NAMES.AD_6:
-        return CONSTANTS.STAGE_NAMES.RP;
-      default:
-        return CONSTANTS.STAGE_NAMES.PD_1;
-    }
-  };
-  return nextStateUrl(stage);
-};
-
-
-
-
-
-
-
-
-import { CONSTANTS } from "../../../utils/common/constants";
-import {
-  stateUrl,
-  getStageName,
-  pageScrollTop,
-  nextStage,
-} from "./stage.utils";
-
-describe("stage.utils", () => {
-  const mockReplaceState = jest.fn();
 
   beforeEach(() => {
-    jest.spyOn(window.history, "replaceState").mockImplementation(mockReplaceState);
-    document.body.innerHTML = '<div class="appHeight"></div>';
-    mockReplaceState.mockClear();
-  });
-
-  afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("stateUrl", () => {
-    it("should call replaceState with the correct URL for each stage", () => {
-      Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
-        stateUrl(stage);
-        const expectedUrl = CONSTANTS.STATE_URLS[key] || CONSTANTS.STATE_URLS.ONBOARDING_PAGE;
-        expect(mockReplaceState).toHaveBeenCalledWith("", "", `/${expectedUrl}`);
-      });
-    });
-
-    it("should call replaceState with the default URL for an unknown stage", () => {
-      stateUrl("UNKNOWN_STAGE");
-      expect(mockReplaceState).toHaveBeenCalledWith(
-        "",
-        "",
-        `/${CONSTANTS.STATE_URLS.ONBOARDING_PAGE}`
+  it('should group fields correctly', () => {
+    const groupObj = (response: any) => {
+      return response.fields.reduce(
+        (prev: any[], { field_set_name, ...items }) => {
+          let id = prev.findIndex(
+            (item: any) => item.field_set_name === field_set_name
+          );
+          fieldGroupingFunc(id, prev, field_set_name, items);
+          return prev;
+        },
+        []
       );
-    });
-  });
+    };
 
-  describe("getStageName", () => {
-    it("should return the correct stage name for each stage input", () => {
-      Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
-        const result = getStageName(stage, null);
-        const expectedStage = CONSTANTS.STAGE_NAMES[key] || CONSTANTS.STAGE_NAMES.SSF_1;
-        expect(result).toBe(expectedStage);
-      });
-    });
-
-    it("should return SSF_1 for unknown stages", () => {
-      expect(getStageName("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.SSF_1);
-    });
-  });
-
-  describe("pageScrollTop", () => {
-    it("should set scrollTop to 0 if the appHeight element exists", () => {
-      const mainDiv = document.querySelector(".appHeight") as HTMLElement;
-      mainDiv.scrollTop = 100;
-
-      pageScrollTop();
-
-      expect(mainDiv.scrollTop).toBe(0);
-    });
-
-    it("should not throw an error if the appHeight element does not exist", () => {
-      document.body.innerHTML = ""; // Remove appHeight element
-      expect(() => pageScrollTop()).not.toThrow();
-    });
-  });
-
-  describe("nextStage", () => {
-    it("should return the correct next stage for each stage input", () => {
-      Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
-        const result = nextStage(stage, null);
-        const expectedNextStage = CONSTANTS.STAGE_NAMES[key] || CONSTANTS.STAGE_NAMES.PD_1;
-        expect(result).toBe(expectedNextStage);
-      });
-    });
-
-    it("should return PD_1 for unknown stages", () => {
-      expect(nextStage("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.PD_1);
-    });
-  });
-});
-
-
-
-
-
-
-describe("getStageName", () => {
-  it("should return the correct stage name for each stage input", () => {
-    Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
-      const result = getStageName(stage, null);
-
-      // Manually match the expected output based on the getStageName function logic
-      let expectedStage;
-      switch (stage) {
-        case CONSTANTS.STAGE_NAMES.FFD_1:
-          expectedStage = CONSTANTS.STAGE_NAMES.RP;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_1A:
-          expectedStage = CONSTANTS.STAGE_NAMES.PD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_1:
-          expectedStage = CONSTANTS.STAGE_NAMES.BD_1A;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_1:
-          expectedStage = CONSTANTS.STAGE_NAMES.BD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_1A:
-          expectedStage = CONSTANTS.STAGE_NAMES.AD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_2:
-          expectedStage = CONSTANTS.STAGE_NAMES.AD_1A;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_3:
-          expectedStage = CONSTANTS.STAGE_NAMES.AD_2;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_6:
-          expectedStage = CONSTANTS.STAGE_NAMES.AD_3;
-          break;
-        case CONSTANTS.STAGE_NAMES.RP:
-          expectedStage = CONSTANTS.STAGE_NAMES.AD_6;
-          break;
-        case CONSTANTS.STAGE_NAMES.ACD_1:
-          expectedStage = CONSTANTS.STAGE_NAMES.RP;
-          break;
-        case CONSTANTS.STAGE_NAMES.LD_1:
-          expectedStage = CONSTANTS.STAGE_NAMES.DOC_3;
-          break;
-        case CONSTANTS.STAGE_NAMES.FFD_1:
-          expectedStage = CONSTANTS.STAGE_NAMES.LD_1;
-          break;
-        default:
-          expectedStage = CONSTANTS.STAGE_NAMES.SSF_1;
+    // Mock implementation of fieldGroupingFunc
+    fieldGroupingFunc.mockImplementation((id, prev, field_set_name, items) => {
+      if (id >= 0) {
+        prev[id].fields.push(items);
+      } else {
+        prev.push({ field_set_name, fields: [items] });
       }
-
-      // Assert the result matches the expected value
-      expect(result).toBe(expectedStage);
     });
+
+    const result = groupObj(mockResponse);
+
+    expect(result).toEqual([
+      {
+        field_set_name: 'group1',
+        fields: [
+          { field_name: 'field1', value: 'val1' },
+          { field_name: 'field2', value: 'val2' },
+        ],
+      },
+      {
+        field_set_name: 'group2',
+        fields: [{ field_name: 'field3', value: 'val3' }],
+      },
+    ]);
+
+    // Verify fieldGroupingFunc calls
+    expect(fieldGroupingFunc).toHaveBeenCalledTimes(3);
+    expect(fieldGroupingFunc).toHaveBeenCalledWith(
+      -1,
+      expect.any(Array),
+      'group1',
+      { field_name: 'field1', value: 'val1' }
+    );
+    expect(fieldGroupingFunc).toHaveBeenCalledWith(
+      0,
+      expect.any(Array),
+      'group1',
+      { field_name: 'field2', value: 'val2' }
+    );
+    expect(fieldGroupingFunc).toHaveBeenCalledWith(
+      -1,
+      expect.any(Array),
+      'group2',
+      { field_name: 'field3', value: 'val3' }
+    );
   });
 
-  it("should return SSF_1 for unknown stages", () => {
-    expect(getStageName("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.SSF_1);
-  });
-});
+  it('should handle empty fields array', () => {
+    const groupObj = (response: any) => {
+      return response.fields.reduce(
+        (prev: any[], { field_set_name, ...items }) => {
+          let id = prev.findIndex(
+            (item: any) => item.field_set_name === field_set_name
+          );
+          fieldGroupingFunc(id, prev, field_set_name, items);
+          return prev;
+        },
+        []
+      );
+    };
 
+    const result = groupObj({ fields: [] });
 
-
-describe("nextStage", () => {
-  it("should return the correct next stage for each stage input", () => {
-    Object.entries(CONSTANTS.STAGE_NAMES).forEach(([key, stage]) => {
-      const result = nextStage(stage, null);
-
-      // Manually match the expected output based on the nextStage function logic
-      let expectedNextStage;
-      switch (stage) {
-        case CONSTANTS.STAGE_NAMES.RP:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.FFD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.SSF_1:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_2;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_2:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_3;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_3:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_4;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_4:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_5;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_5:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.PD_1:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_1A;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_1A:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.BD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.BD_1:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_1;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_1A:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_2;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_2:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_3;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_3:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.AD_6;
-          break;
-        case CONSTANTS.STAGE_NAMES.AD_6:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.RP;
-          break;
-        default:
-          expectedNextStage = CONSTANTS.STAGE_NAMES.PD_1;
-      }
-
-      // Assert the result matches the expected value
-      expect(result).toBe(expectedNextStage);
-    });
+    expect(result).toEqual([]);
+    expect(fieldGroupingFunc).not.toHaveBeenCalled();
   });
 
-  it("should return PD_1 for unknown stages", () => {
-    expect(nextStage("UNKNOWN_STAGE", null)).toBe(CONSTANTS.STAGE_NAMES.PD_1);
+  it('should handle missing field_set_name gracefully', () => {
+    const invalidResponse = {
+      fields: [{ field_name: 'field1', value: 'val1' }],
+    };
+
+    const groupObj = (response: any) => {
+      return response.fields.reduce(
+        (prev: any[], { field_set_name, ...items }) => {
+          let id = prev.findIndex(
+            (item: any) => item.field_set_name === field_set_name
+          );
+          fieldGroupingFunc(id, prev, field_set_name, items);
+          return prev;
+        },
+        []
+      );
+    };
+
+    expect(() => groupObj(invalidResponse)).toThrow(); // Optional: Check behavior on missing data
   });
 });
