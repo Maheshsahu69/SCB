@@ -139,3 +139,137 @@ xport const stageFields = (
     fields: currentStageFields,
   };
 };
+
+
+
+
+
+
+
+
+import { stageFields } from './Fields.utils';
+import { CONSTANTS } from '../../../utils/common/constants';
+import { FindIndex } from '../../../utils/common/change.utils';
+import Rules_bd_1 from '../../rules/rules_bd-1';
+import Rules_bd_2 from '../../rules/rules_bd-2';
+import RulesSSF from '../../rules/rules_ssf-1';
+import Rules_ad_1 from '../../rules/rules_ad-1';
+import Rules_ad_2 from '../../rules/rules_ad-2';
+import Rules_ad_6 from '../../rules/rules_ad-6';
+import Rules_bd_3 from '../../rules/rules_bd-3';
+import Rules_bd_4 from '../../rules/rules_bd-4';
+
+jest.mock('../../../utils/common/change.utils', () => ({
+  FindIndex: jest.fn(),
+}));
+
+jest.mock('../../rules/rules_bd-1', () => jest.fn());
+jest.mock('../../rules/rules_bd-2', () => jest.fn());
+jest.mock('../../rules/rules_ssf-1', () => jest.fn());
+jest.mock('../../rules/rules_ad-1', () => jest.fn());
+jest.mock('../../rules/rules_ad-2', () => jest.fn());
+jest.mock('../../rules/rules_ad-6', () => jest.fn());
+jest.mock('../../rules/rules_bd-3', () => jest.fn());
+jest.mock('../../rules/rules_bd-4', () => jest.fn());
+
+describe('stageFields', () => {
+  const mockStageSelector = [
+    {
+      stageInfo: {
+        fieldMetaData: {
+          data: {
+            stages: [
+              {
+                fields: [
+                  { field_set_name: 'group1', rwb_category: 'stage1', logical_field_name: 'field1' },
+                  { field_set_name: 'group2', rwb_category: 'stage2', logical_field_name: 'field2' },
+                ],
+              },
+            ],
+          },
+        },
+        application: 'mock-application',
+      },
+      stageId: 'stage1',
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return fields grouped and processed by Rules_bd_1 for stageId bd-1', () => {
+    FindIndex.mockReturnValue(0);
+    Rules_bd_1.mockReturnValue('mocked-rules-bd-1');
+
+    const result = stageFields(mockStageSelector, 'bd-1');
+
+    expect(FindIndex).toHaveBeenCalledWith(mockStageSelector[0].stageInfo, 'bd-1');
+    expect(Rules_bd_1).toHaveBeenCalledWith(expect.any(Array), mockStageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields);
+    expect(result).toEqual({ fields: 'mocked-rules-bd-1' });
+  });
+
+  it('should return fields grouped and processed by Rules_bd_2 for stageId bd-2', () => {
+    FindIndex.mockReturnValue(0);
+    Rules_bd_2.mockReturnValue('mocked-rules-bd-2');
+
+    const result = stageFields(mockStageSelector, 'bd-2');
+
+    expect(FindIndex).toHaveBeenCalledWith(mockStageSelector[0].stageInfo, 'bd-2');
+    expect(Rules_bd_2).toHaveBeenCalledWith(expect.any(Array), mockStageSelector[0].stageInfo.application);
+    expect(result).toEqual({ fields: 'mocked-rules-bd-2' });
+  });
+
+  it('should filter fields by rwb_category and process default rules for unknown stageId', () => {
+    FindIndex.mockReturnValue(0);
+    RulesSSF.mockReturnValue('mocked-rules-ssf');
+
+    const result = stageFields(mockStageSelector, 'unknown');
+
+    expect(result).toEqual({ fields: 'mocked-rules-ssf' });
+    expect(RulesSSF).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
+  });
+
+  it('should handle empty stageSelector gracefully', () => {
+    const result = stageFields([], 'bd-1');
+    expect(result).toEqual({ fields: undefined });
+  });
+
+  it('should handle missing stageInfo gracefully', () => {
+    const incompleteSelector = [{ stageInfo: null }];
+    const result = stageFields(incompleteSelector, 'bd-1');
+    expect(result).toEqual({ fields: undefined });
+  });
+
+  it('should handle grouping logic in groupObj correctly', () => {
+    const mockStageSelectorWithFields = [
+      {
+        stageInfo: {
+          fieldMetaData: {
+            data: {
+              stages: [
+                {
+                  fields: [
+                    { field_set_name: 'group1', field_name: 'field1' },
+                    { field_set_name: 'group1', field_name: 'field2' },
+                    { field_set_name: 'group2', field_name: 'field3' },
+                  ],
+                },
+              ],
+            },
+          },
+          application: 'mock-application',
+        },
+        stageId: 'stage1',
+      },
+    ];
+
+    FindIndex.mockReturnValue(0);
+    RulesSSF.mockReturnValue('mocked-rules-ssf');
+
+    const result = stageFields(mockStageSelectorWithFields, 'unknown');
+
+    expect(result).toEqual({ fields: 'mocked-rules-ssf' });
+    expect(RulesSSF).toHaveBeenCalled();
+  });
+});
