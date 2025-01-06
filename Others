@@ -90,3 +90,116 @@ export const stageSelectFields = (
     fields: currentStageFields,
   };
 };
+
+
+
+
+
+
+
+import { stageSelectFields } from './Fields.utils';
+import { CONSTANTS } from '../../../utils/common/constants';
+import { fieldGroupingFunc } from './Fields.utils';
+import Rules_bd_1 from '../../rules/rules_bd-1';
+import Rules_bd_2 from '../../rules/rules_bd-2';
+import RulesSSF from '../../rules/rules_ssf-1';
+import Rules_ad_1 from '../../rules/rules_ad-1';
+import Rules_ad_2 from '../../rules/rules_ad-2';
+import Rules_ad_6 from '../../rules/rules_ad-6';
+import Rules_bd_3 from '../../rules/rules_bd-3';
+
+jest.mock('../../rules/rules_bd-1', () => jest.fn());
+jest.mock('../../rules/rules_bd-2', () => jest.fn());
+jest.mock('../../rules/rules_ssf-1', () => jest.fn());
+jest.mock('../../rules/rules_ad-1', () => jest.fn());
+jest.mock('../../rules/rules_ad-2', () => jest.fn());
+jest.mock('../../rules/rules_ad-6', () => jest.fn());
+jest.mock('../../rules/rules_bd-3', () => jest.fn());
+jest.mock('./Fields.utils', () => ({
+  ...jest.requireActual('./Fields.utils'),
+  fieldGroupingFunc: jest.fn(),
+}));
+
+describe('stageSelectFields', () => {
+  const mockStageSelector = [
+    {
+      stageInfo: {
+        fieldMetaData: {
+          data: {
+            stages: [
+              {
+                fields: [
+                  { field_set_name: 'group1', field_name: 'field1' },
+                  { field_set_name: 'group1', field_name: 'field2' },
+                  { field_set_name: 'group2', field_name: 'field3' },
+                ],
+              },
+            ],
+          },
+        },
+        application: 'mock-application',
+      },
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return fields processed by Rules_bd_1 for stageId bd-1', () => {
+    Rules_bd_1.mockReturnValue('mocked-rules-bd-1');
+
+    const result = stageSelectFields(mockStageSelector, 'bd-1');
+
+    expect(Rules_bd_1).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
+    expect(result).toEqual({ fields: 'mocked-rules-bd-1' });
+  });
+
+  it('should return fields processed by Rules_bd_2 for stageId bd-2', () => {
+    Rules_bd_2.mockReturnValue('mocked-rules-bd-2');
+
+    const result = stageSelectFields(mockStageSelector, 'bd-2');
+
+    expect(Rules_bd_2).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
+    expect(result).toEqual({ fields: 'mocked-rules-bd-2' });
+  });
+
+  it('should return fields processed by RulesSSF for unknown stageId', () => {
+    RulesSSF.mockReturnValue('mocked-rules-ssf');
+
+    const result = stageSelectFields(mockStageSelector, 'unknown');
+
+    expect(RulesSSF).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
+    expect(result).toEqual({ fields: 'mocked-rules-ssf' });
+  });
+
+  it('should handle empty stageSelector gracefully', () => {
+    const result = stageSelectFields([], 'bd-1');
+    expect(result).toEqual({ fields: undefined });
+  });
+
+  it('should handle missing stageInfo gracefully', () => {
+    const incompleteSelector = [{ stageInfo: null }];
+    const result = stageSelectFields(incompleteSelector, 'bd-1');
+    expect(result).toEqual({ fields: undefined });
+  });
+
+  it('should group fields correctly using fieldGroupingFunc', () => {
+    const stageFieldsMock = [
+      { field_set_name: 'group1', field_name: 'field1' },
+      { field_set_name: 'group1', field_name: 'field2' },
+      { field_set_name: 'group2', field_name: 'field3' },
+    ];
+
+    const mockGroupObj = jest.fn((response) => {
+      return response.fields.reduce((prev: any[], field) => {
+        fieldGroupingFunc(0, prev, field.field_set_name, field);
+        return prev;
+      }, []);
+    });
+
+    mockGroupObj({ fields: stageFieldsMock });
+
+    expect(fieldGroupingFunc).toHaveBeenCalledTimes(3);
+  });
+});
