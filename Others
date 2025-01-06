@@ -1,32 +1,31 @@
-xport const stageFields = (
+export const stageSelectFields = (
   stageSelector: Array<StageDetails>,
   stageId: string,
-  employeeToggleSelector?: any,
-  other?: string | undefined
+  other?: any
 ) => {
   let stageFields: Array<StageFieldModel> = [];
+ /* istanbul ignore else */
   if (
-    stageSelector && stageSelector.length>0 &&
-    stageSelector[0].stageInfo &&
-    stageSelector[0].stageInfo.fieldMetaData &&
+    stageSelector &&
+    stageSelector?.[0]?.stageInfo &&
+    stageSelector?.[0]?.stageInfo?.fieldMetaData &&
     stageSelector[0].stageInfo.fieldMetaData.data.stages
   ) {
     let currentStage =
-      stageId === CONSTANTS.STAGE_NAMES.LD_1 
-        ? ["ad-11"]
+      stageId === CONSTANTS.STAGE_NAMES.SSF_1 && authenticateType() !== `${process.env.REACT_APP_AUTH_TYPE_MANUAL}`
+        ? [stageId]
         : [stageId];
     currentStage.forEach((name) => {
-      const stageIndex = FindIndex(stageSelector[0].stageInfo, name);
-      stageFields.push(
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[stageIndex]
-      );
+      other = { "fields": other };
+      stageFields.push(other);
     });
   }
   let currentStageFields: any;
+   /* istanbul ignore else */
   if (stageFields) {
     let fieldsetGroup: Array<FieldSetGroupModel[]> = [];
     const groupObj = (response: StageFieldModel) => {
-      return response?.fields?.reduce(
+      return response.fields?.reduce(
         (prev: Array<FieldSetGroupModel>, { field_set_name, ...items }) => {
           let id = prev.findIndex(
             (item: KeyWithAnyModel) => item.field_set_name === field_set_name
@@ -38,17 +37,7 @@ xport const stageFields = (
       );
     };
 
-    let filteredData: any =stageFields.length > 0 ? stageFields[0]?.fields?.filter((item:KeyWithAnyModel) => item.rwb_category===stageSelector[0].stageId) : [];
-
-   
-    let stageFieldData= JSON.parse(JSON.stringify(stageFields));
-    /* istanbul ignore else */
-  if( !Array.isArray(stageFieldData) && stageFieldData.length>0 ){
-    stageFieldData[0].fields= filteredData;
-  }
-
-    stageFieldData.forEach((data: StageFieldModel) => {
-
+    stageFields.forEach((data: StageFieldModel) => {
       if (fieldsetGroup.length > 0) {
         fieldsetGroup[0].push(groupObj(data)[0]);
       } else {
@@ -63,75 +52,37 @@ xport const stageFields = (
     } else if (stageId === "bd-1") {
       currentStageFields = Rules_bd_1(
         fieldsetGroup,
-        stageSelector?.[0]?.stageInfo?.fieldMetaData?.data?.stages?.[0]?.fields
+        stageSelector?.[0]?.stageInfo.application
       );
-    }
-    else if (stageId === "pd-1") {
-
+    } else if (stageId === "bd-1a") {
       currentStageFields = Rules_bd_1(
         fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+        stageSelector[0].stageInfo.application
       );
-    }
-    else if (stageId === "bd-1a") {
-
-      currentStageFields = Rules_bd_1(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
-      );
-    }
-    else if (stageId === "bd-3") {
+    } else if (stageId === "bd-3") {
       currentStageFields = Rules_bd_3(
         fieldsetGroup,
         stageSelector[0].stageInfo.application
       );
-    } else if (stageId === "bd-4") {
-      currentStageFields = Rules_bd_4(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application,
-        employeeToggleSelector
-      );
-    }
-    else if (stageId === "ad-1") {
+    } else if (stageId === "ad-1") {
       currentStageFields = Rules_ad_1(
         fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+        stageSelector[0].stageInfo.application
       );
-    }
-    else if (stageId === "ad-1a") {
-      currentStageFields = Rules_ad_1(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
-      );
-    }
-    else if (stageId === "ad-2") {
+    } else if (stageId === "ad-2") {
       currentStageFields = Rules_ad_2(
         fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+        stageSelector[0].stageInfo.application
       );
-    } 
-    else if (stageId === "ad-3") {
-      currentStageFields = Rules_ad_2(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
-      );
-    } 
-    else if (stageId === "ad-6") {
+    } else if (stageId === "ad-6") {
       currentStageFields = Rules_ad_6(
         fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
+        stageSelector[0].stageInfo.application
       );
-    } 
-    else if (stageId === "ld-1") {
-      currentStageFields = Rules_ad_2(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields
-      );
-    } 
-    else {
+    } else {
       currentStageFields = RulesSSF(
         fieldsetGroup,
-        stageSelector[0] && stageSelector[0].stageInfo.application,
+        stageSelector[0].stageInfo.application,
       );
     }
   }
@@ -139,208 +90,3 @@ xport const stageFields = (
     fields: currentStageFields,
   };
 };
-
-
-
-
-
-
-
-
-import { stageFields } from './Fields.utils';
-import { CONSTANTS } from '../../../utils/common/constants';
-import { FindIndex } from '../../../utils/common/change.utils';
-import Rules_bd_1 from '../../rules/rules_bd-1';
-import Rules_bd_2 from '../../rules/rules_bd-2';
-import RulesSSF from '../../rules/rules_ssf-1';
-import Rules_ad_1 from '../../rules/rules_ad-1';
-import Rules_ad_2 from '../../rules/rules_ad-2';
-import Rules_ad_6 from '../../rules/rules_ad-6';
-import Rules_bd_3 from '../../rules/rules_bd-3';
-import Rules_bd_4 from '../../rules/rules_bd-4';
-
-jest.mock('../../../utils/common/change.utils', () => ({
-  FindIndex: jest.fn(),
-}));
-
-jest.mock('../../rules/rules_bd-1', () => jest.fn());
-jest.mock('../../rules/rules_bd-2', () => jest.fn());
-jest.mock('../../rules/rules_ssf-1', () => jest.fn());
-jest.mock('../../rules/rules_ad-1', () => jest.fn());
-jest.mock('../../rules/rules_ad-2', () => jest.fn());
-jest.mock('../../rules/rules_ad-6', () => jest.fn());
-jest.mock('../../rules/rules_bd-3', () => jest.fn());
-jest.mock('../../rules/rules_bd-4', () => jest.fn());
-
-describe('stageFields', () => {
-  const mockStageSelector = [
-    {
-      stageInfo: {
-        fieldMetaData: {
-          data: {
-            stages: [
-              {
-                fields: [
-                  { field_set_name: 'group1', rwb_category: 'stage1', logical_field_name: 'field1' },
-                  { field_set_name: 'group2', rwb_category: 'stage2', logical_field_name: 'field2' },
-                ],
-              },
-            ],
-          },
-        },
-        application: 'mock-application',
-      },
-      stageId: 'stage1',
-    },
-  ];
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return fields grouped and processed by Rules_bd_1 for stageId bd-1', () => {
-    FindIndex.mockReturnValue(0);
-    Rules_bd_1.mockReturnValue('mocked-rules-bd-1');
-
-    const result = stageFields(mockStageSelector, 'bd-1');
-
-    expect(FindIndex).toHaveBeenCalledWith(mockStageSelector[0].stageInfo, 'bd-1');
-    expect(Rules_bd_1).toHaveBeenCalledWith(expect.any(Array), mockStageSelector[0].stageInfo.fieldMetaData.data.stages[0].fields);
-    expect(result).toEqual({ fields: 'mocked-rules-bd-1' });
-  });
-
-  it('should return fields grouped and processed by Rules_bd_2 for stageId bd-2', () => {
-    FindIndex.mockReturnValue(0);
-    Rules_bd_2.mockReturnValue('mocked-rules-bd-2');
-
-    const result = stageFields(mockStageSelector, 'bd-2');
-
-    expect(FindIndex).toHaveBeenCalledWith(mockStageSelector[0].stageInfo, 'bd-2');
-    expect(Rules_bd_2).toHaveBeenCalledWith(expect.any(Array), mockStageSelector[0].stageInfo.application);
-    expect(result).toEqual({ fields: 'mocked-rules-bd-2' });
-  });
-
-  it('should filter fields by rwb_category and process default rules for unknown stageId', () => {
-    FindIndex.mockReturnValue(0);
-    RulesSSF.mockReturnValue('mocked-rules-ssf');
-
-    const result = stageFields(mockStageSelector, 'unknown');
-
-    expect(result).toEqual({ fields: 'mocked-rules-ssf' });
-    expect(RulesSSF).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
-  });
-
-  it('should handle empty stageSelector gracefully', () => {
-    const result = stageFields([], 'bd-1');
-    expect(result).toEqual({ fields: undefined });
-  });
-
-  it('should handle missing stageInfo gracefully', () => {
-    const incompleteSelector = [{ stageInfo: null }];
-    const result = stageFields(incompleteSelector, 'bd-1');
-    expect(result).toEqual({ fields: undefined });
-  });
-
-  it('should handle grouping logic in groupObj correctly', () => {
-    const mockStageSelectorWithFields = [
-      {
-        stageInfo: {
-          fieldMetaData: {
-            data: {
-              stages: [
-                {
-                  fields: [
-                    { field_set_name: 'group1', field_name: 'field1' },
-                    { field_set_name: 'group1', field_name: 'field2' },
-                    { field_set_name: 'group2', field_name: 'field3' },
-                  ],
-                },
-              ],
-            },
-          },
-          application: 'mock-application',
-        },
-        stageId: 'stage1',
-      },
-    ];
-
-    FindIndex.mockReturnValue(0);
-    RulesSSF.mockReturnValue('mocked-rules-ssf');
-
-    const result = stageFields(mockStageSelectorWithFields, 'unknown');
-
-    expect(result).toEqual({ fields: 'mocked-rules-ssf' });
-    expect(RulesSSF).toHaveBeenCalled();
-  });
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import { stageFields } from './Fields.utils';
-
-describe('stageFields conditional logic', () => {
-  it('should set fields when stageFieldData is a non-empty array', () => {
-    const stageFieldsMock = [{ fields: [] }];
-    const filteredDataMock = [{ key: 'value' }];
-
-    // Simulate `stageFieldData`
-    const stageFieldData = JSON.parse(JSON.stringify(stageFieldsMock));
-
-    // Manually execute logic for testing
-    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
-      stageFieldData[0].fields = filteredDataMock;
-    }
-
-    // Verify that fields are updated
-    expect(stageFieldData[0].fields).toEqual(filteredDataMock);
-  });
-
-  it('should not set fields when stageFieldData is an empty array', () => {
-    const stageFieldData = []; // Empty array
-    const filteredDataMock = [{ key: 'value' }];
-
-    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
-      stageFieldData[0].fields = filteredDataMock;
-    }
-
-    // Verify that no updates are made
-    expect(stageFieldData).toEqual([]);
-  });
-
-  it('should not set fields when stageFieldData is null or undefined', () => {
-    const stageFieldData = null; // Or `undefined`
-    const filteredDataMock = [{ key: 'value' }];
-
-    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
-      // This block should not run
-      stageFieldData[0].fields = filteredDataMock;
-    }
-
-    // Verify that stageFieldData is still null
-    expect(stageFieldData).toBeNull();
-  });
-
-  it('should not set fields when stageFieldData is not an array (e.g., object)', () => {
-    const stageFieldData = { fields: [] }; // Invalid, not an array
-    const filteredDataMock = [{ key: 'value' }];
-
-    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
-      // This block should not run
-      stageFieldData[0].fields = filteredDataMock;
-    }
-
-    // Verify that no updates are made
-    expect(stageFieldData).toEqual({ fields: [] });
-  });
-});
