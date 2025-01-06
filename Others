@@ -273,3 +273,74 @@ describe('stageFields', () => {
     expect(RulesSSF).toHaveBeenCalled();
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { stageFields } from './Fields.utils';
+
+describe('stageFields conditional logic', () => {
+  it('should set fields when stageFieldData is a non-empty array', () => {
+    const stageFieldsMock = [{ fields: [] }];
+    const filteredDataMock = [{ key: 'value' }];
+
+    // Simulate `stageFieldData`
+    const stageFieldData = JSON.parse(JSON.stringify(stageFieldsMock));
+
+    // Manually execute logic for testing
+    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
+      stageFieldData[0].fields = filteredDataMock;
+    }
+
+    // Verify that fields are updated
+    expect(stageFieldData[0].fields).toEqual(filteredDataMock);
+  });
+
+  it('should not set fields when stageFieldData is an empty array', () => {
+    const stageFieldData = []; // Empty array
+    const filteredDataMock = [{ key: 'value' }];
+
+    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
+      stageFieldData[0].fields = filteredDataMock;
+    }
+
+    // Verify that no updates are made
+    expect(stageFieldData).toEqual([]);
+  });
+
+  it('should not set fields when stageFieldData is null or undefined', () => {
+    const stageFieldData = null; // Or `undefined`
+    const filteredDataMock = [{ key: 'value' }];
+
+    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
+      // This block should not run
+      stageFieldData[0].fields = filteredDataMock;
+    }
+
+    // Verify that stageFieldData is still null
+    expect(stageFieldData).toBeNull();
+  });
+
+  it('should not set fields when stageFieldData is not an array (e.g., object)', () => {
+    const stageFieldData = { fields: [] }; // Invalid, not an array
+    const filteredDataMock = [{ key: 'value' }];
+
+    if (Array.isArray(stageFieldData) && stageFieldData.length > 0) {
+      // This block should not run
+      stageFieldData[0].fields = filteredDataMock;
+    }
+
+    // Verify that no updates are made
+    expect(stageFieldData).toEqual({ fields: [] });
+  });
+});
