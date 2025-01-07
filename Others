@@ -1,205 +1,55 @@
-export const stageSelectFields = (
-  stageSelector: Array<StageDetails>,
-  stageId: string,
-  other?: any
-) => {
-  let stageFields: Array<StageFieldModel> = [];
- /* istanbul ignore else */
-  if (
-    stageSelector &&
-    stageSelector?.[0]?.stageInfo &&
-    stageSelector?.[0]?.stageInfo?.fieldMetaData &&
-    stageSelector[0].stageInfo.fieldMetaData.data.stages
-  ) {
-    let currentStage =
-      stageId === CONSTANTS.STAGE_NAMES.SSF_1 && authenticateType() !== `${process.env.REACT_APP_AUTH_TYPE_MANUAL}`
-        ? [stageId]
-        : [stageId];
-    currentStage.forEach((name) => {
-      other = { "fields": other };
-      stageFields.push(other);
-    });
-  }
-  let currentStageFields: any;
-   /* istanbul ignore else */
-  if (stageFields) {
-    let fieldsetGroup: Array<FieldSetGroupModel[]> = [];
-    const groupObj = (response: StageFieldModel) => {
-      return response.fields?.reduce(
-        (prev: Array<FieldSetGroupModel>, { field_set_name, ...items }) => {
-          let id = prev.findIndex(
-            (item: KeyWithAnyModel) => item.field_set_name === field_set_name
-          );
-          fieldGroupingFunc(id, prev, field_set_name, items);
-          return prev;
-        },
-        []
-      );
-    };
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import { CONSTANTS } from "../../../utils/common/constants";
+import { KeyWithAnyModel, StoreModel } from "../../../utils/model/common-model";
+import "./footer.scss";
+import { getUrl } from "../../../utils/common/change.utils";
 
-    stageFields.forEach((data: StageFieldModel) => {
-      if (fieldsetGroup.length > 0) {
-        fieldsetGroup[0].push(groupObj(data)[0]);
-      } else {
-        fieldsetGroup.push(groupObj(data));
-      }
-    });
-    if (stageId === "bd-2") {
-      currentStageFields = Rules_bd_2(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application
-      );
-    } else if (stageId === "bd-1") {
-      currentStageFields = Rules_bd_1(
-        fieldsetGroup,
-        stageSelector?.[0]?.stageInfo.application
-      );
-    } else if (stageId === "bd-1a") {
-      currentStageFields = Rules_bd_1(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application
-      );
-    } else if (stageId === "bd-3") {
-      currentStageFields = Rules_bd_3(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application
-      );
-    } else if (stageId === "ad-1") {
-      currentStageFields = Rules_ad_1(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application
-      );
-    } else if (stageId === "ad-2") {
-      currentStageFields = Rules_ad_2(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application
-      );
-    } else if (stageId === "ad-6") {
-      currentStageFields = Rules_ad_6(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application
-      );
-    } else {
-      currentStageFields = RulesSSF(
-        fieldsetGroup,
-        stageSelector[0].stageInfo.application,
-      );
+const Footer = (props: KeyWithAnyModel) => {
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
+  const [backBtn, setBackBtn] = useState(false);
+  const language = getUrl.getLanguageInfo("lang");
+  
+  useEffect(() => {
+    if (stageSelector && stageSelector.length > 0) {
+      const isEnableBackBtn = stageSelector[0].stageId !== CONSTANTS.STAGE_NAMES.PD_1 &&
+        stageSelector[0].stageId !== CONSTANTS.STAGE_NAMES.BD_1A && stageSelector[0].stageId !== CONSTANTS.STAGE_NAMES.LD_1
+          ? true
+          : false;
+      setBackBtn(isEnableBackBtn);
     }
-  }
-  return {
-    fields: currentStageFields,
-  };
+  }, [stageSelector]);
+
+  return (
+    <>
+      <div className="footer">
+        {backBtn && (
+          <div className="back" onClick={props.backHandler}>
+            <span className="arrow"></span> {language === CONSTANTS.LANG_EN ? 'Back' : language === CONSTANTS.LANG_CN ? '返回' : '返回'}
+          </div>
+        )}
+        
+        <button type="submit" disabled={props.validateNxt !== "form-valid" ? true : false} className={`continue ${props.validateNxt}`}>
+          {stageSelector?.[0]?.stageId === 'rp' ?
+              language === CONSTANTS.LANG_EN ?
+                'Agree & Submit' 
+              : 
+                language === CONSTANTS.LANG_CN ? 
+                  '提交' 
+                : 
+                  '提交' 
+            : 
+              stageSelector?.[0]?.stageId === 'ld-1' ?
+                language === CONSTANTS?.LANG_EN ? 'Confirm' : language === CONSTANTS?.LANG_CN ? '確認' : '确认'
+              :
+                language === CONSTANTS?.LANG_EN ? 'Continue' : language === CONSTANTS?.LANG_CN ? '继续' : '繼續'
+          }
+        </button>
+      </div>
+    </>
+  );
 };
 
 
 
-
-
-
-
-import { stageSelectFields } from './Fields.utils';
-import { CONSTANTS } from '../../../utils/common/constants';
-import { fieldGroupingFunc } from './Fields.utils';
-import Rules_bd_1 from '../../rules/rules_bd-1';
-import Rules_bd_2 from '../../rules/rules_bd-2';
-import RulesSSF from '../../rules/rules_ssf-1';
-import Rules_ad_1 from '../../rules/rules_ad-1';
-import Rules_ad_2 from '../../rules/rules_ad-2';
-import Rules_ad_6 from '../../rules/rules_ad-6';
-import Rules_bd_3 from '../../rules/rules_bd-3';
-
-jest.mock('../../rules/rules_bd-1', () => jest.fn());
-jest.mock('../../rules/rules_bd-2', () => jest.fn());
-jest.mock('../../rules/rules_ssf-1', () => jest.fn());
-jest.mock('../../rules/rules_ad-1', () => jest.fn());
-jest.mock('../../rules/rules_ad-2', () => jest.fn());
-jest.mock('../../rules/rules_ad-6', () => jest.fn());
-jest.mock('../../rules/rules_bd-3', () => jest.fn());
-jest.mock('./Fields.utils', () => ({
-  ...jest.requireActual('./Fields.utils'),
-  fieldGroupingFunc: jest.fn(),
-}));
-
-describe('stageSelectFields', () => {
-  const mockStageSelector = [
-    {
-      stageInfo: {
-        fieldMetaData: {
-          data: {
-            stages: [
-              {
-                fields: [
-                  { field_set_name: 'group1', field_name: 'field1' },
-                  { field_set_name: 'group1', field_name: 'field2' },
-                  { field_set_name: 'group2', field_name: 'field3' },
-                ],
-              },
-            ],
-          },
-        },
-        application: 'mock-application',
-      },
-    },
-  ];
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return fields processed by Rules_bd_1 for stageId bd-1', () => {
-    Rules_bd_1.mockReturnValue('mocked-rules-bd-1');
-
-    const result = stageSelectFields(mockStageSelector, 'bd-1');
-
-    expect(Rules_bd_1).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
-    expect(result).toEqual({ fields: 'mocked-rules-bd-1' });
-  });
-
-  it('should return fields processed by Rules_bd_2 for stageId bd-2', () => {
-    Rules_bd_2.mockReturnValue('mocked-rules-bd-2');
-
-    const result = stageSelectFields(mockStageSelector, 'bd-2');
-
-    expect(Rules_bd_2).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
-    expect(result).toEqual({ fields: 'mocked-rules-bd-2' });
-  });
-
-  it('should return fields processed by RulesSSF for unknown stageId', () => {
-    RulesSSF.mockReturnValue('mocked-rules-ssf');
-
-    const result = stageSelectFields(mockStageSelector, 'unknown');
-
-    expect(RulesSSF).toHaveBeenCalledWith(expect.any(Array), 'mock-application');
-    expect(result).toEqual({ fields: 'mocked-rules-ssf' });
-  });
-
-  it('should handle empty stageSelector gracefully', () => {
-    const result = stageSelectFields([], 'bd-1');
-    expect(result).toEqual({ fields: undefined });
-  });
-
-  it('should handle missing stageInfo gracefully', () => {
-    const incompleteSelector = [{ stageInfo: null }];
-    const result = stageSelectFields(incompleteSelector, 'bd-1');
-    expect(result).toEqual({ fields: undefined });
-  });
-
-  it('should group fields correctly using fieldGroupingFunc', () => {
-    const stageFieldsMock = [
-      { field_set_name: 'group1', field_name: 'field1' },
-      { field_set_name: 'group1', field_name: 'field2' },
-      { field_set_name: 'group2', field_name: 'field3' },
-    ];
-
-    const mockGroupObj = jest.fn((response) => {
-      return response.fields.reduce((prev: any[], field) => {
-        fieldGroupingFunc(0, prev, field.field_set_name, field);
-        return prev;
-      }, []);
-    });
-
-    mockGroupObj({ fields: stageFieldsMock });
-
-    expect(fieldGroupingFunc).toHaveBeenCalledTimes(3);
-  });
-});
+export default Footer;
