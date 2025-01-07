@@ -53,3 +53,115 @@ const Footer = (props: KeyWithAnyModel) => {
 
 
 export default Footer;
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { useSelector } from "react-redux";
+import { CONSTANTS } from "../../../utils/common/constants";
+import Footer from "./footer";
+
+// Mock the Redux useSelector hook
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+}));
+
+// Mock the utility function
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getLanguageInfo: jest.fn(),
+  },
+}));
+
+const mockedUseSelector = useSelector as jest.Mock;
+const mockedGetLanguageInfo = require("../../../utils/common/change.utils").getUrl
+  .getLanguageInfo;
+
+describe("Footer Component", () => {
+  const defaultProps = {
+    backHandler: jest.fn(),
+    validateNxt: "form-valid",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should render the 'Back' button when stage conditions are met", () => {
+    mockedUseSelector.mockReturnValue([
+      { stageId: CONSTANTS.STAGE_NAMES.PD_2 }, // Example stage
+    ]);
+    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
+
+    render(<Footer {...defaultProps} />);
+
+    const backButton = screen.getByText("Back");
+    expect(backButton).toBeInTheDocument();
+
+    fireEvent.click(backButton);
+    expect(defaultProps.backHandler).toHaveBeenCalled();
+  });
+
+  it("should not render the 'Back' button when stage is in excluded list", () => {
+    mockedUseSelector.mockReturnValue([
+      { stageId: CONSTANTS.STAGE_NAMES.PD_1 },
+    ]);
+    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
+
+    render(<Footer {...defaultProps} />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  it("should disable the 'Continue' button when validateNxt is not 'form-valid'", () => {
+    mockedUseSelector.mockReturnValue([{ stageId: "some-stage" }]);
+    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
+
+    render(<Footer {...defaultProps} validateNxt="form-invalid" />);
+
+    const continueButton = screen.getByText("Continue");
+    expect(continueButton).toBeDisabled();
+  });
+
+  it("should render 'Agree & Submit' button for stageId 'rp'", () => {
+    mockedUseSelector.mockReturnValue([{ stageId: "rp" }]);
+    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
+
+    render(<Footer {...defaultProps} />);
+
+    const agreeButton = screen.getByText("Agree & Submit");
+    expect(agreeButton).toBeInTheDocument();
+  });
+
+  it("should render 'Confirm' button for stageId 'ld-1'", () => {
+    mockedUseSelector.mockReturnValue([{ stageId: "ld-1" }]);
+    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
+
+    render(<Footer {...defaultProps} />);
+
+    const confirmButton = screen.getByText("Confirm");
+    expect(confirmButton).toBeInTheDocument();
+  });
+
+  it("should render text in Chinese for language 'zh-CN'", () => {
+    mockedUseSelector.mockReturnValue([{ stageId: "some-stage" }]);
+    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_CN);
+
+    render(<Footer {...defaultProps} />);
+
+    const continueButton = screen.getByText("继续");
+    expect(continueButton).toBeInTheDocument();
+  });
+
+  it("should render text in default language for unrecognized language codes", () => {
+    mockedUseSelector.mockReturnValue([{ stageId: "some-stage" }]);
+    mockedGetLanguageInfo.mockReturnValue("unknown-lang");
+
+    render(<Footer {...defaultProps} />);
+
+    const continueButton = screen.getByText("继续"); // Default to Chinese
+    expect(continueButton).toBeInTheDocument();
+  });
+});
