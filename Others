@@ -481,3 +481,94 @@ describe("Footer Component", () => {
     expect(screen.queryByText("Back")).not.toBeInTheDocument();
   });
 });
+
+
+
+
+
+
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import { useSelector } from "react-redux";
+import Footer from "./footer";
+
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+}));
+
+describe("Footer Component - Full Coverage", () => {
+  const mockBackHandler = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("should not render the Back button when stageSelector is empty", () => {
+    (useSelector as jest.Mock).mockReturnValue([]); // stageSelector is empty
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  it("should not render the Back button for excluded stageId PD_1", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "PD_1" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  it("should not render the Back button for excluded stageId BD_1A", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "BD_1A" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  it("should not render the Back button for excluded stageId LD_1", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "LD_1" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  it("should render the Back button for non-excluded stageId", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "some-other-stage" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    expect(screen.getByText("Back")).toBeInTheDocument();
+  });
+
+  it("should call the backHandler when Back button is clicked", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "some-other-stage" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    const backButton = screen.getByText("Back");
+    backButton.click();
+
+    expect(mockBackHandler).toHaveBeenCalled();
+  });
+
+  it("should disable the Continue button when validateNxt is not 'form-valid'", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "some-other-stage" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-invalid" />);
+
+    const continueButton = screen.getByText("Continue");
+    expect(continueButton).toBeDisabled();
+  });
+
+  it("should enable the Continue button when validateNxt is 'form-valid'", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "some-other-stage" }]);
+
+    render(<Footer backHandler={mockBackHandler} validateNxt="form-valid" />);
+
+    const continueButton = screen.getByText("Continue");
+    expect(continueButton).not.toBeDisabled();
+  });
+});
