@@ -444,3 +444,40 @@ describe("OnboardingBeforeStart Component", () => {
     expect(mockProps.nextPage).toHaveBeenCalled();
   });
 });
+
+
+
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import { useSelector } from "react-redux";
+import Footer from "./footer";
+
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+}));
+
+describe("Footer Component", () => {
+  it("should not enable the Back button when stageSelector is empty", () => {
+    (useSelector as jest.Mock).mockReturnValue([]); // stageSelector is empty
+
+    render(<Footer backHandler={jest.fn()} validateNxt="form-valid" />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+
+  it("should enable the Back button when stageSelector[0].stageId is not excluded", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "some-other-stage" }]); // Non-excluded stageId
+
+    render(<Footer backHandler={jest.fn()} validateNxt="form-valid" />);
+
+    expect(screen.getByText("Back")).toBeInTheDocument();
+  });
+
+  it("should not enable the Back button for excluded stageId", () => {
+    (useSelector as jest.Mock).mockReturnValue([{ stageId: "PD_1" }]); // Excluded stageId
+
+    render(<Footer backHandler={jest.fn()} validateNxt="form-valid" />);
+
+    expect(screen.queryByText("Back")).not.toBeInTheDocument();
+  });
+});
