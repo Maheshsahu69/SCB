@@ -287,3 +287,160 @@ const OnboardingBeforeStart: React.FC<any> = ({
 };
 
 export default OnboardingBeforeStart;
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { useDispatch, useSelector } from "react-redux";
+import OnboardingBeforeStart from "./onboarding-before-start";
+import { getData, getPDFData } from "../../services/preApprovalServices";
+import { dispatchLoader } from "../../../../services/common-service";
+import { preApprovalAction } from "../../store/preApproval-slice";
+
+// Mock dependencies
+jest.mock("react-redux", () => ({
+  useDispatch: jest.fn(),
+  useSelector: jest.fn(),
+}));
+
+jest.mock("../../services/preApprovalServices", () => ({
+  getData: jest.fn(),
+  getPDFData: jest.fn(),
+}));
+
+jest.mock("../../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+jest.mock("../../store/preApproval-slice", () => ({
+  preApprovalAction: {
+    setKfsDocumentPdf: jest.fn(),
+    setTandCDocumentPdf: jest.fn(),
+    setDownloadPDFData: jest.fn(),
+  },
+}));
+
+jest.mock("../../../../shared/components/pdf/pdf", () => () => (
+  <div data-testid="pdf-component">PDF Component</div>
+));
+jest.mock("../../../../shared/components/spinner/spinner", () => () => (
+  <div data-testid="spinner">Spinner</div>
+));
+
+const mockUseDispatch = useDispatch as jest.Mock;
+const mockUseSelector = useSelector as jest.Mock;
+
+describe("OnboardingBeforeStart Component", () => {
+  let mockDispatch: jest.Mock;
+
+  beforeEach(() => {
+    mockDispatch = jest.fn();
+    mockUseDispatch.mockReturnValue(mockDispatch);
+    mockUseSelector.mockReturnValue({
+      formConfigmetaData: {
+        products: [{ campaign: "campaignID1" }],
+      },
+    });
+    jest.clearAllMocks();
+  });
+
+  const mockProps = {
+    isVisible: true,
+    onScrollEnd: jest.fn(),
+    stageID: 0,
+    nextPage: jest.fn(),
+  };
+
+  it("renders spinner initially", () => {
+    render(<OnboardingBeforeStart {...mockProps} />);
+    expect(screen.getByTestId("spinner")).toBeInTheDocument();
+  });
+
+  it("fetches and renders PDF for stageID 0", async () => {
+    (getData as jest.Mock).mockResolvedValue({
+      data: {
+        products: {
+          campaignID1: [
+            { pdfURL: "https://example.com/pdf1.pdf" },
+          ],
+        },
+      },
+    });
+    (getPDFData as jest.Mock).mockResolvedValue("mockPDFData");
+
+    render(<OnboardingBeforeStart {...mockProps} />);
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false));
+    });
+    expect(screen.getByTestId("pdf-component")).toBeInTheDocument();
+  });
+
+  it("fetches and renders PDF for stageID 1", async () => {
+    (getData as jest.Mock).mockResolvedValue({
+      data: {
+        CampaignTnC: {
+          campaignID1: [
+            { pdfURL: "https://example.com/tnc1.pdf" },
+          ],
+        },
+        tncLinkCampaignCode: {
+          campaignID1: [
+            { pdfLinks: [{ Title: "Sample T&C", url: "https://example.com/tnc.pdf" }] },
+          ],
+        },
+      },
+    });
+    (getPDFData as jest.Mock).mockResolvedValue("mockPDFData");
+
+    render(<OnboardingBeforeStart {...mockProps} stageID={1} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Sample T&C")).toBeInTheDocument();
+    });
+
+    const downloadLink = screen.getByText("Download");
+    fireEvent.click(downloadLink);
+
+    expect(mockProps.onScrollEnd).toHaveBeenCalledWith(true);
+  });
+
+  it("handles scroll events", () => {
+    render(<OnboardingBeforeStart {...mockProps} />);
+    const scrollableDiv = screen.getByTestId("pdf-component").parentElement;
+
+    if (scrollableDiv) {
+      Object.defineProperty(scrollableDiv, "scrollHeight", { value: 1000 });
+      Object.defineProperty(scrollableDiv, "clientHeight", { value: 800 });
+      Object.defineProperty(scrollableDiv, "scrollTop", { value: 150 });
+
+      fireEvent.scroll(scrollableDiv);
+      expect(mockProps.onScrollEnd).toHaveBeenCalledWith(false);
+    }
+  });
+
+  it("downloads the pre-approval PDF", () => {
+    render(<OnboardingBeforeStart {...mockProps} />);
+    const downloadButton = screen.getByText("Download");
+
+    fireEvent.click(downloadButton);
+    // Simulate downloading the PDF
+    expect(mockProps.onScrollEnd).toHaveBeenCalled();
+  });
+
+  it("renders footer and handles button clicks", () => {
+    render(<OnboardingBeforeStart {...mockProps} isVisible={false} />);
+    const acceptButton = screen.getByText("I ACCEPT & UNDERSTAND");
+
+    fireEvent.click(acceptButton);
+    expect(mockProps.nextPage).toHaveBeenCalled();
+  });
+});
