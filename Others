@@ -1,167 +1,289 @@
-import { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
-import { CONSTANTS } from "../../../utils/common/constants";
-import { KeyWithAnyModel, StoreModel } from "../../../utils/model/common-model";
-import "./footer.scss";
-import { getUrl } from "../../../utils/common/change.utils";
+import "./onboarding-before-start.scss";
+import { useState, useEffect, useRef } from "react";
+import Pdf from "../../../../shared/components/pdf/pdf";
+import { getData, getPDFData } from "../../services/preApprovalServices";
+import { CATEGORIES, KFS_DOC_URL } from "../../services/constants";
+import { useDispatch, useSelector } from "react-redux";
+import { StoreModel } from "../../../../utils/model/common-model";
+import Spinner from "../../../../shared/components/spinner/spinner";
+import { preApprovalAction } from "../../store/preApproval-slice";
+import { dispatchLoader } from "../../../../services/common-service";
 
-const Footer = (props: KeyWithAnyModel) => {
-  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
-  const [backBtn, setBackBtn] = useState(false);
-  const language = getUrl.getLanguageInfo("lang");
-  
+const OnboardingBeforeStart: React.FC<any> = ({
+  isVisible,
+  onScrollEnd,
+  stageID,
+  nextPage
+}) => {
+  const listInnerRef = useRef<HTMLDivElement>(null);
+  const [pdfLinkTerms, setPdfLinkTerms] = useState<any | null>(null);
+  const download = "Download";
+  const [kfsDocPDF, setkfsDocPDF] = useState("");
+  const [kfsDocPDFDownload, setkfsDocPDFDownload] = useState("");
+  const [pdfName, setPdfName] = useState('')
+  const [showSpinner, setShowSpinner] = useState(true);
+  const acceptButton = "I ACCEPT & UNDERSTAND";
+
+  const formConfigmetaData = useSelector(
+    (state: StoreModel) => state?.preApproval.formConfigmetaData
+  );
+  const dispatch = useDispatch();
+
   useEffect(() => {
-    if (stageSelector && stageSelector.length > 0) {
-      const isEnableBackBtn = stageSelector[0].stageId !== CONSTANTS.STAGE_NAMES.PD_1 &&
-        stageSelector[0].stageId !== CONSTANTS.STAGE_NAMES.BD_1A && stageSelector[0].stageId !== CONSTANTS.STAGE_NAMES.LD_1
-          ? true
-          : false;
-      setBackBtn(isEnableBackBtn);
-    }
-  }, [stageSelector]);
+    setShowSpinner(true);
+    dispatch(dispatchLoader(true));
+    getData(KFS_DOC_URL)?.then((response: any) => {
+      const campaignID = formConfigmetaData?.products[0].campaign;
+      let pdfURLNew = "";
+      console.log(stageID)
+      if (stageID === 0) {
+        const pdfURL = response.data.products[campaignID];
+        const pdfMap = pdfURL.map((item: any) => item.pdfURL)
+        const getPDFName: any = new URL(pdfMap).pathname.split('/').pop();
+        if (window.location.host === "localhost:3000") {
+          pdfURLNew = pdfURL[0].pdfURL.replace(
+            "https://pt.sc.com/",
+            "http://localhost:3000/"
 
+          );
+          setPdfName(getPDFName);
+        } else {
+          pdfURLNew = pdfURL[0].pdfURL;
+        }
+        setkfsDocPDF(pdfURLNew);
+        getPDFData(pdfURLNew).then((response: any) => {
+          const pdfurl: any = {};
+          pdfurl.pdf = response;
+          pdfurl.pdfurl = pdfURLNew;
+          setkfsDocPDFDownload(response);
+          dispatch(preApprovalAction.setKfsDocumentPdf(pdfurl.pdf));
+          onScrollEnd(true);
+          setShowSpinner(false);
+          dispatch(dispatchLoader(false));
+        });
+      }
+      else if (stageID === 1) {
+        if (window.location.host === "localhost:3000") {
+          pdfURLNew = response?.data?.CampaignTnC[
+            campaignID
+          ][0]?.pdfURL.replace("https://pt.sc.com/", "http://localhost:3000/");
+          const getPDFName: any = new URL(pdfURLNew).pathname.split('/').pop();
+          setPdfName(getPDFName);
+        } else {
+          pdfURLNew = response?.data?.CampaignTnC[campaignID][0]?.pdfURL;
+        }
+        setkfsDocPDF(pdfURLNew);
+        getPDFData(pdfURLNew).then((response: any) => {
+          setkfsDocPDFDownload(response);
+          dispatch(preApprovalAction.setTandCDocumentPdf(pdfURLNew));
+          dispatch(preApprovalAction.setDownloadPDFData(response));
+          onScrollEnd(true);
+          setShowSpinner(false);
+          dispatch(dispatchLoader(false));
+        });
+      }
+      const allPDFLinks = response?.data?.tncLinkCampaignCode[campaignID][0].pdfLinks;
+      setPdfLinkTerms(allPDFLinks);
+    });
+  }, [stageID]);
+
+  useEffect(() => {
+    const listInnerElement = listInnerRef.current;
+    if (listInnerElement) {
+      listInnerElement.addEventListener("scroll", scrollToBottom);
+      // Clean-up
+      return () => {
+        listInnerElement.removeEventListener("scroll", scrollToBottom);
+      };
+    }
+    window.history.replaceState("", "", "/hk/before-start")
+  });
+
+  const downloadPdf = (link: any) => {
+    console.log(link)
+    const lin = document.createElement('a');
+    fetch(link, {
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Authorization": `${process.env.REACT_APP_RTOB_AUTHORIZATION}`,
+      },
+    }).then((response: any) => {
+      console.log(response)
+      var blob = new Blob([response.data], { type: "application/pdf" });
+      if (
+        navigator.userAgent.indexOf("Chrome") !== -1 ||
+        navigator.userAgent.match("CriOS")
+      ) {
+        blob = new Blob([response.data], { type: "application/pdf" });
+      } else {
+        var pdfBase64Data = new Uint8Array(response.data);
+        blob = new Blob([pdfBase64Data], {
+          type: "application/octet-stream",
+        });
+      }
+      const isSafari = /^((?!chrome|andriod).)*safari/i.test(navigator.userAgent);
+      if (isSafari) {
+        blob = new Blob([response.data], { type: "application/pdf" });
+      }
+      const dataURL = window.URL.createObjectURL(blob);
+      lin.href = dataURL;
+      if (isSafari) {
+        lin.download = pdfName.endsWith('.pdf') ? pdfName : `${pdfName}.pdf`;
+        document.body.appendChild(lin);
+        lin.click();
+        document.body.removeChild(lin);
+      } else {
+        lin.download = pdfName;
+        document.body.appendChild(lin);
+        lin.click();
+        document.body.removeChild(lin);
+      }
+    });
+  }
+
+  const downloadPDFPreApproval = (link: any) => {
+    const lin = document.createElement('a');
+    lin.href = kfsDocPDFDownload;
+    const isSafari = /^((?!chrome|andriod).)*safari/i.test(navigator.userAgent);
+    if (isSafari) {
+      lin.download = pdfName.endsWith('.pdf') ? pdfName : `${pdfName}.pdf`;
+      document.body.appendChild(lin);
+      lin.click();
+      document.body.removeChild(lin);
+    } else {
+      lin.download = pdfName;
+      document.body.appendChild(lin);
+      lin.click();
+      document.body.removeChild(lin);
+    }
+  };
+
+  const btnClickScroll = () => {
+    listInnerRef.current?.scrollBy({ top: 5000, behavior: "smooth" });
+  };
+
+  const scrollToBottom = () => {
+    if (listInnerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = listInnerRef.current;
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 50;
+
+      if (isNearBottom) {
+        onScrollEnd(false);
+      }
+    }
+  };
+  console.log(isVisible)
   return (
-    <>
-      <div className="footer">
-        {backBtn && (
-          <div className="back" onClick={props.backHandler}>
-            <span className="arrow"></span> {language === CONSTANTS.LANG_EN ? 'Back' : language === CONSTANTS.LANG_CN ? '返回' : '返回'}
+    <div>
+      {showSpinner === true ? (
+        <Spinner></Spinner>
+      ) : (
+        <>
+          <div>
+            <button 
+              onClick={(link) => {
+                downloadPDFPreApproval(link);
+              }}
+              className="view-pdf"
+              ng-if="source_sys == 'sc.com' || source_sys == 'asiamiles'"
+            >
+              {download}
+            </button>
           </div>
-        )}
-        
-        <button type="submit" disabled={props.validateNxt !== "form-valid" ? true : false} className={`continue ${props.validateNxt}`}>
-          {stageSelector?.[0]?.stageId === 'rp' ?
-              language === CONSTANTS.LANG_EN ?
-                'Agree & Submit' 
-              : 
-                language === CONSTANTS.LANG_CN ? 
-                  '提交' 
-                : 
-                  '提交' 
-            : 
-              stageSelector?.[0]?.stageId === 'ld-1' ?
-                language === CONSTANTS?.LANG_EN ? 'Confirm' : language === CONSTANTS?.LANG_CN ? '確認' : '确认'
+          <div className="pdf-view">
+            <div
+              style={{ maxHeight: stageID == 0 ? "60vh" : "38vh" }}
+              className="react-pdf__Page__canvas"
+              ref={listInnerRef}
+            >
+              <Pdf fileName={kfsDocPDF} />
+            </div>
+          </div>
+
+          {stageID == 1 && (
+            <div className="pdf-table">
+              <div className="download-section">
+                <span className="download-header">Tab below to read and download full T&C of the relevant section.</span>
+                <span className="images"></span>
+              </div>
+
+              <div className="tc-container">
+                <table className="tcTable" border={1}>
+                  <tbody>
+                    {pdfLinkTerms?.map((item: any, index: any) => {
+                      return (
+                        <tr key={index}>
+                          <td className="tcTable__title">{item.Title}</td>
+                          <td className="tcTable__read">
+                            <a
+                              href={item.url}
+                              download
+                              target="_blank"
+                            >
+                              Read
+                            </a>
+                            <a> / </a>
+                            <span className="tcTable__download"
+                              onClick={() => {
+                                downloadPdf(item.url);
+                              }}
+                            >
+                              Download
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="remarks-section">
+                <span className="remarks-section__span">
+                  {" "}
+                  *Remarks: If you want to keep a copy of the document, please
+                  save the file after reading.
+                </span>
+              </div>
+            </div>
+          )}
+          <div
+            className="col-xs-4 col-sm-4 col-md-4 col-lg-4"
+            id="footer-content"
+          >
+            {isVisible ? (
+              <>
+                <div className="oknext-btn" aria-describedby="submitButton">
+                  <footer
+                    className="footer-next enabled"
+                    onClick={btnClickScroll}
+                  >
+                    <i className="next-btn"></i>
+                  </footer>
+                </div>
+              </>
+            )
               :
-                language === CONSTANTS?.LANG_EN ? 'Continue' : language === CONSTANTS?.LANG_CN ? '继续' : '繼續'
-          }
-        </button>
-      </div>
-    </>
+              <div
+                className="pre-approval-accept confirm-btn"
+                id="navigationBtn"
+              >
+                <button
+                  id="pre-approval-confirm-btn1"
+                  className="pre-approval-confirm-btn1"
+                  onClick={nextPage}
+                >
+                  {acceptButton}
+                </button>
+
+              </div>
+            }
+
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 
-
-
-export default Footer;
-
-
-
-
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { useSelector } from "react-redux";
-import { CONSTANTS } from "../../../utils/common/constants";
-import Footer from "./footer";
-
-// Mock the Redux useSelector hook
-jest.mock("react-redux", () => ({
-  useSelector: jest.fn(),
-}));
-
-// Mock the utility function
-jest.mock("../../../utils/common/change.utils", () => ({
-  getUrl: {
-    getLanguageInfo: jest.fn(),
-  },
-}));
-
-const mockedUseSelector = useSelector as jest.Mock;
-const mockedGetLanguageInfo = require("../../../utils/common/change.utils").getUrl
-  .getLanguageInfo;
-
-describe("Footer Component", () => {
-  const defaultProps = {
-    backHandler: jest.fn(),
-    validateNxt: "form-valid",
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("should render the 'Back' button when stage conditions are met", () => {
-    mockedUseSelector.mockReturnValue([
-      { stageId: CONSTANTS.STAGE_NAMES.PD_2 }, // Example stage
-    ]);
-    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
-
-    render(<Footer {...defaultProps} />);
-
-    const backButton = screen.getByText("Back");
-    expect(backButton).toBeInTheDocument();
-
-    fireEvent.click(backButton);
-    expect(defaultProps.backHandler).toHaveBeenCalled();
-  });
-
-  it("should not render the 'Back' button when stage is in excluded list", () => {
-    mockedUseSelector.mockReturnValue([
-      { stageId: CONSTANTS.STAGE_NAMES.PD_1 },
-    ]);
-    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
-
-    render(<Footer {...defaultProps} />);
-
-    expect(screen.queryByText("Back")).not.toBeInTheDocument();
-  });
-
-  it("should disable the 'Continue' button when validateNxt is not 'form-valid'", () => {
-    mockedUseSelector.mockReturnValue([{ stageId: "some-stage" }]);
-    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
-
-    render(<Footer {...defaultProps} validateNxt="form-invalid" />);
-
-    const continueButton = screen.getByText("Continue");
-    expect(continueButton).toBeDisabled();
-  });
-
-  it("should render 'Agree & Submit' button for stageId 'rp'", () => {
-    mockedUseSelector.mockReturnValue([{ stageId: "rp" }]);
-    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
-
-    render(<Footer {...defaultProps} />);
-
-    const agreeButton = screen.getByText("Agree & Submit");
-    expect(agreeButton).toBeInTheDocument();
-  });
-
-  it("should render 'Confirm' button for stageId 'ld-1'", () => {
-    mockedUseSelector.mockReturnValue([{ stageId: "ld-1" }]);
-    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_EN);
-
-    render(<Footer {...defaultProps} />);
-
-    const confirmButton = screen.getByText("Confirm");
-    expect(confirmButton).toBeInTheDocument();
-  });
-
-  it("should render text in Chinese for language 'zh-CN'", () => {
-    mockedUseSelector.mockReturnValue([{ stageId: "some-stage" }]);
-    mockedGetLanguageInfo.mockReturnValue(CONSTANTS.LANG_CN);
-
-    render(<Footer {...defaultProps} />);
-
-    const continueButton = screen.getByText("继续");
-    expect(continueButton).toBeInTheDocument();
-  });
-
-  it("should render text in default language for unrecognized language codes", () => {
-    mockedUseSelector.mockReturnValue([{ stageId: "some-stage" }]);
-    mockedGetLanguageInfo.mockReturnValue("unknown-lang");
-
-    render(<Footer {...defaultProps} />);
-
-    const continueButton = screen.getByText("继续"); // Default to Chinese
-    expect(continueButton).toBeInTheDocument();
-  });
-});
+export default OnboardingBeforeStart;
