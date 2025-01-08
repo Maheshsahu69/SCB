@@ -1,248 +1,153 @@
-  const isSafari = /^((?!chrome|andriod).)*safari/i.test(navigator.userAgent);
-          /* istanbul ignore else */
-      Iif (isSafari) {
-        blob = new Blob([response.data], { type: "application/pdf" });
-      }
-      const dataURL = window.URL.createObjectURL(blob);
-      lin.href = dataURL;
-      if (isSafari) {
-        lin.download = pdfName.endsWith('.pdf') ? pdfName : `${pdfName}.pdf`;
-        document.body.appendChild(lin);
-        lin.click();
-        document.body.removeChild(lin);
-      } else {
-        lin.download = pdfName;
-        document.body.appendChild(lin);
-        lin.click();
-        document.body.removeChild(lin);
-      }
-    });
-  }
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Fields from "./fields";
+import thunk from "redux-thunk";
+import { userInputPayload } from "./fields.utils";
 
+// Mock dependencies
+jest.mock("../footer/footer", () => () => <div data-testid="footer" />);
+jest.mock("../review-page/review-page", () => () => <div data-testid="review-page" />);
+jest.mock("../../../shared/components/spinner/spinner", () => () => <div data-testid="spinner" />);
+jest.mock("../../preApproval/commonComponents/fundDisbursement/fund-disbursement", () => () => (
+  <div data-testid="fund-disbursement" />
+));
 
+// Mock Redux actions and services
+jest.mock("./fields.utils", () => ({
+  ...jest.requireActual("./fields.utils.ts"),
+  getLovMissing: jest.fn(()=>jest.fn()),
+  stageFields: jest.fn(()=>jest.fn()),
+  getStagePayload: jest.fn(()=>jest.fn()),
+  stageSelectFields: jest.fn(()=>jest.fn()),
+  submitRequest: jest.fn(()=>()=>Promise.resolve({})),
+  userInputPayload: jest.fn(()=>()=>Promise.resolve({})),
+  assignUpdateUserInput:jest.fn(()=>()=>Promise.resolve({})),
+}));
+jest.mock("../../../services/track-events", () => ({
+  triggerAdobeEvent: jest.fn(),
+}));
 
+jest.mock("../../../utils/common/change.utils.ts", ()=>({
+  ...jest.requireActual("../../../utils/common/change.utils.ts"),
+  FindIndex:jest.fn(()=>0),
+}))
 
+const mockStore = configureStore([thunk]);
 
-
-
-
-
-import { render, screen, fireEvent } from "@testing-library/react";
-import OnboardingBeforeStart from "./onboarding-before-start";
-
-describe("OnboardingBeforeStart - Safari and Non-Safari Handling", () => {
-  let originalUserAgent: string;
-  let originalCreateElement: typeof document.createElement;
-  let mockCreateObjectURL: jest.Mock;
+describe("Fields Component", () => {
+  let store: any;
 
   beforeEach(() => {
-    // Save the original userAgent and createElement to restore later
-    originalUserAgent = window.navigator.userAgent;
-    originalCreateElement = document.createElement;
-
-    mockCreateObjectURL = jest.fn().mockReturnValue("mock-url");
-    global.URL.createObjectURL = mockCreateObjectURL;
+    store = mockStore({
+      stages: {
+        stages: [
+          { 
+            stageId: "pd-1", 
+            stageInfo: {
+          fieldMetaData:{
+            data:{
+              stages:[
+                {id:"pd-1", name:"Personal Details"},
+                {id:"ad-1", name:"Address Details"},
+              ]
+            }
+          }
+        } }],
+        userInput: { 
+          applicants: [
+          {
+            work_type:"S001",
+          }] },
+        parentChildFields: { selectFields: [], addSelectFields: [], deleteSelectFields: [] },
+        conditionalFields:{newFields:{}},
+        currentStage: "pd-1",
+        journeyType: "type",
+      },
+      lov: {},
+      urlParam: { resume: false },
+      fielderror: { mandatoryFields: [], error: [] },
+      valueUpdate: { value: false, changesUpdate: { changes: false } },
+      error: { submit: false },
+      continueBtnSlice: { continueEnable: false },
+      preApproval: { currentStage: "pd-1", formConfigmetaData: {} },
+    });
 
     jest.clearAllMocks();
   });
 
-  afterEach(() => {
-    // Restore the original userAgent and createElement
-    Object.defineProperty(window.navigator, "userAgent", {
-      value: originalUserAgent,
-      configurable: true,
-    });
-    document.createElement = originalCreateElement;
+  it("renders the component and displays a form", () => {
+    render(
+      <Provider store={store}>
+        <Fields/>
+      </Provider>
+    );
+
+    expect(screen.getByRole("form")).toBeInTheDocument();
+    expect(screen.getByTestId("footer")).toBeInTheDocument();
   });
 
-  it("should handle Safari browser logic", async () => {
-    // Mock Safari userAgent
-    Object.defineProperty(window.navigator, "userAgent", {
-      value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
-      configurable: true,
+  it("renders the FundDisbursement component for `ld-1` stageId", () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "ld-1", stageInfo: {} }],
+      },
     });
 
-    // Mock the `createElement` function
-    const mockLink = {
-      click: jest.fn(),
-      set href(value: string) {
-        this.hrefValue = value;
-      },
-      get href() {
-        return this.hrefValue;
-      },
-      set download(value: string) {
-        this.downloadValue = value;
-      },
-      get download() {
-        return this.downloadValue;
-      },
-    };
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
 
-    document.createElement = jest.fn((tagName: string) => {
-      if (tagName === "a") return mockLink as unknown as HTMLElement;
-      return originalCreateElement.call(document, tagName);
-    });
-
-    // Render the component and trigger the download logic
-    render(<OnboardingBeforeStart isVisible={true} onScrollEnd={jest.fn()} stageID={1} nextPage={jest.fn()} />);
-
-    const downloadButton = screen.getByText("Download");
-    fireEvent.click(downloadButton);
-
-    // Assert Safari-specific behavior
-    expect(mockCreateObjectURL).toHaveBeenCalled(); // Ensure createObjectURL is used
-    expect(mockLink.click).toHaveBeenCalled(); // Ensure the link is clicked
-    expect(mockLink.download).toBeTruthy(); // Ensure the download attribute is set
+    expect(screen.getByTestId("fund-disbursement")).toBeInTheDocument();
   });
 
-  it("should handle non-Safari browser logic", async () => {
-    // Mock non-Safari userAgent (e.g., Chrome)
-    Object.defineProperty(window.navigator, "userAgent", {
-      value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36",
-      configurable: true,
+  it("renders the ReviewPage component for `rp` stageId", () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "rp", stageInfo: {} }],
+      },
     });
 
-    // Mock the `createElement` function
-    const mockLink = {
-      click: jest.fn(),
-      set href(value: string) {
-        this.hrefValue = value;
-      },
-      get href() {
-        return this.hrefValue;
-      },
-      set download(value: string) {
-        this.downloadValue = value;
-      },
-      get download() {
-        return this.downloadValue;
-      },
-    };
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
 
-    document.createElement = jest.fn((tagName: string) => {
-      if (tagName === "a") return mockLink as unknown as HTMLElement;
-      return originalCreateElement.call(document, tagName);
-    });
-
-    // Render the component and trigger the download logic
-    render(<OnboardingBeforeStart isVisible={true} onScrollEnd={jest.fn()} stageID={1} nextPage={jest.fn()} />);
-
-    const downloadButton = screen.getByText("Download");
-    fireEvent.click(downloadButton);
-
-    // Assert non-Safari behavior
-    expect(mockCreateObjectURL).toHaveBeenCalled(); // Ensure createObjectURL is used
-    expect(mockLink.click).toHaveBeenCalled(); // Ensure the link is clicked
-    expect(mockLink.download).toBeTruthy(); // Ensure the download attribute is set
-  });
-});
-
-
-
-
-
-
-import { render, screen, fireEvent } from "@testing-library/react";
-import OnboardingBeforeStart from "./onboarding-before-start";
-
-describe("OnboardingBeforeStart - Safari and Non-Safari Handling", () => {
-  let originalUserAgent: string;
-  let mockCreateObjectURL: jest.Mock;
-
-  beforeEach(() => {
-    // Save the original userAgent to restore later
-    originalUserAgent = window.navigator.userAgent;
-    mockCreateObjectURL = jest.fn().mockReturnValue("mock-url");
-    global.URL.createObjectURL = mockCreateObjectURL;
-    jest.clearAllMocks();
+    expect(screen.getByTestId("review-page")).toBeInTheDocument();
   });
 
-  afterEach(() => {
-    // Restore the original userAgent
-    Object.defineProperty(window.navigator, "userAgent", {
-      value: originalUserAgent,
-      configurable: true,
+  it("triggers submit when form is submitted", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(userInputPayload).toHaveBeenCalled();
     });
   });
 
-  it("should handle Safari browser logic", async () => {
-    // Mock Safari userAgent
-    Object.defineProperty(window.navigator, "userAgent", {
-      value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
-      configurable: true,
-    });
+  it("handles back button click", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
 
-    const mockLinkClick = jest.fn();
-    document.createElement = jest.fn().mockImplementation((tagName) => {
-      if (tagName === "a") {
-        return {
-          click: mockLinkClick,
-          set href(value) {
-            this.hrefValue = value;
-          },
-          get href() {
-            return this.hrefValue;
-          },
-          set download(value) {
-            this.downloadValue = value;
-          },
-          get download() {
-            return this.downloadValue;
-          },
-        };
-      }
-    });
+    const backButton = screen.getByTestId("footer");
+    fireEvent.click(backButton);
 
-    // Render the component and trigger the download logic
-    render(<OnboardingBeforeStart isVisible={true} onScrollEnd={jest.fn()} stageID={1} nextPage={jest.fn()} />);
-
-    const downloadButton = screen.getByText("Download");
-    fireEvent.click(downloadButton);
-
-    // Assert Safari-specific behavior
-    expect(mockCreateObjectURL).toHaveBeenCalled(); // Ensure createObjectURL is used
-    expect(mockLinkClick).toHaveBeenCalled(); // Ensure the link is clicked
-    expect(document.createElement).toHaveBeenCalledWith("a");
-  });
-
-  it("should handle non-Safari browser logic", async () => {
-    // Mock non-Safari userAgent (e.g., Chrome)
-    Object.defineProperty(window.navigator, "userAgent", {
-      value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36",
-      configurable: true,
-    });
-
-    const mockLinkClick = jest.fn();
-    document.createElement = jest.fn().mockImplementation((tagName) => {
-      if (tagName === "a") {
-        return {
-          click: mockLinkClick,
-          set href(value) {
-            this.hrefValue = value;
-          },
-          get href() {
-            return this.hrefValue;
-          },
-          set download(value) {
-            this.downloadValue = value;
-          },
-          get download() {
-            return this.downloadValue;
-          },
-        };
-      }
-    });
-
-    // Render the component and trigger the download logic
-    render(<OnboardingBeforeStart isVisible={true} onScrollEnd={jest.fn()} stageID={1} nextPage={jest.fn()} />);
-
-    const downloadButton = screen.getByText("Download");
-    fireEvent.click(downloadButton);
-
-    // Assert non-Safari behavior
-    expect(mockCreateObjectURL).toHaveBeenCalled(); // Ensure createObjectURL is used
-    expect(mockLinkClick).toHaveBeenCalled(); // Ensure the link is clicked
-    expect(document.createElement).toHaveBeenCalledWith("a");
+    expect(screen.getByRole("form")).toBeInTheDocument();
   });
 });
