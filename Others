@@ -1,342 +1,413 @@
-import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { Provider } from "react-redux";
-import configureStore from "redux-mock-store";
-import thunk from "redux-thunk";
-import Fields from "./fields";
-import { userInputPayload } from "./fields.utils";
+ const handleSubmit = (event: React.FormEvent<EventTarget>): void => {
+    setBackText("Continue");
 
-// Mock dependencies
-jest.mock("../footer/footer", () => () => <div data-testid="footer" />);
-jest.mock("../review-page/review-page", () => () => <div data-testid="review-page" />);
-jest.mock("../../../shared/components/spinner/spinner", () => () => <div data-testid="spinner" />);
-jest.mock("../../preApproval/commonComponents/fundDisbursement/fund-disbursement", () => () => (
-  <div data-testid="fund-disbursement" />
-));
-
-// Mock Redux actions and services
-jest.mock("./fields.utils", () => ({
-  ...jest.requireActual("./fields.utils.ts"),
-  getLovMissing: jest.fn(() => jest.fn()),
-  stageFields: jest.fn(() => jest.fn()),
-  getStagePayload: jest.fn(() => jest.fn()),
-  stageSelectFields: jest.fn(() => jest.fn()),
-  submitRequest: jest.fn(() => () => Promise.resolve({})),
-  userInputPayload: jest.fn(() => () => Promise.resolve({})),
-  assignUpdateUserInput: jest.fn(() => () => Promise.resolve({})),
-}));
-jest.mock("../../../services/track-events", () => ({
-  triggerAdobeEvent: jest.fn(),
-}));
-jest.mock("../../../utils/common/change.utils.ts", () => ({
-  ...jest.requireActual("../../../utils/common/change.utils.ts"),
-  FindIndex: jest.fn(() => 0),
-}));
-
-// Configure mock store with thunk middleware
-const mockStore = configureStore([thunk]);
-
-describe("Fields Component", () => {
-  let store: any;
-
-  beforeEach(() => {
-    store = mockStore({
-      stages: {
-        stages: [
-          {
-            stageId: "pd-1",
-            stageInfo: {
-              fieldMetaData: {
-                data: {
-                  stages: [
-                    { id: "pd-1", name: "Personal Details" },
-                    { id: "ad-1", name: "Address Details" },
-                  ],
-                },
-              },
-            },
-          },
-        ],
-        userInput: {
-          applicants: [
-            {
-              work_type: "S001", // Provide valid work_type
-            },
-          ],
-        },
-        parentChildFields: { selectFields: [], addSelectFields: [], deleteSelectFields: [] },
-        conditionalFields: { newFields: {} },
-        currentStage: "pd-1",
-        journeyType: "type",
-      },
-      lov: {},
-      urlParam: { resume: false },
-      fielderror: { mandatoryFields: [], error: [] },
-      valueUpdate: { value: false, changesUpdate: { changes: false } },
-      error: { submit: false },
-      continueBtnSlice: { continueEnable: false },
-      preApproval: { currentStage: "pd-1", formConfigmetaData: {} },
-    });
-
-    jest.clearAllMocks();
-  });
-
-  it("renders the component and displays a form", () => {
-    render(
-      <Provider store={store}>
-        <Fields />
-      </Provider>
-    );
-
-    expect(screen.getByRole("form")).toBeInTheDocument();
-    expect(screen.getByTestId("footer")).toBeInTheDocument();
-  });
-
-  it("renders the FundDisbursement component for `ld-1` stageId", () => {
-    store = mockStore({
-      ...store.getState(),
-      stages: {
-        ...store.getState().stages,
-        stages: [{ stageId: "ld-1", stageInfo: {} }],
-      },
-    });
-
-    render(
-      <Provider store={store}>
-        <Fields />
-      </Provider>
-    );
-
-    expect(screen.getByTestId("fund-disbursement")).toBeInTheDocument();
-  });
-
-  it("renders the ReviewPage component for `rp` stageId", () => {
-    store = mockStore({
-      ...store.getState(),
-      stages: {
-        ...store.getState().stages,
-        stages: [{ stageId: "rp", stageInfo: {} }],
-      },
-    });
-
-    render(
-      <Provider store={store}>
-        <Fields />
-      </Provider>
-    );
-
-    expect(screen.getByTestId("review-page")).toBeInTheDocument();
-  });
-
-  it("triggers submit when form is submitted", async () => {
-    render(
-      <Provider store={store}>
-        <Fields />
-      </Provider>
-    );
-
-    fireEvent.submit(screen.getByRole("form"));
-
-    await waitFor(() => {
-      expect(userInputPayload).toHaveBeenCalled();
-    });
-  });
-
-  it("handles back button click", () => {
-    render(
-      <Provider store={store}>
-        <Fields />
-      </Provider>
-    );
-
-    const backButton = screen.getByTestId("footer");
-    fireEvent.click(backButton);
-
-    expect(screen.getByRole("form")).toBeInTheDocument();
-  });
-});
-
-
-const roomFloorBlockValidation = (
-    fieldProps: KeyWithAnyModel,
-    childValue: string | number | null
-  ) => {
-    const { logical_field_name } = fieldProps;
- 
-    // Relationships between fields
-    const relatedFields: any = {
-      res_room_flat: ["res_block", "res_floor"],
-      res_block: ["res_room_flat", "res_floor"],
-      res_floor: ["res_room_flat", "res_block"],
-    };
- 
-    // Get the current state of the applicants
-    const applicants = userInputSelector.applicants[0];
- 
-    // Check if the field is updated
-    if (childValue !== null && relatedFields[logical_field_name]) {
-      const fieldsToRemove = relatedFields[logical_field_name];
-      dispatch(fieldErrorAction.removeMandatoryFields(fieldsToRemove));
-    }
-  };
-  const handleCallback = (
-    fieldProps: KeyWithAnyModel,
-    childData: string | number | null
-  ) => {
-    currentStageSection = fieldProps;
-    if (
-      madatoryFieldSelector &&
-      madatoryFieldSelector.indexOf(fieldProps.logical_field_name) !== -1
-    ) {
-      if (stageId !== CONSTANTS.STAGE_NAMES.AD_2) {
-        madatoryFieldSelector &&
-          madatoryFieldSelector.map((fieldName) => {
-            let childValue = userInputSelector.applicants[0][fieldName];
-            stageId == CONSTANTS.STAGE_NAMES.BD_1 &&
-              roomFloorBlockValidation(fieldProps, childValue);
-            if (fieldName === fieldProps.logical_field_name) {
-              setUserInputs((prevUser: KeyStringModel) => ({
-                ...prevUser,
-                // [fieldName]: childData,
-                [fieldProps.logical_field_name]:
-                  stageId === CONSTANTS.STAGE_NAMES.AD_1 ||
-                  stageId === CONSTANTS.STAGE_NAMES.RP
-                    ? (fieldName === "cb_declaration" ||
-                        fieldName === "client_declaration_cert" ||
-                        fieldName === "acknowledgement_cert") &&
-                      (childData === "N" || childData === undefined)
-                      ? undefined
-                      : childData
-                    : childData
-                    ? childData
-                    : undefined,
-              }));
-            }
-            if (fieldName !== fieldProps.logical_field_name) {
-              setUserInputs((prevUser: KeyStringModel) => ({
-                ...prevUser,
-                [fieldName]:
-                  stageId === CONSTANTS.STAGE_NAMES.AD_1 ||
-                  stageId === CONSTANTS.STAGE_NAMES.RP
-                    ? (fieldName === "cb_declaration" ||
-                        fieldName === "client_declaration_cert" ||
-                        fieldName === "acknowledgement_cert") &&
-                      (childValue === "N" || childValue === undefined)
-                      ? undefined
-                      : childValue
-                    : childValue
-                    ? childValue
-                    : undefined,
-              }));
-            }
-            return fieldName;
-          });
-      } else {
-        setUserInputs({});
+    madatoryFieldSelector.forEach((data: string) => {
+      if (userInputs[data]) {
+        delete userInputs[data];
+        delete userInputs["first_name"];
+        delete userInputs["marketing_tooltip"];
+        delete userInputs["estatement_tooltip"];
+        // delete userInputs["res_building_estate_pt"]
       }
+    });
+
+    if (Object.keys(userInputs).length >= 0) {
+      dispatch(
+        userInputPayload(
+          getStagePayload(stageSelector, applicantsSelector),
+          stageSelector
+        )
+      );
+      dispatch(
+        userInputPayload(userInputSelector.applicants[0], stageSelector)
+      );
+      dispatch(stagesAction.resetNewAndOldFields());
+      setShowSpinner(true);
+      if (stageId === CONSTANTS.STAGE_NAMES.PD_1) {
+        dispatch(stagesAction.setOtpShow(true));
+        if (continueBtnSelector === true) {
+          dispatch(stagesAction.setOtpShow(true));
+        }
+      } else if (stageId === CONSTANTS.STAGE_NAMES.BD_1A) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.BD_1,
+          CONSTANTS.STAGE_NAMES.BD_1A
+        );
+      } else if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.AD_1,
+          CONSTANTS.STAGE_NAMES.BD_1
+        );
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_1) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.AD_1A,
+          CONSTANTS.STAGE_NAMES.AD_1
+        );
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_1A) {
+        if (
+          applicantsSelector.work_type === "S105" ||
+          applicantsSelector.work_type === "S107" ||
+          applicantsSelector.work_type === "S108"
+        ) {
+          SetNextStageDetaisAfterSave(
+            CONSTANTS.STAGE_NAMES.AD_6,
+            CONSTANTS.STAGE_NAMES.AD_1A
+          );
+        } else {
+          SetNextStageDetaisAfterSave(
+            CONSTANTS.STAGE_NAMES.AD_2,
+            CONSTANTS.STAGE_NAMES.AD_1A
+          );
+        }
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_2) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.AD_3,
+          CONSTANTS.STAGE_NAMES.AD_2
+        );
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_3) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.AD_6,
+          CONSTANTS.STAGE_NAMES.AD_3
+        );
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_6) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.RP,
+          CONSTANTS.STAGE_NAMES.AD_6
+        );
+      } else if (stageId === CONSTANTS.STAGE_NAMES.RP) {
+        dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_1));
+        setStageId(CONSTANTS.STAGE_NAMES.ACD_1);
+        postAditionalData().then(async (res: any) => {
+          if (res.status === 200) {
+            let responseType = res.data.application.response_type.toUpperCase();
+            let responseAction =
+              res.data.application.response_action.toUpperCase();
+            if (
+              responseAction === "SUCCESS" ||
+              responseType === "INFO" ||
+              (responseType === "SOFT" && responseAction === "CONTINUE")
+            ) {
+              let stageData = JSON.parse(JSON.stringify(res.data));
+              delete stageData.applicants;
+              delete stageData.fieldmetadata;
+              stageData.fieldMetaData = res.data.fieldmetadata;
+              stageData.applicants = [res.data.applicants];
+              dispatch(
+                stagesAction.getStage({
+                  id: CONSTANTS.STAGE_NAMES.ACD_1,
+                  formConfig: stageData,
+                })
+              );
+              dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_1));
+              await getOffer(res.data).then(async (offerResponse: any) => {
+                if (offerResponse.status === 200) {
+                  let applicants = offerResponse.data.applicants;
+                  let application = offerResponse.data.application;
+                  let responseType =
+                    offerResponse.data.application.response_type.toUpperCase();
+                  let responseAction =
+                    offerResponse.data.application.response_action.toUpperCase();
+
+                  let channel_reference =
+                    offerResponse.data.application.channel_reference;
+                  let offer_status =
+                    offerResponse.data.products[0].offer_details[0]
+                      .offer_status;
+                  if (
+                    responseAction === "SUCCESS" ||
+                    responseType === "INFO" ||
+                    (responseType === "SOFT" && responseAction === "CONTINUE")
+                  ) {
+                    let formStageData = JSON.parse(
+                      JSON.stringify(formConfigmetaData)
+                    );
+                    formStageData.applicants = applicants;
+                    dispatch(
+                      preApprovalAction.setFormConfigMetaData(formStageData)
+                    );
+
+                    let stageData = Object.assign(
+                      {},
+                      stageSelector[0].stageInfo
+                    );
+                    delete stageData.applicants;
+                    delete stageData.fieldmetadata;
+                    stageData.applicant_bureau_details =
+                      offerResponse.data.applicant_bureau_details;
+                    stageData.fieldMetaData = offerResponse.data.fieldmetadata;
+                    stageData.applicants = [offerResponse.data.applicants];
+                    stageData.products = offerResponse.data.products;
+                    stageData.applicant_documents =
+                      offerResponse.data.applicant_documents;
+                    dispatch(
+                      stagesAction.getStage({
+                        id: CONSTANTS.STAGE_NAMES.ACD_3,
+                        formConfig: stageData,
+                      })
+                    );
+                    if (offer_status === "1001" || offer_status === "1003") {
+                      if (
+                        offerResponse.data.products[0].product_category === "PL"
+                      ) {
+                        dispatch(
+                          stagesAction.updateStageId(
+                            CONSTANTS.STAGE_NAMES.ACD_2
+                          )
+                        );
+                        let newOfferData = offerResponse.data;
+                        await getOffer2(newOfferData).then(
+                          async (offerRes: any) => {
+                            if (offerRes.status === 200) {
+                              let responseType =
+                                offerRes.data.application.response_type.toUpperCase();
+                              let responseAction =
+                                offerRes.data.application.response_action.toUpperCase();
+                              if (
+                                responseAction === "SUCCESS" ||
+                                responseType === "INFO" ||
+                                (responseType === "SOFT" &&
+                                  responseAction === "CONTINUE")
+                              ) {
+                                let stageData = Object.assign(
+                                  {},
+                                  stageSelector[0].stageInfo
+                                );
+                                delete stageData.applicants;
+                                delete stageData.fieldmetadata;
+                                stageData.applicant_bureau_details =
+                                  offerRes.data.applicant_bureau_details;
+                                stageData.fieldMetaData =
+                                  offerRes.data.fieldmetadata;
+                                stageData.applicants = [
+                                  offerRes.data.applicants,
+                                ];
+                                stageData.products = offerRes.data.products;
+                                stageData.applicant_documents =
+                                  offerRes.data.applicant_documents;
+                                dispatch(
+                                  stagesAction.getStage({
+                                    id: CONSTANTS.STAGE_NAMES.ACD_3,
+                                    formConfig: stageData,
+                                  })
+                                );
+                                setShowSpinner(false);
+                                dispatch(
+                                  preApprovalAction.setCurrentStage("LD")
+                                );
+                                dispatch(
+                                  stagesAction.updateStageId(
+                                    CONSTANTS.STAGE_NAMES.ACD_3
+                                  )
+                                );
+                              } else {
+                                HardStop(offerRes);
+                              }
+                            }
+                          }
+                        );
+                      } else {
+                        const pdfPreviewRes = await postPdfPreview(
+                          channel_reference
+                        );
+                        if (
+                          pdfPreviewRes.status >= 200 &&
+                          pdfPreviewRes.status < 300
+                        ) {
+                          setShowSpinner(false);
+                          dispatch(preApprovalAction.setCurrentStage("FFD"));
+                        } else {
+                          setShowSpinner(false);
+                          dispatch(preApprovalAction.setCurrentStage("FFD"));
+                        }
+                      }
+                    } else if (
+                      (offer_status === "1004" || offer_status === "1002") &&
+                      offerResponse.data.products[0].product_category ===
+                        "PL" &&
+                      offerResponse.data.products[0].offer_details[0]
+                        .bestOffer === "Y"
+                    ) {
+                      dispatch(
+                        stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_2)
+                      );
+                      let newOfferData = offerResponse.data;
+                      await getOffer2(newOfferData).then(
+                        async (offerRes: any) => {
+                          if (offerRes.status === 200) {
+                            let responseType =
+                              offerRes.data.application.response_type.toUpperCase();
+                            let responseAction =
+                              offerRes.data.application.response_action.toUpperCase();
+                            if (
+                              responseAction === "SUCCESS" ||
+                              responseType === "INFO" ||
+                              (responseType === "SOFT" &&
+                                responseAction === "CONTINUE")
+                            ) {
+                              let stageData = Object.assign(
+                                {},
+                                stageSelector[0].stageInfo
+                              );
+                              delete stageData.applicants;
+                              delete stageData.fieldmetadata;
+                              stageData.applicant_bureau_details =
+                                offerRes.data.applicant_bureau_details;
+                              stageData.fieldMetaData =
+                                offerRes.data.fieldmetadata;
+                              stageData.applicants = [offerRes.data.applicants];
+                              stageData.products = offerRes.data.products;
+                              stageData.applicant_documents =
+                                offerRes.data.applicant_documents;
+                              dispatch(
+                                stagesAction.getStage({
+                                  id: CONSTANTS.STAGE_NAMES.ACD_3,
+                                  formConfig: stageData,
+                                })
+                              );
+                              setShowSpinner(false);
+                              dispatch(preApprovalAction.setCurrentStage("LD"));
+                              dispatch(
+                                stagesAction.updateStageId(
+                                  CONSTANTS.STAGE_NAMES.ACD_3
+                                )
+                              );
+                            } else {
+                              HardStop(offerRes);
+                            }
+                          }
+                        }
+                      );
+                    } else if (
+                      offer_status === "1004" &&
+                      offerResponse.data.products[0].product_category ===
+                        "PL" &&
+                      offerResponse.data.products[0].offer_details[0]
+                        .bestOffer !== "Y"
+                    ) {
+                      setShowSpinner(false);
+                      dispatch(preApprovalAction.setCurrentStage("FFD"));
+                    } else {
+                      setShowSpinner(false);
+                      dispatch(preApprovalAction.setCurrentStage("FFD"));
+                    }
+                  } else {
+                    HardStop(offerResponse);
+                  }
+                }
+              });
+            } else {
+              HardStop(res);
+            }
+          }
+        });
+      } else if (stageId === CONSTANTS.STAGE_NAMES.LD_1) {
+        dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.FFD_1));
+        setStageId(CONSTANTS.STAGE_NAMES.FFD_1);
+        postSaveData().then(async (res: any) => {
+          if (res.status === 200) {
+            let responseType = res.data.application.response_type.toUpperCase();
+            let responseAction =
+              res.data.application.response_action.toUpperCase();
+            if (
+              responseAction === "SUCCESS" ||
+              responseType === "INFO" ||
+              (responseType === "SOFT" && responseAction === "CONTINUE")
+            ) {
+              setStageId(CONSTANTS.STAGE_NAMES.FFD_2);
+              await postFulFilmentData(res.data).then(async (fulres: any) => {
+                if (res.status >= 200 && res.status < 300) {
+                  dispatch(
+                    stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.FFD_2)
+                  );
+                  let stageData = JSON.parse(
+                    JSON.stringify(stageSelector[0].stageInfo)
+                  );
+                  stageData.applicants = [fulres.data.applicants];
+                  stageData.application = fulres.data.application;
+                  dispatch(
+                    stagesAction.getStage({
+                      id: CONSTANTS.STAGE_NAMES.FFD_2,
+                      formConfig: stageData,
+                    })
+                  );
+                  let responseType =
+                    res.data.application.response_type.toUpperCase();
+                  let responseAction =
+                    res.data.application.response_action.toUpperCase();
+                  if (
+                    responseAction === "SUCCESS" ||
+                    responseType === "INFO" ||
+                    (responseType === "SOFT" && responseAction === "CONTINUE")
+                  ) {
+                    await postFulFilmentData(fulres.data).then(
+                      async (res: any) => {
+                        if (res.status >= 200 && res.status < 300) {
+                          let responseType =
+                            res.data.application.response_type.toUpperCase();
+                          let responseAction =
+                            res.data.application.response_action.toUpperCase();
+                          if (
+                            responseAction === "SUCCESS" ||
+                            responseType === "INFO" ||
+                            (responseType === "SOFT" &&
+                              responseAction === "CONTINUE")
+                          ) {
+                            setShowSpinner(false);
+                            let stageData = JSON.parse(
+                              JSON.stringify(stageSelector[0].stageInfo)
+                            );
+                            stageData.applicants = [res.data.applicants];
+                            stageData.application = res.data.application;
+                            dispatch(
+                              stagesAction.getStage({
+                                id: CONSTANTS.STAGE_NAMES.FFD_2,
+                                formConfig: stageData,
+                              })
+                            );
+                            dispatch(preApprovalAction.setCurrentStage("FFD"));
+                          } else {
+                            HardStop(res);
+                          }
+                        }
+                      }
+                    );
+                  } else {
+                    HardStop(res);
+                  }
+                }
+              });
+            } else {
+              HardStop(res);
+            }
+          }
+        });
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_3) {
+        if (continueBtnSelector) {
+          dispatch(ibankEncrypt(userInputSelector))
+            .then(() => {
+              submitSuccess();
+            })
+            .catch((error: AxiosError) => {
+              dispatchError(error);
+            });
+        }
+      } else {
+        if (
+          (resumeFlag.otpResume === true &&
+            (continueBtnSelector === null || continueBtnSelector === true)) ||
+          continueBtnSelector === true
+        ) {
+          submitSuccess();
+        }
+      }
+      pageScrollTop();
+    } else {
+      dispatch(
+        fieldErrorAction.getFieldError({
+          fieldName: userInputs,
+        })
+      );
+      window.scroll(0, 0);
     }
-    // updateFormVlidation();
+    event.preventDefault();
   };
-
-
-
-
-
-
-
-
-
-
-import React from "react";
-import { render, screen } from "@testing-library/react";
-import * as redux from "react-redux";
-import { roomFloorBlockValidation } from "./fields";
-import { fieldErrorAction } from "../../../utils/store/field-error-slice";
-
-// Mock the dispatch function
-const mockDispatch = jest.fn();
-jest.spyOn(redux, "useDispatch").mockReturnValue(mockDispatch);
-
-// Mock the useSelector function
-jest.spyOn(redux, "useSelector").mockImplementation((selector) =>
-  selector({
-    stages: {
-      userInput: {
-        applicants: [
-          {
-            res_room_flat: "101",
-            res_block: "",
-            res_floor: "",
-          },
-        ],
-      },
-    },
-  })
-);
-
-describe("roomFloorBlockValidation", () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it("removes mandatory fields when res_room_flat is updated", () => {
-    const fieldProps = { logical_field_name: "res_room_flat" };
-    const childValue = "101"; // Value provided by user
-
-    // Call the function
-    roomFloorBlockValidation(fieldProps, childValue);
-
-    // Assert that dispatch is called with the correct action
-    expect(mockDispatch).toHaveBeenCalledWith(
-      fieldErrorAction.removeMandatoryFields(["res_block", "res_floor"])
-    );
-  });
-
-  it("removes mandatory fields when res_block is updated", () => {
-    const fieldProps = { logical_field_name: "res_block" };
-    const childValue = "A"; // Value provided by user
-
-    // Call the function
-    roomFloorBlockValidation(fieldProps, childValue);
-
-    // Assert that dispatch is called with the correct action
-    expect(mockDispatch).toHaveBeenCalledWith(
-      fieldErrorAction.removeMandatoryFields(["res_room_flat", "res_floor"])
-    );
-  });
-
-  it("removes mandatory fields when res_floor is updated", () => {
-    const fieldProps = { logical_field_name: "res_floor" };
-    const childValue = "2"; // Value provided by user
-
-    // Call the function
-    roomFloorBlockValidation(fieldProps, childValue);
-
-    // Assert that dispatch is called with the correct action
-    expect(mockDispatch).toHaveBeenCalledWith(
-      fieldErrorAction.removeMandatoryFields(["res_room_flat", "res_block"])
-    );
-  });
-
-  it("does not dispatch if childValue is null", () => {
-    const fieldProps = { logical_field_name: "res_room_flat" };
-    const childValue = null; // No value provided
-
-    // Call the function
-    roomFloorBlockValidation(fieldProps, childValue);
-
-    // Assert that dispatch is not called
-    expect(mockDispatch).not.toHaveBeenCalled();
-  });
-
-  it("does not dispatch if logical_field_name does not match related fields", () => {
-    const fieldProps = { logical_field_name: "invalid_field" };
-    const childValue = "some value"; // Value provided by user
-
-    // Call the function
-    roomFloorBlockValidation(fieldProps, childValue);
-
-    // Assert that dispatch is not called
-    expect(mockDispatch).not.toHaveBeenCalled();
-  });
-});
