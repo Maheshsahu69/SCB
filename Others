@@ -2,8 +2,8 @@ import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import configureStore from "redux-mock-store";
-import Fields from "./fields";
 import thunk from "redux-thunk";
+import Fields from "./fields";
 import { userInputPayload } from "./fields.utils";
 
 // Mock dependencies
@@ -17,23 +17,23 @@ jest.mock("../../preApproval/commonComponents/fundDisbursement/fund-disbursement
 // Mock Redux actions and services
 jest.mock("./fields.utils", () => ({
   ...jest.requireActual("./fields.utils.ts"),
-  getLovMissing: jest.fn(()=>jest.fn()),
-  stageFields: jest.fn(()=>jest.fn()),
-  getStagePayload: jest.fn(()=>jest.fn()),
-  stageSelectFields: jest.fn(()=>jest.fn()),
-  submitRequest: jest.fn(()=>()=>Promise.resolve({})),
-  userInputPayload: jest.fn(()=>()=>Promise.resolve({})),
-  assignUpdateUserInput:jest.fn(()=>()=>Promise.resolve({})),
+  getLovMissing: jest.fn(() => jest.fn()),
+  stageFields: jest.fn(() => jest.fn()),
+  getStagePayload: jest.fn(() => jest.fn()),
+  stageSelectFields: jest.fn(() => jest.fn()),
+  submitRequest: jest.fn(() => () => Promise.resolve({})),
+  userInputPayload: jest.fn(() => () => Promise.resolve({})),
+  assignUpdateUserInput: jest.fn(() => () => Promise.resolve({})),
 }));
 jest.mock("../../../services/track-events", () => ({
   triggerAdobeEvent: jest.fn(),
 }));
-
-jest.mock("../../../utils/common/change.utils.ts", ()=>({
+jest.mock("../../../utils/common/change.utils.ts", () => ({
   ...jest.requireActual("../../../utils/common/change.utils.ts"),
-  FindIndex:jest.fn(()=>0),
-}))
+  FindIndex: jest.fn(() => 0),
+}));
 
+// Configure mock store with thunk middleware
 const mockStore = configureStore([thunk]);
 
 describe("Fields Component", () => {
@@ -43,25 +43,29 @@ describe("Fields Component", () => {
     store = mockStore({
       stages: {
         stages: [
-          { 
-            stageId: "pd-1", 
-            stageInfo: {
-          fieldMetaData:{
-            data:{
-              stages:[
-                {id:"pd-1", name:"Personal Details"},
-                {id:"ad-1", name:"Address Details"},
-              ]
-            }
-          }
-        } }],
-        userInput: { 
-          applicants: [
           {
-            work_type:"S001",
-          }] },
+            stageId: "pd-1",
+            stageInfo: {
+              fieldMetaData: {
+                data: {
+                  stages: [
+                    { id: "pd-1", name: "Personal Details" },
+                    { id: "ad-1", name: "Address Details" },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        userInput: {
+          applicants: [
+            {
+              work_type: "S001", // Provide valid work_type
+            },
+          ],
+        },
         parentChildFields: { selectFields: [], addSelectFields: [], deleteSelectFields: [] },
-        conditionalFields:{newFields:{}},
+        conditionalFields: { newFields: {} },
         currentStage: "pd-1",
         journeyType: "type",
       },
@@ -80,7 +84,7 @@ describe("Fields Component", () => {
   it("renders the component and displays a form", () => {
     render(
       <Provider store={store}>
-        <Fields/>
+        <Fields />
       </Provider>
     );
 
