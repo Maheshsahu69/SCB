@@ -237,3 +237,106 @@ const roomFloorBlockValidation = (
     }
     // updateFormVlidation();
   };
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import * as redux from "react-redux";
+import { roomFloorBlockValidation } from "./fields";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+
+// Mock the dispatch function
+const mockDispatch = jest.fn();
+jest.spyOn(redux, "useDispatch").mockReturnValue(mockDispatch);
+
+// Mock the useSelector function
+jest.spyOn(redux, "useSelector").mockImplementation((selector) =>
+  selector({
+    stages: {
+      userInput: {
+        applicants: [
+          {
+            res_room_flat: "101",
+            res_block: "",
+            res_floor: "",
+          },
+        ],
+      },
+    },
+  })
+);
+
+describe("roomFloorBlockValidation", () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("removes mandatory fields when res_room_flat is updated", () => {
+    const fieldProps = { logical_field_name: "res_room_flat" };
+    const childValue = "101"; // Value provided by user
+
+    // Call the function
+    roomFloorBlockValidation(fieldProps, childValue);
+
+    // Assert that dispatch is called with the correct action
+    expect(mockDispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeMandatoryFields(["res_block", "res_floor"])
+    );
+  });
+
+  it("removes mandatory fields when res_block is updated", () => {
+    const fieldProps = { logical_field_name: "res_block" };
+    const childValue = "A"; // Value provided by user
+
+    // Call the function
+    roomFloorBlockValidation(fieldProps, childValue);
+
+    // Assert that dispatch is called with the correct action
+    expect(mockDispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeMandatoryFields(["res_room_flat", "res_floor"])
+    );
+  });
+
+  it("removes mandatory fields when res_floor is updated", () => {
+    const fieldProps = { logical_field_name: "res_floor" };
+    const childValue = "2"; // Value provided by user
+
+    // Call the function
+    roomFloorBlockValidation(fieldProps, childValue);
+
+    // Assert that dispatch is called with the correct action
+    expect(mockDispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeMandatoryFields(["res_room_flat", "res_block"])
+    );
+  });
+
+  it("does not dispatch if childValue is null", () => {
+    const fieldProps = { logical_field_name: "res_room_flat" };
+    const childValue = null; // No value provided
+
+    // Call the function
+    roomFloorBlockValidation(fieldProps, childValue);
+
+    // Assert that dispatch is not called
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch if logical_field_name does not match related fields", () => {
+    const fieldProps = { logical_field_name: "invalid_field" };
+    const childValue = "some value"; // Value provided by user
+
+    // Call the function
+    roomFloorBlockValidation(fieldProps, childValue);
+
+    // Assert that dispatch is not called
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+});
