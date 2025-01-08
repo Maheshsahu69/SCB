@@ -155,3 +155,85 @@ describe("Fields Component", () => {
     expect(screen.getByRole("form")).toBeInTheDocument();
   });
 });
+
+
+const roomFloorBlockValidation = (
+    fieldProps: KeyWithAnyModel,
+    childValue: string | number | null
+  ) => {
+    const { logical_field_name } = fieldProps;
+ 
+    // Relationships between fields
+    const relatedFields: any = {
+      res_room_flat: ["res_block", "res_floor"],
+      res_block: ["res_room_flat", "res_floor"],
+      res_floor: ["res_room_flat", "res_block"],
+    };
+ 
+    // Get the current state of the applicants
+    const applicants = userInputSelector.applicants[0];
+ 
+    // Check if the field is updated
+    if (childValue !== null && relatedFields[logical_field_name]) {
+      const fieldsToRemove = relatedFields[logical_field_name];
+      dispatch(fieldErrorAction.removeMandatoryFields(fieldsToRemove));
+    }
+  };
+  const handleCallback = (
+    fieldProps: KeyWithAnyModel,
+    childData: string | number | null
+  ) => {
+    currentStageSection = fieldProps;
+    if (
+      madatoryFieldSelector &&
+      madatoryFieldSelector.indexOf(fieldProps.logical_field_name) !== -1
+    ) {
+      if (stageId !== CONSTANTS.STAGE_NAMES.AD_2) {
+        madatoryFieldSelector &&
+          madatoryFieldSelector.map((fieldName) => {
+            let childValue = userInputSelector.applicants[0][fieldName];
+            stageId == CONSTANTS.STAGE_NAMES.BD_1 &&
+              roomFloorBlockValidation(fieldProps, childValue);
+            if (fieldName === fieldProps.logical_field_name) {
+              setUserInputs((prevUser: KeyStringModel) => ({
+                ...prevUser,
+                // [fieldName]: childData,
+                [fieldProps.logical_field_name]:
+                  stageId === CONSTANTS.STAGE_NAMES.AD_1 ||
+                  stageId === CONSTANTS.STAGE_NAMES.RP
+                    ? (fieldName === "cb_declaration" ||
+                        fieldName === "client_declaration_cert" ||
+                        fieldName === "acknowledgement_cert") &&
+                      (childData === "N" || childData === undefined)
+                      ? undefined
+                      : childData
+                    : childData
+                    ? childData
+                    : undefined,
+              }));
+            }
+            if (fieldName !== fieldProps.logical_field_name) {
+              setUserInputs((prevUser: KeyStringModel) => ({
+                ...prevUser,
+                [fieldName]:
+                  stageId === CONSTANTS.STAGE_NAMES.AD_1 ||
+                  stageId === CONSTANTS.STAGE_NAMES.RP
+                    ? (fieldName === "cb_declaration" ||
+                        fieldName === "client_declaration_cert" ||
+                        fieldName === "acknowledgement_cert") &&
+                      (childValue === "N" || childValue === undefined)
+                      ? undefined
+                      : childValue
+                    : childValue
+                    ? childValue
+                    : undefined,
+              }));
+            }
+            return fieldName;
+          });
+      } else {
+        setUserInputs({});
+      }
+    }
+    // updateFormVlidation();
+  };
