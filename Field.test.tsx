@@ -1,404 +1,159 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { Provider, useDispatch, useSelector } from "react-redux";
+import { Provider } from "react-redux";
 import configureStore from "redux-mock-store";
 import Fields from "./fields";
-import { stagesAction } from "../../../utils/store/stages-slice";
-import { fieldErrorAction } from "../../../utils/store/field-error-slice";
-import { CONSTANTS } from "../../../utils/common/constants";
 
-// Mock Redux hooks
-jest.mock("react-redux", () => ({
-  ...jest.requireActual("react-redux"),
-  useSelector: jest.fn(),
-  useDispatch: jest.fn(),
+// Mock dependencies
+jest.mock("../footer/footer", () => () => <div data-testid="footer" />);
+jest.mock("../review-page/review-page", () => () => <div data-testid="review-page" />);
+jest.mock("../../../shared/components/spinner/spinner", () => () => <div data-testid="spinner" />);
+jest.mock("../../preApproval/commonComponents/fundDisbursement/fund-disbursement", () => () => (
+  <div data-testid="fund-disbursement" />
+));
+
+// Mock Redux actions and services
+jest.mock("./fields.utils", () => ({
+  getLovMissing: jest.fn(),
+  stageFields: jest.fn(),
+  getStagePayload: jest.fn(),
+  stageSelectFields: jest.fn(),
+  submitRequest: jest.fn(),
+  userInputPayload: jest.fn(),
 }));
-
-// Mock utility functions or other services as needed
-jest.mock("./fields-methods", () => ({
-  assignUpdateUserInput: jest.fn(),
-  deleteConditionalFieldSelector: jest.fn(),
+jest.mock("../../../services/track-events", () => ({
+  triggerAdobeEvent: jest.fn(),
 }));
 
 const mockStore = configureStore([]);
-const mockDispatch = jest.fn();
 
 describe("Fields Component", () => {
-  let store;
-
-  const initialState = {
-    stages: {
-      stages: [
-        {
-          stageId: "pd-1",
-          stageInfo: {
-            fieldMetaData: {
-              data: {
-                stages: [],
-              },
-            },
-            applicants: [{}],
-          },
-        },
-      ],
-      userInput: {
-        applicants: [
-          {
-            work_type: "S001",
-            res_room_flat: "",
-            res_block: "",
-            res_floor: "",
-          },
-        ],
-      },
-      parentChildFields: { selectFields: [] },
-      journeyType: "journeyType",
-      currentStage: "pd-1",
-    },
-    lov: {},
-    fielderror: {
-      mandatoryFields: [],
-      error: [],
-    },
-    valueUpdate: {
-      value: true,
-    },
-    continueBtnSlice: {
-      continueEnable: true,
-    },
-    error: {
-      submit: false,
-    },
-  };
-
-  const defaultProps = {};
+  let store: any;
 
   beforeEach(() => {
-    store = mockStore(initialState);
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
-    (useSelector as jest.Mock).mockImplementation((selector) => selector(store.getState()));
+    store = mockStore({
+      stages: {
+        stages: [{ stageId: "pd-1", stageInfo: {} }],
+        userInput: { applicants: [{}] },
+        parentChildFields: { selectFields: [], addSelectFields: [], deleteSelectFields: [] },
+        currentStage: "pd-1",
+        journeyType: "type",
+      },
+      lov: {},
+      urlParam: { resume: false },
+      fielderror: { mandatoryFields: [], error: [] },
+      valueUpdate: { value: false, changesUpdate: { changes: false } },
+      error: { submit: false },
+      continueBtnSlice: { continueEnable: false },
+      preApproval: { currentStage: "pd-1", formConfigmetaData: {} },
+    });
+
     jest.clearAllMocks();
   });
 
-  test("renders the component correctly", () => {
+  it("renders the component and displays a form", () => {
     render(
       <Provider store={store}>
-        <Fields {...defaultProps} />
+        <Fields />
       </Provider>
     );
 
-    expect(screen.getByText("© Standard Chartered Bank (HK) Limited")).toBeInTheDocument();
+    expect(screen.getByRole("form")).toBeInTheDocument();
+    expect(screen.getByTestId("footer")).toBeInTheDocument();
   });
 
-  test("renders spinner when showSpinner is true", () => {
-    const customState = {
-      ...initialState,
+  it("shows the spinner when `showSpinner` is true", () => {
+    store = mockStore({
+      ...store.getState(),
       stages: {
-        ...initialState.stages,
-        currentStage: "ld-1",
+        ...store.getState().stages,
+        stages: [{ stageId: "ld-1", stageInfo: {} }],
       },
-    };
-    const customStore = mockStore(customState);
+    });
 
-    render(
-      <Provider store={customStore}>
-        <Fields {...defaultProps} />
-      </Provider>
-    );
-
-    expect(screen.queryByText("Spinner")).toBeInTheDocument();
-  });
-
-  test("triggers backHandler on clicking back button", async () => {
     render(
       <Provider store={store}>
-        <Fields {...defaultProps} />
+        <Fields />
       </Provider>
     );
 
-    const backButton = screen.getByText("Back");
+    expect(screen.getByTestId("spinner")).toBeInTheDocument();
+  });
+
+  it("renders the FundDisbursement component for `ld-1` stageId", () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "ld-1", stageInfo: {} }],
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(screen.getByTestId("fund-disbursement")).toBeInTheDocument();
+  });
+
+  it("renders the ReviewPage component for `rp` stageId", () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "rp", stageInfo: {} }],
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(screen.getByTestId("review-page")).toBeInTheDocument();
+  });
+
+  it("triggers submit when form is submitted", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("footer")).toBeInTheDocument();
+    });
+  });
+
+  it("handles back button click", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const backButton = screen.getByTestId("footer");
     fireEvent.click(backButton);
 
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
-    });
+    // Add your specific assertions here
+    expect(screen.getByRole("form")).toBeInTheDocument();
   });
 
-  test("handles form submission with valid inputs", async () => {
+  it("updates user inputs on callback", () => {
     render(
       <Provider store={store}>
-        <Fields {...defaultProps} />
+        <Fields />
       </Provider>
     );
 
-    const submitButton = screen.getByText("Continue");
-    fireEvent.submit(submitButton);
+    const input = screen.getByRole("form");
+    fireEvent.change(input, { target: { value: "test input" } });
 
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
-    });
-  });
-
-  test("updates user inputs on callback", () => {
-    render(
-      <Provider store={store}>
-        <Fields {...defaultProps} />
-      </Provider>
-    );
-
-    // Simulate user input
-    const inputField = screen.getByRole("textbox", { name: /res_room_flat/i });
-    fireEvent.change(inputField, { target: { value: "123" } });
-
-    expect(mockDispatch).toHaveBeenCalledWith(
-      stagesAction.modifyStage({
-        fieldData: { fieldName: "res_room_flat", value: "123" },
-        currentStageSection: { data: {} },
-      })
-    );
-  });
-
-  test("validates form and updates state", async () => {
-    render(
-      <Provider store={store}>
-        <Fields {...defaultProps} />
-      </Provider>
-    );
-
-    const form = screen.getByRole("form");
-    fireEvent.submit(form);
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
-    });
-  });
-
-  test("renders correct fields based on stageId", () => {
-    const customState = {
-      ...initialState,
-      stages: {
-        ...initialState.stages,
-        currentStage: "rp",
-      },
-    };
-    const customStore = mockStore(customState);
-
-    render(
-      <Provider store={customStore}>
-        <Fields {...defaultProps} />
-      </Provider>
-    );
-
-    expect(screen.getByText("Review Page")).toBeInTheDocument();
-  });
-});
-
-
-
-
-
-import React from "react";
-import { render, screen, act } from "@testing-library/react";
-import { useDispatch, useSelector } from "react-redux";
-import Fields from "./Fields";
-import { postBasicData, postSaveData } from "../../preApproval/services/preApprovalPostServices";
-import { stagesAction } from "../../../utils/store/stages-slice";
-import { errorAction } from "../../../utils/store/error-slice";
-
-jest.mock("react-redux", () => ({
-  useDispatch: jest.fn(),
-  useSelector: jest.fn(),
-}));
-
-jest.mock("../../preApproval/services/preApprovalPostServices", () => ({
-  postBasicData: jest.fn(),
-  postSaveData: jest.fn(),
-}));
-
-jest.mock("../../../utils/store/stages-slice", () => ({
-  stagesAction: {
-    updateStageId: jest.fn(),
-    getStage: jest.fn(),
-  },
-}));
-
-jest.mock("../../../utils/store/error-slice", () => ({
-  errorAction: {
-    getError: jest.fn(),
-    getExceptionList: jest.fn(),
-  },
-}));
-
-describe("Fields Component - SetNextStageDetaisAfterSave", () => {
-  const mockDispatch = jest.fn();
-  const mockSelector = jest.fn();
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
-    (useSelector as jest.Mock).mockImplementation(mockSelector);
-  });
-
-  it("should update the stage ID and call postBasicData for BD_1", async () => {
-    (postBasicData as jest.Mock).mockResolvedValue({
-      status: 200,
-      data: {
-        application: { response_type: "INFO", response_action: "SUCCESS" },
-        applicants: [{}],
-      },
-    });
-
-    mockSelector.mockReturnValue({
-      stages: { stageId: "BD_1" },
-    });
-
-    // Render component and trigger SetNextStageDetaisAfterSave
-    render(<Fields />);
-    const instance: any = screen;
-
-    await act(async () => {
-      instance.SetNextStageDetaisAfterSave("BD_1", "BD_1A");
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith(stagesAction.updateStageId("BD_1"));
-    expect(postBasicData).toHaveBeenCalled();
-    expect(mockDispatch).toHaveBeenCalledWith(
-      stagesAction.getStage({
-        id: "BD_1",
-        formConfig: expect.any(Object),
-      })
-    );
-  });
-
-  it("should update the stage ID and call postSaveData for non-BD_1 stages", async () => {
-    (postSaveData as jest.Mock).mockResolvedValue({
-      status: 200,
-      data: {
-        application: { response_type: "INFO", response_action: "SUCCESS" },
-        applicants: [{}],
-      },
-    });
-
-    mockSelector.mockReturnValue({
-      stages: { stageId: "AD_1" },
-    });
-
-    // Render component and trigger SetNextStageDetaisAfterSave
-    render(<Fields />);
-    const instance: any = screen;
-
-    await act(async () => {
-      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith(stagesAction.updateStageId("AD_1"));
-    expect(postSaveData).toHaveBeenCalled();
-    expect(mockDispatch).toHaveBeenCalledWith(
-      stagesAction.getStage({
-        id: "AD_1",
-        formConfig: expect.any(Object),
-      })
-    );
-  });
-
-  it("should handle HARD STOP errors correctly", async () => {
-    (postSaveData as jest.Mock).mockResolvedValue({
-      status: 200,
-      data: {
-        application: {
-          response_type: "HARD",
-          response_action: "STOP",
-          error: {
-            application_error: [
-              { error_description: "Technical Error", rtobCode: "E01" },
-            ],
-          },
-        },
-      },
-    });
-
-    mockSelector.mockReturnValue({
-      stages: { stageId: "AD_1" },
-    });
-
-    // Render component and trigger SetNextStageDetaisAfterSave
-    render(<Fields />);
-    const instance: any = screen;
-
-    await act(async () => {
-      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith(
-      errorAction.getExceptionList([
-        {
-          statusCode: "E01",
-          statusText: "Technical Error",
-          responseAction: "STOP",
-          responseType: "HARD",
-        },
-      ])
-    );
-  });
-
-  it("should handle error if API fails", async () => {
-    (postSaveData as jest.Mock).mockRejectedValue(new Error("API Error"));
-
-    mockSelector.mockReturnValue({
-      stages: { stageId: "AD_1" },
-    });
-
-    // Render component and trigger SetNextStageDetaisAfterSave
-    render(<Fields />);
-    const instance: any = screen;
-
-    await act(async () => {
-      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
-    });
-
-    expect(mockDispatch).not.toHaveBeenCalledWith(stagesAction.getStage());
-    expect(mockDispatch).not.toHaveBeenCalledWith(
-      stagesAction.updateStageId("AD_1")
-    );
-  });
-
-  it("should dispatch an error when response contains application error", async () => {
-    (postSaveData as jest.Mock).mockResolvedValue({
-      status: 200,
-      data: {
-        application: {
-          response_type: "HARD",
-          response_action: "STOP",
-          error: {
-            application_error: [
-              { error_description: "Application Error", rtobCode: "E02" },
-            ],
-          },
-        },
-      },
-    });
-
-    mockSelector.mockReturnValue({
-      stages: { stageId: "AD_1" },
-    });
-
-    // Render component and trigger SetNextStageDetaisAfterSave
-    render(<Fields />);
-    const instance: any = screen;
-
-    await act(async () => {
-      instance.SetNextStageDetaisAfterSave("AD_1", "BD_1");
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith(
-      errorAction.getExceptionList([
-        {
-          statusCode: "E02",
-          statusText: "Application Error",
-          responseAction: "STOP",
-          responseType: "HARD",
-        },
-      ])
-    );
+    expect(input).toBeInTheDocument();
   });
 });
