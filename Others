@@ -411,3 +411,183 @@
     }
     event.preventDefault();
   };
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import Fields from "./fields";
+import {
+  userInputPayload,
+  getStagePayload,
+} from "./fields.utils";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { CONSTANTS } from "../../../utils/common/constants";
+
+// Mock dependencies
+jest.mock("./fields.utils", () => ({
+  userInputPayload: jest.fn(() => jest.fn()),
+  getStagePayload: jest.fn(),
+}));
+jest.mock("../../../utils/store/stages-slice", () => ({
+  stagesAction: {
+    resetNewAndOldFields: jest.fn(),
+    setOtpShow: jest.fn(),
+    updateStageId: jest.fn(),
+  },
+}));
+jest.mock("../../../utils/store/field-error-slice", () => ({
+  fieldErrorAction: {
+    getFieldError: jest.fn(),
+  },
+}));
+
+const mockStore = configureStore([thunk]);
+
+describe("handleSubmit Function", () => {
+  let store: any;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [
+          { stageId: CONSTANTS.STAGE_NAMES.PD_1 },
+        ],
+        userInput: { applicants: [{}] },
+        currentStage: CONSTANTS.STAGE_NAMES.PD_1,
+      },
+      fielderror: { mandatoryFields: ["field1", "field2"] },
+      valueUpdate: { value: false },
+      continueBtnSlice: { continueEnable: true },
+    });
+
+    jest.clearAllMocks();
+  });
+
+  it("should call userInputPayload and resetNewAndOldFields on submit", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const form = screen.getByRole("form");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(userInputPayload).toHaveBeenCalledTimes(2);
+      expect(stagesAction.resetNewAndOldFields).toHaveBeenCalled();
+    });
+  });
+
+  it("should dispatch setOtpShow if stageId is PD_1 and continueBtn is enabled", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const form = screen.getByRole("form");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(stagesAction.setOtpShow).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("should handle mandatory field errors", async () => {
+    store = mockStore({
+      ...store.getState(),
+      fielderror: { mandatoryFields: ["field1"] },
+      stages: {
+        ...store.getState().stages,
+        userInput: { applicants: [{ field1: "" }] },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const form = screen.getByRole("form");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(fieldErrorAction.getFieldError).toHaveBeenCalledWith({
+        fieldName: expect.objectContaining({ field1: "" }),
+      });
+    });
+  });
+
+  it("should call SetNextStageDetailsAfterSave for stageId BD_1A", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: { ...store.getState().stages, stages: [{ stageId: CONSTANTS.STAGE_NAMES.BD_1A }] },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const form = screen.getByRole("form");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(stagesAction.updateStageId).toHaveBeenCalledWith(CONSTANTS.STAGE_NAMES.BD_1);
+    });
+  });
+
+  it("should not submit if mandatory fields are missing", async () => {
+    store = mockStore({
+      ...store.getState(),
+      fielderror: { mandatoryFields: ["field1"] },
+      stages: { ...store.getState().stages, userInput: { applicants: [{}] } },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const form = screen.getByRole("form");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(fieldErrorAction.getFieldError).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("should scroll to top if errors are found", async () => {
+    window.scroll = jest.fn();
+    store = mockStore({
+      ...store.getState(),
+      fielderror: { mandatoryFields: ["field1"] },
+      stages: { ...store.getState().stages, userInput: { applicants: [{}] } },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const form = screen.getByRole("form");
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(window.scroll).toHaveBeenCalledWith(0, 0);
+    });
+  });
+});
