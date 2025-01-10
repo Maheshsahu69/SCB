@@ -164,3 +164,69 @@ const DocumentTypeDynamic: React.FC<any> = ({
 };
 
 export default DocumentTypeDynamic;
+
+
+
+import React, { useState } from "react";
+import ColorIdentityProof from "../colourIdentityProof/colour-Identity-Proof";
+import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
+
+const DocumentTypeDynamic: React.FC<any> = ({
+  document_list,
+  changeIconColorIdentityProof,
+  title,
+  ...props
+}) => {
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [showIncomeProof, setShowIncomeProof] = useState("");
+
+  const handleOpenDialog = (title: any, item: any) => {
+    setShowIncomeProof(title);
+    setSelectedSection(item);
+  };
+
+  const componentsMap = {
+    "Colour Identity Proof": ColorIdentityProof,
+    "Income Proof": DocumentUploadSRC2,
+  };
+
+  const SelectedComponent = componentsMap[showIncomeProof];
+
+  return (
+    <div className="row-start">
+      {selectedSection === null ? (
+        <div className="doc-select-box">
+          {document_list?.map((item: any) => (
+            <div
+              key={item.document_category}
+              className={
+                changeIconColorIdentityProof
+                  ? "form-field doc-select-box-child"
+                  : "form-field-checked doc-select-box-child"
+              }
+            >
+              <p
+                role="button"
+                title={title}
+                className={
+                  changeIconColorIdentityProof ? "doc-add" : "doc-checked"
+                }
+                onClick={() => handleOpenDialog(item.document_category, item)}
+              ></p>
+              <p className="doc-field-name">{item.document_category}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        SelectedComponent && (
+          <SelectedComponent
+            showIncomeProof={showIncomeProof}
+            {...props}
+          />
+        )
+      )}
+    </div>
+  );
+};
+
+export default DocumentTypeDynamic;
