@@ -1,22 +1,65 @@
-import React from "react";
+import React, { useState } from "react";
 import "../documentUploadMain/document-upload-main-scr.scss";
 import "./document-type-dynamic.scss";
+import ColorIdentityProof from "../colourIdentityProof/colour-Identity-Proof";
+import DocumentUploadSRC2 from "../document-upload-scr2/document-upload-scr2";
 const DocumentTypeDynamic: React.FC<any> = ({
   changeIconColorIdentityProof,
-  openUploadHKdialog,
+  // openUploadHKdialog,
   docCategory,
   success,
   docCategory2,
   title,
   document_list,
   setChangeIconIncomeProof,
-  changeIconIncomeProof
+  changeIconIncomeProof,
+  //---------------------------------------
+  // showIncomeProof,
+  // setShowIncomeProof,
+  goBack,
+  setGoBack,
+  showQRCodePage,
+  setShowQRCodePage,
+  changeIcon,
+  showUploadFileSuccess,
+  setShowUploadFileSuccess,
+  callQRCodeAPI,
+  HKIDVersion,
+  HKIDVersionValue,
+  setHKIDVersion,
+  setHKIDVersionValue,
+  setShowContinueBtn,
+  //.......................................................
+  setDocumentCount,
+  documentCount,
+  setSucsess,
+  changeSuccessState,
+  channel_reference,
+  HKIDQRCodeData,
+  showContinueBtn,
+  setDocumentData,
+  setZolozDocumentData
+
 }) => {
+
+  const [selectedSection, setSelectedSection] = useState([]);
+  const [showIncomeProof, setShowIncomeProof] = useState("");
+
+
+  console.log("selectedSection:", selectedSection, "showIncomeProof:", showIncomeProof);
+
+  const openUploadHKdialog = (title: any, item:any) => {
+    setShowIncomeProof(title);
+    setSelectedSection(item);
+    // setShowContinueBtn(true);
+    // alert()
+  };
   return (
     <div className="row-start">
       <div className="doc-select-box">
         {document_list?.map((item: any) => {
-          if (item?.document_category === "Colour Identity Proof") {
+          console.log("-----", item.document_category);
+          // if (item?.document_category === "Colour Identity Proof") {
             return (
               <div
                 id="upload_fieldset_{{docCategory.document_category_code}}"
@@ -32,150 +75,92 @@ const DocumentTypeDynamic: React.FC<any> = ({
                   className={
                     changeIconColorIdentityProof ? "doc-add" : "doc-checked"
                   }
-                  onClick={() => openUploadHKdialog("Colour Identity Proof")}
+                  onClick={() => openUploadHKdialog(item?.document_category, item)} //item?.document_category
                   id="upload_fieldset_{{docCategory.document_category_code}}"
                 ></p>
                 <p
                   className="doc-field-name"
                   id="upload_fieldset_{{docCategory.document_category_code}}"
                 >
-                  {docCategory}
+                  {item?.document_category}
                 </p>
               </div>
             );
-          } else if (item?.document_category === "Income Proof") {
-            return (
-              <div
-                className={
-                  changeIconIncomeProof
-                    ? "form-field doc-select-box-child"
-                    : "form-field-checked doc-select-box-child"
-                }
-              >
-                <p
-                  role="button"
-                  className={changeIconIncomeProof ? "doc-add" : "doc-checked"}
-                  title="Income Proof"
-                  onClick={() => openUploadHKdialog("Income Proof")}
-                ></p>
-                <p className="doc-field-name">{docCategory2}</p>
-              </div>
-            );
-          }
+          // } else if (item?.document_category === "Income Proof") {
+            // return (
+            //   <div
+            //     className={
+            //       changeIconIncomeProof
+            //         ? "form-field doc-select-box-child"
+            //         : "form-field-checked doc-select-box-child"
+            //     }
+            //   >
+            //     <p
+            //       role="button"
+            //       className={changeIconIncomeProof ? "doc-add" : "doc-checked"}
+            //       title="Income Proof"
+            //       onClick={() => openUploadHKdialog("Income Proof")}
+            //     ></p>
+            //     <p className="doc-field-name">{docCategory2}</p>
+            //   </div>
+            // );
+          // }
         })}
+    {showIncomeProof === "Colour Identity Proof" && (
+    <ColorIdentityProof
+      showIncomeProof={showIncomeProof}
+      // setShowIncomeProof={setShowIncomeProof}
+      goBack={goBack}
+      setGoBack={setGoBack}
+      showQRCodePage={showQRCodePage}
+      setShowQRCodePage={setShowQRCodePage}
+      changeIconColorIdentityProof={changeIconColorIdentityProof}
+      setChangeIconColorIdentityProof={changeIcon}
+      showUploadFileSuccess={showUploadFileSuccess}
+      setShowUploadFileSuccess={setShowUploadFileSuccess}
+      callQRCodeAPI={callQRCodeAPI}
+      HKIDVersion={HKIDVersion}
+      HKIDVersionValue={HKIDVersionValue}
+      setHKIDVersion={setHKIDVersion}
+      setHKIDVersionValue={setHKIDVersionValue}
+      setShowContinueBtn={setShowContinueBtn}
+     />
+  )} 
+
+{showIncomeProof === "Income Proof" && (
+          <DocumentUploadSRC2
+            showIncomeProof={showIncomeProof}
+            // setShowIncomeProof={setShowIncomeProof}
+            setDocumentCount={setDocumentCount}
+            documentCount={documentCount}
+            success={success}
+            setSucsess={setSucsess}
+            changeSuccessState={changeSuccessState}
+            goBack={goBack}
+            setGoBack={setGoBack}
+            showQRCodePage={showQRCodePage}
+            setShowQRCodePage={setShowQRCodePage}
+            changeIconColorIdentityProof={changeIconColorIdentityProof}
+            setChangeIconColorIdentityProof={changeIcon}
+            showUploadFileSuccess={showUploadFileSuccess}
+            setShowUploadFileSuccess={setShowUploadFileSuccess}
+            channel_reference={channel_reference}
+            HKIDQRCodeData={HKIDQRCodeData}
+            HKIDVersion={HKIDVersion}
+            HKIDVersionValue={HKIDVersionValue}
+            setHKIDVersion={setHKIDVersion}
+            setHKIDVersionValue={setHKIDVersionValue}
+            showContinueBtn={showContinueBtn}
+            setShowContinueBtn={setShowContinueBtn}
+            setDocumentData={setDocumentData}
+            setZolozDocumentData={setZolozDocumentData}
+            setChangeIconIncomeProof={setChangeIconIncomeProof}
+            changeIconIncomeProof={changeIconIncomeProof}
+          />
+        )}
       </div>
     </div>
   );
 };
 
 export default DocumentTypeDynamic;
-
-
-
-
-
-
-
-
-export const document_list=[
-   {
-       "document_category": "Colour Identity Proof",
-       "document_category_code": "R0001",
-       "min_options_req": "1",
-       "document_category_visible": null,
-       "document_category_seq": null,
-       "document_options": [
-           {
-               "document_option_sequence": "1",
-               "document_option_selected": null,
-               "document_types": [
-                   {
-                       "document_requested_stage": null,
-                       "document_type": "HKID Copy",
-                       "document_type_code": "A001",
-                       "document_sub_type": null,
-                       "no_of_periods": null,
-                       "id_expiry": null,
-                       "id_number": null,
-                       "uploaded_documents": null
-                   }
-               ]
-           }
-       ]
-   },
-   {
-       "document_category": "Income Proof",
-       "document_category_code": "R0005",
-       "min_options_req": "1",
-       "document_category_visible": null,
-       "document_category_seq": null,
-       "document_options": [
-           {
-               "document_option_sequence": "1",
-               "document_option_selected": null,
-               "document_types": [
-                   {
-                       "document_requested_stage": null,
-                       "document_type": "3-month Income proof",
-                       "document_type_code": "A023",
-                       "document_sub_type": null,
-                       "no_of_periods": null,
-                       "id_expiry": null,
-                       "id_number": null,
-                       "uploaded_documents": null
-                   }
-               ]
-           }
-       ]
-   },
-   {
-      "document_category": "Address Proof",
-      "document_category_code": "R0004",
-      "min_options_req": "1",
-      "document_category_visible": null,
-      "document_category_seq": null,
-      "document_options": [
-          {
-              "document_option_sequence": "1",
-              "document_option_selected": null,
-              "document_types": [
-                  {
-                      "document_requested_stage": null,
-                      "document_type": "3-month Income proof",
-                      "document_type_code": "A023",
-                      "document_sub_type": null,
-                      "no_of_periods": null,
-                      "id_expiry": null,
-                      "id_number": null,
-                      "uploaded_documents": null
-                  }
-              ]
-          }
-      ]
-  },
-  {
-      "document_category": "Passport",
-      "document_category_code": "R0003",
-      "min_options_req": "1",
-      "document_category_visible": null,
-      "document_category_seq": null,
-      "document_options": [
-         {
-            "document_option_sequence": "1",
-            "document_option_selected": null,
-            "document_types": [
-                  {
-                     "document_requested_stage": null,
-                     "document_type": "3-month Income proof",
-                     "document_type_code": "A023",
-                     "document_sub_type": null,
-                     "no_of_periods": null,
-                     "id_expiry": null,
-                     "id_number": null,
-                     "uploaded_documents": null
-                  }
-            ]
-         }
-      ]
-   }
-]
