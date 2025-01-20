@@ -329,3 +329,203 @@ const QRScreen : React.FC<any> =({showUploadFileSuccess, channel_reference, HKID
 }
 
 export default QRScreen;
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import QRScreen from "./QRScreen"; // Adjust the path accordingly
+import { dispatchLoader } from "../../../../../services/common-service";
+import { preApprovalAction } from "../../../store/preApproval-slice";
+
+// Mock dependencies
+jest.mock("../../../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+}));
+jest.mock("../../../services/preApprovalPostServices", () => ({
+  postDocuments: jest.fn(),
+  postZOLOCheck: jest.fn(),
+  postZolozAcknowledge: jest.fn(),
+  postPdfPreview: jest.fn(),
+}));
+jest.mock("../../../../preApproval/services/preApprovalServices", () => ({
+  getImagePreview: jest.fn(),
+}));
+
+// Mock assets
+jest.mock("../images-du/illustration-03@3x.png", () => "mockImage1");
+jest.mock("../images-du/illustration-06@3x.png", () => "mockImage2");
+
+const mockStore = configureStore([]);
+
+describe("QRScreen Component", () => {
+  let store: any;
+
+  const defaultProps = {
+    showUploadFileSuccess: false,
+    channel_reference: "test-channel",
+    HKIDQRCodeData: { qrCode: "test-qr-code", transactionId: "test-tx-id" },
+    HKIDVersionValue: "test-version",
+    setZolozDocumentData: jest.fn(),
+    setShowUploadFileSuccess: jest.fn(),
+    setDocumentData: jest.fn(),
+    setShowQRCodePage: jest.fn(),
+    setChangeIconColorIdentityProof: jest.fn(),
+    setShowIncomeProof: jest.fn(),
+    setDocumentCount: jest.fn(),
+    documentCount: 0,
+    setChangeIconIncomeProof: jest.fn(),
+    setSucsess: jest.fn(),
+    setShowContinueBtn: jest.fn(),
+    setHKIDVersion: jest.fn(),
+  };
+
+  beforeEach(() => {
+    store = mockStore({
+      preApproval: {
+        incomeProofDocumentUpload: [],
+        imgPrevURL: "mock-image-preview-url",
+        documentZoloCheckRes: {
+          data: {
+            documents: [{ documentName: "Test Document" }],
+          },
+        },
+      },
+      stages: {
+        stages: [
+          {
+            stageInfo: {
+              applicant_documents: [
+                {
+                  document_list: [
+                    {
+                      document_options: [
+                        {
+                          document_types: [
+                            { document_type_code: "test-doc-code" },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  const renderComponent = () =>
+    render(
+      <Provider store={store}>
+        <QRScreen {...defaultProps} />
+      </Provider>
+    );
+
+  test("renders QRScreen with initial UI elements", () => {
+    renderComponent();
+
+    // Check if the main elements render
+    expect(screen.getByText(/Colour Identity Proof/i)).toBeInTheDocument();
+    expect(screen.getByText(/Scan the QR code/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/ORError/i)).toBeInTheDocument();
+  });
+
+  test("handles file upload and validates file size", async () => {
+    const { postDocuments } = require("../../../services/preApprovalPostServices");
+
+    renderComponent();
+
+    const file = new File(["(⌐□_□)"], "test-image.png", { type: "image/png" });
+    const input = screen.getByLabelText("Upload File");
+
+    // Simulate file upload with valid size
+    Object.defineProperty(input, "files", {
+      value: [file],
+    });
+
+    fireEvent.change(input);
+
+    await waitFor(() => {
+      expect(dispatchLoader).toHaveBeenCalledWith(true);
+      expect(postDocuments).toHaveBeenCalledWith(
+        defaultProps.channel_reference,
+        file
+      );
+    });
+  });
+
+  test("displays success modal after successful upload", async () => {
+    const { postZOLOCheck, postZolozAcknowledge } = require("../../../services/preApprovalPostServices");
+    const { getImagePreview } = require("../../../../preApproval/services/preApprovalServices");
+
+    postZOLOCheck.mockResolvedValue({
+      data: { documents: [{ docId: "test-doc-id" }] },
+    });
+    postZolozAcknowledge.mockResolvedValue({
+      data: [{ responseStatus: "Success" }],
+    });
+    getImagePreview.mockResolvedValue({
+      data: new Blob(),
+      status: 200,
+    });
+
+    renderComponent();
+
+    const submitButton = screen.getByTitle("submit-button");
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(postZOLOCheck).toHaveBeenCalled();
+      expect(postZolozAcknowledge).toHaveBeenCalled();
+      expect(defaultProps.setShowUploadFileSuccess).toHaveBeenCalledWith(true);
+    });
+  });
+
+  test("handles image preview click", () => {
+    renderComponent();
+
+    // Simulate clicking the image for preview
+    const previewImage = screen.getByTitle("image-preview");
+    fireEvent.click(previewImage);
+
+    expect(screen.getByText(/Test Document/i)).toBeInTheDocument();
+  });
+
+  test("handles closing the file upload section", () => {
+    renderComponent();
+
+    const closeButton = screen.getByText(/CLOSE/i);
+    fireEvent.click(closeButton);
+
+    expect(defaultProps.setShowQRCodePage).toHaveBeenCalledWith(false);
+  });
+
+  test("validates file size limit", async () => {
+    renderComponent();
+
+    const oversizedFile = new File(["a".repeat(6 * 1024 * 1024)], "oversize.png", {
+      type: "image/png",
+    });
+
+    const input = screen.getByLabelText("Upload File");
+    Object.defineProperty(input, "files", {
+      value: [oversizedFile],
+    });
+
+    fireEvent.change(input);
+
+    await waitFor(() => {
+      expect(screen.getByText(/File size must not exceed 5MB/i)).toBeInTheDocument();
+    });
+  });
+});
