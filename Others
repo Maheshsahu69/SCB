@@ -628,3 +628,218 @@ it('handles error in callSubmit gracefully', async () => {
     expect(props.setDocumentData).not.toHaveBeenCalled();
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import QRScreen from './QRScreen';
+import * as preApprovalServices from '../../../services/preApprovalPostServices';
+import * as commonService from '../../../../../services/common-service';
+
+// Mock Redux Store
+const mockStore = configureStore([thunk]);
+const initialState = {
+  preApproval: {
+    incomeProofDocumentUpload: [],
+    imgPrevURL: '',
+    documentZoloCheckRes: {
+      data: {
+        documents: [
+          {
+            documentName: 'SampleDoc.pdf',
+          },
+        ],
+      },
+    },
+  },
+  stages: {
+    stages: [
+      {
+        stageInfo: {
+          applicant_documents: [
+            {
+              document_list: [
+                {
+                  document_options: [
+                    {
+                      document_types: [{ document_type_code: 'TYPE001' }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  },
+};
+
+// Mock Props
+const mockChannelReference = '12345';
+const mockHKIDQRCodeData = { transactionId: 'trans123', qrCode: 'mockQRCodeBase64' };
+
+// Mock APIs
+jest.mock('../../../services/preApprovalPostServices', () => ({
+  postDocuments: jest.fn(),
+  postZOLOCheck: jest.fn(),
+  postZolozAcknowledge: jest.fn(),
+  postPdfPreview: jest.fn(),
+  getImagePreview: jest.fn(),
+}));
+jest.mock('../../../../../services/common-service', () => ({
+  dispatchLoader: jest.fn(),
+}));
+
+describe('QRScreen - callSubmit Function', () => {
+  const setup = (propsOverride = {}) => {
+    const props = {
+      showUploadFileSuccess: false,
+      channel_reference: mockChannelReference,
+      HKIDQRCodeData: mockHKIDQRCodeData,
+      HKIDVersionValue: 'version1',
+      setZolozDocumentData: jest.fn(),
+      setShowUploadFileSuccess: jest.fn(),
+      setDocumentData: jest.fn(),
+      setShowQRCodePage: jest.fn(),
+      setChangeIconColorIdentityProof: jest.fn(),
+      setShowIncomeProof: jest.fn(),
+      setDocumentCount: jest.fn(),
+      documentCount: 0,
+      setChangeIconIncomeProof: jest.fn(),
+      setSucsess: jest.fn(),
+      setShowContinueBtn: jest.fn(),
+      setHKIDVersion: jest.fn(),
+      ...propsOverride,
+    };
+
+    const store = mockStore(initialState);
+
+    return {
+      ...render(
+        <Provider store={store}>
+          <QRScreen {...props} />
+        </Provider>
+      ),
+      props,
+      store,
+    };
+  };
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('handles success response for callSubmit', async () => {
+    // Mock successful API responses
+    const mockZoloCheckResponse = {
+      data: {
+        documents: [
+          {
+            docId: 'doc123',
+            document_type_code: 'TYPE001',
+          },
+        ],
+      },
+    };
+    const mockAcknowledgeResponse = {
+      data: [
+        {
+          responseStatus: 'Success',
+        },
+      ],
+    };
+    const mockPdfPreviewResponse = {
+      status: 200,
+      data: {
+        statusCode: 'OK',
+        documents: [],
+      },
+    };
+    const mockImagePreviewBlob = new Blob(['mockImageData'], { type: 'image/png' });
+
+    (preApprovalServices.postZOLOCheck as jest.Mock).mockResolvedValue(mockZoloCheckResponse);
+    (preApprovalServices.postZolozAcknowledge as jest.Mock).mockResolvedValue(mockAcknowledgeResponse);
+    (preApprovalServices.postPdfPreview as jest.Mock).mockResolvedValue(mockPdfPreviewResponse);
+    (preApprovalServices.getImagePreview as jest.Mock).mockResolvedValue({
+      data: mockImagePreviewBlob,
+    });
+
+    const { props } = setup();
+
+    // Simulate clicking the submit button
+    fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      // Ensure APIs are called in the correct order with expected arguments
+      expect(preApprovalServices.postZOLOCheck).toHaveBeenCalledWith(
+        mockChannelReference,
+        mockHKIDQRCodeData.transactionId,
+        'version1'
+      );
+      expect(preApprovalServices.postZolozAcknowledge).toHaveBeenCalledWith(
+        mockChannelReference,
+        mockZoloCheckResponse.data.documents
+      );
+      expect(preApprovalServices.getImagePreview).toHaveBeenCalledWith(
+        mockChannelReference,
+        'doc123'
+      );
+      expect(preApprovalServices.postPdfPreview).toHaveBeenCalledWith(mockChannelReference);
+
+      // Ensure props functions are called to update state
+      expect(props.setZolozDocumentData).toHaveBeenCalledWith(mockZoloCheckResponse.data.documents[0]);
+      expect(props.setShowUploadFileSuccess).toHaveBeenCalledWith(true);
+      expect(props.setDocumentData).toHaveBeenCalledWith(mockPdfPreviewResponse.data.documents);
+    });
+  });
+
+  it('handles error response for callSubmit', async () => {
+    // Mock API responses with an error
+    (preApprovalServices.postZOLOCheck as jest.Mock).mockRejectedValue(new Error('ZOLOCheck failed'));
+
+    const { props } = setup();
+
+    // Simulate clicking the submit button
+    fireEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      // Ensure the ZOLO check API was called
+      expect(preApprovalServices.postZOLOCheck).toHaveBeenCalledWith(
+        mockChannelReference,
+        mockHKIDQRCodeData.transactionId,
+        'version1'
+      );
+
+      // Ensure the subsequent API calls are not made
+      expect(preApprovalServices.postZolozAcknowledge).not.toHaveBeenCalled();
+      expect(preApprovalServices.getImagePreview).not.toHaveBeenCalled();
+      expect(preApprovalServices.postPdfPreview).not.toHaveBeenCalled();
+
+      // No state updates should happen on failure
+      expect(props.setZolozDocumentData).not.toHaveBeenCalled();
+      expect(props.setShowUploadFileSuccess).not.toHaveBeenCalled();
+      expect(props.setDocumentData).not.toHaveBeenCalled();
+    });
+  });
+});
