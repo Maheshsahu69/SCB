@@ -843,3 +843,207 @@ describe('QRScreen - callSubmit Function', () => {
     });
   });
 });
+
+
+
+
+import { callSubmit } from './path_to_callSubmit'; // Adjust the import path
+import {
+  postZOLOCheck,
+  postZolozAcknowledge,
+  getImagePreview,
+  postPdfPreview,
+} from './api'; // Mock these functions
+import { dispatchLoader, preApprovalAction } from './actions'; // Mock Redux actions
+
+jest.mock('./api');
+jest.mock('./actions', () => ({
+  dispatchLoader: jest.fn(),
+  preApprovalAction: {
+    setDocumentZoloCheckRes: jest.fn(),
+    setImgPrevURL: jest.fn(),
+  },
+}));
+
+const dispatch = jest.fn();
+const setZolozDocumentData = jest.fn();
+const setOpenSuccessModal = jest.fn();
+const setShowUploadFileSuccess = jest.fn();
+const setDocumentData = jest.fn();
+
+describe('callSubmit', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should successfully complete the flow with valid data', async () => {
+    // Mock API responses
+    const mockZoloCheckResponse = {
+      data: {
+        documents: [
+          { docId: 'doc123', document_type_code: 'HKID' },
+        ],
+      },
+    };
+    const mockAcknowledgeResponse = {
+      data: [{ responseStatus: 'Success' }],
+    };
+    const mockImagePreviewResponse = {
+      data: new Blob(),
+      status: 200,
+    };
+    const mockPdfPreviewResponse = {
+      data: {
+        statusCode: 'OK',
+        documents: [{ id: 'doc456', name: 'Sample Doc' }],
+      },
+      status: 200,
+    };
+
+    // Mock API functions
+    postZOLOCheck.mockResolvedValue(mockZoloCheckResponse);
+    postZolozAcknowledge.mockResolvedValue(mockAcknowledgeResponse);
+    getImagePreview.mockResolvedValue(mockImagePreviewResponse);
+    postPdfPreview.mockResolvedValue(mockPdfPreviewResponse);
+
+    // Mock global variables
+    const channel_reference = 'channel123';
+    const HKIDQRCodeData = { transactionId: 'txn123' };
+    const HKIDVersionValue = 'version1';
+    const stageSelector = {
+      applicant_documents: [
+        {
+          document_list: [
+            {
+              document_options: [
+                {
+                  document_types: [
+                    { document_type_code: 'HKID' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Call the function
+    await callSubmit({
+      dispatch,
+      HKIDQRCodeData,
+      HKIDVersionValue,
+      stageSelector,
+      setZolozDocumentData,
+      setOpenSuccessModal,
+      setShowUploadFileSuccess,
+      setDocumentData,
+    });
+
+    // Assertions for API calls
+    expect(postZOLOCheck).toHaveBeenCalledWith('channel123', 'txn123', 'version1');
+    expect(postZolozAcknowledge).toHaveBeenCalledWith('channel123', mockZoloCheckResponse.data.documents);
+    expect(getImagePreview).toHaveBeenCalledWith('channel123', 'doc123');
+    expect(postPdfPreview).toHaveBeenCalledWith('channel123');
+
+    // Assertions for state updates
+    expect(dispatch).toHaveBeenCalledWith(dispatchLoader(true));
+    expect(dispatch).toHaveBeenCalledWith(preApprovalAction.setDocumentZoloCheckRes(mockZoloCheckResponse));
+    expect(setZolozDocumentData).toHaveBeenCalledWith(mockZoloCheckResponse.data.documents[0]);
+    expect(setOpenSuccessModal).toHaveBeenCalledWith(true);
+    expect(setShowUploadFileSuccess).toHaveBeenCalledWith(true);
+    expect(dispatch).toHaveBeenCalledWith(preApprovalAction.setImgPrevURL(expect.any(String)));
+    expect(setDocumentData).toHaveBeenCalledWith(mockPdfPreviewResponse.data.documents);
+
+    // Ensure spinner is hidden at the end
+    expect(dispatch).toHaveBeenCalledWith(dispatchLoader(false));
+  });
+
+  it('should handle API errors gracefully', async () => {
+    // Mock API functions to throw an error
+    postZOLOCheck.mockRejectedValue(new Error('Network Error'));
+
+    // Call the function
+    await callSubmit({
+      dispatch,
+      HKIDQRCodeData: { transactionId: 'txn123' },
+      HKIDVersionValue: 'version1',
+      stageSelector: {
+        applicant_documents: [
+          {
+            document_list: [
+              {
+                document_options: [
+                  {
+                    document_types: [
+                      { document_type_code: 'HKID' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      setZolozDocumentData,
+      setOpenSuccessModal,
+      setShowUploadFileSuccess,
+      setDocumentData,
+    });
+
+    // Assertions
+    expect(postZOLOCheck).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenCalledWith(dispatchLoader(true));
+    expect(dispatch).toHaveBeenCalledWith(dispatchLoader(false));
+    expect(console.log).toHaveBeenCalledWith('error:', expect.any(Error));
+  });
+
+  it('should handle an unsuccessful acknowledgment response', async () => {
+    // Mock API responses
+    const mockZoloCheckResponse = {
+      data: {
+        documents: [
+          { docId: 'doc123', document_type_code: 'HKID' },
+        ],
+      },
+    };
+    const mockAcknowledgeResponse = {
+      data: [{ responseStatus: 'Failed' }],
+    };
+
+    postZOLOCheck.mockResolvedValue(mockZoloCheckResponse);
+    postZolozAcknowledge.mockResolvedValue(mockAcknowledgeResponse);
+
+    // Call the function
+    await callSubmit({
+      dispatch,
+      HKIDQRCodeData: { transactionId: 'txn123' },
+      HKIDVersionValue: 'version1',
+      stageSelector: {
+        applicant_documents: [
+          {
+            document_list: [
+              {
+                document_options: [
+                  {
+                    document_types: [
+                      { document_type_code: 'HKID' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      setZolozDocumentData,
+      setOpenSuccessModal,
+      setShowUploadFileSuccess,
+      setDocumentData,
+    });
+
+    // Assertions
+    expect(setOpenSuccessModal).not.toHaveBeenCalled();
+    expect(setShowUploadFileSuccess).not.toHaveBeenCalled();
+  });
+});
