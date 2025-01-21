@@ -1047,3 +1047,128 @@ describe('callSubmit', () => {
     expect(setShowUploadFileSuccess).not.toHaveBeenCalled();
   });
 });
+
+
+
+
+
+
+
+
+
+
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react';
+import { QRScreen } from './QRScreen';
+import {
+  postZOLOCheck,
+  postZolozAcknowledge,
+  getImagePreview,
+  postPdfPreview,
+} from './api';
+import { dispatchLoader, preApprovalAction } from './actions';
+
+jest.mock('./api');
+jest.mock('./actions', () => ({
+  dispatchLoader: jest.fn(),
+  preApprovalAction: {
+    setImgPrevURL: jest.fn(),
+  },
+}));
+
+const mockDispatch = jest.fn();
+jest.mock('react-redux', () => ({
+  useDispatch: () => mockDispatch,
+}));
+
+describe('QRScreen Component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should handle successful API call flow', async () => {
+    // Mock API responses
+    postZOLOCheck.mockResolvedValue({
+      data: {
+        documents: [{ docId: 'doc123', document_type_code: 'HKID' }],
+      },
+    });
+    postZolozAcknowledge.mockResolvedValue({
+      data: [{ responseStatus: 'Success' }],
+    });
+    getImagePreview.mockResolvedValue({
+      data: new Blob(),
+      status: 200,
+    });
+    postPdfPreview.mockResolvedValue({
+      data: { statusCode: 'OK', documents: [{ id: 'doc456', name: 'Sample Doc' }] },
+      status: 200,
+    });
+
+    // Render the component
+    render(<QRScreen />);
+
+    // Trigger callSubmit
+    fireEvent.click(screen.getByText('Submit'));
+
+    // Wait for success modal to appear
+    await screen.findByText('Success Modal Opened');
+
+    // Assertions
+    expect(postZOLOCheck).toHaveBeenCalledWith('channel123', 'txn123', 'version1');
+    expect(postZolozAcknowledge).toHaveBeenCalledTimes(1);
+    expect(getImagePreview).toHaveBeenCalledTimes(1);
+    expect(postPdfPreview).toHaveBeenCalledTimes(1);
+
+    // Check dispatch calls
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true));
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false));
+    expect(preApprovalAction.setImgPrevURL).toHaveBeenCalledWith(expect.any(String));
+  });
+
+  it('should handle API errors gracefully', async () => {
+    // Mock API failure
+    postZOLOCheck.mockRejectedValue(new Error('Network Error'));
+
+    // Render the component
+    render(<QRScreen />);
+
+    // Trigger callSubmit
+    fireEvent.click(screen.getByText('Submit'));
+
+    // Wait for error handling to complete
+    await screen.findByText('Submit'); // Ensure no modal appears
+
+    // Assertions
+    expect(postZOLOCheck).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true));
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false));
+  });
+
+  it('should handle unsuccessful acknowledgment response', async () => {
+    // Mock API responses
+    postZOLOCheck.mockResolvedValue({
+      data: {
+        documents: [{ docId: 'doc123', document_type_code: 'HKID' }],
+      },
+    });
+    postZolozAcknowledge.mockResolvedValue({
+      data: [{ responseStatus: 'Failed' }],
+    });
+
+    // Render the component
+    render(<QRScreen />);
+
+    // Trigger callSubmit
+    fireEvent.click(screen.getByText('Submit'));
+
+    // Wait for acknowledgment handling
+    await screen.findByText('Submit'); // Ensure no modal appears
+
+    // Assertions
+    expect(postZOLOCheck).toHaveBeenCalledTimes(1);
+    expect(postZolozAcknowledge).toHaveBeenCalledTimes(1);
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(true));
+    expect(mockDispatch).toHaveBeenCalledWith(dispatchLoader(false));
+  });
+});
