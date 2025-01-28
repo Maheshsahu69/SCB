@@ -1,9 +1,6 @@
  const callSubmit = async () => {   
-        // try {
-          // setShowSpinner(true);
-          // setOpenSuccessModal(true);
-          // setShowUploadFileSuccess(true);
-          // dispatch(dispatchLoader(true));
+         try {
+          
          
           var transactionId = HKIDQRCodeData.transactionId;
           var docType = HKIDVersionValue;
@@ -86,8 +83,8 @@
           setZoloErrorpopup(true);
         }
           
-        // } catch (error) {
-        //   console.log("error:", error);
+         } catch (error) {
+           console.log("error:", error);
           
-        // }
+         }
       };
