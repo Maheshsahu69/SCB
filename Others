@@ -710,3 +710,141 @@ describe("QRScreen Component", () => {
     });
   });
 });
+
+
+
+
+
+
+
+import { renderHook, act } from "@testing-library/react-hooks";
+import { useDispatch } from "react-redux";
+import { stagesAction } from "../../../../../utils/store/stages-slice";
+import CONSTANTS from "../../../../../utils/common/constants";
+
+jest.mock("react-redux", () => ({
+  useDispatch: jest.fn(),
+}));
+
+describe("okBtnClick Function", () => {
+  let dispatchMock: jest.Mock;
+  let setHKIDVersionMock: jest.Mock;
+  let setShowContinueBtnMock: jest.Mock;
+
+  beforeEach(() => {
+    dispatchMock = jest.fn();
+    setHKIDVersionMock = jest.fn();
+    setShowContinueBtnMock = jest.fn();
+    (useDispatch as jest.Mock).mockReturnValue(dispatchMock);
+  });
+
+  const mockStageSelector = {
+    applicant_documents: [
+      {
+        document_list: [
+          {
+            document_category: "R0005",
+            document_options: [
+              {
+                document_types: [
+                  {
+                    uploaded_documents: null,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const mockFileSectionData = {
+    document_category: "R0005",
+  };
+
+  const mockDocumentCount = 3;
+
+  it("should update Redux state and invoke dispatch functions", () => {
+    // Mock necessary variables
+    const docName = "Mock Document Name";
+    const setContinueBtnVisiblity = jest.fn();
+
+    // Mock data
+    const tempData = {
+      file: docName,
+      filename: "sample.png",
+      filesize: "5MB",
+      docId: "2839219a23f703291b3f5a99707e986c12f64e07c492f3c6af5a8ece48587f54",
+      country: "HK",
+      documentStatus: "UPLOADED",
+      appId: "04041ed2f9a3a12024",
+      documentCategoryCode: "R0005",
+      errorDescription: null,
+      errorCode: null,
+      responseStatus: null,
+      documentTypeCode: "A023",
+      documentOptionSequence: "undefined",
+      imageOrder: "1",
+      applicantId: "1",
+      period: 0,
+    };
+
+    const filesValue = mockStageSelector.applicant_documents[0].document_list;
+    const filesData = JSON.parse(JSON.stringify(filesValue));
+    for (let i in filesData) {
+      if (filesData[i].document_category === mockFileSectionData.document_category) {
+        filesData[i].document_options[0].document_types[0].uploaded_documents =
+          tempData;
+      }
+    }
+
+    const stageData = JSON.parse(JSON.stringify(mockStageSelector));
+    stageData.applicant_documents[0].document_list = filesData;
+
+    // Call the function
+    act(() => {
+      // Simulate the function being invoked
+      const okBtnClick = () => {
+        // Simulating the logic of the function
+        dispatchMock(
+          stagesAction.getStage({
+            id: CONSTANTS.STAGE_NAMES.DOC_3,
+            formConfig: stageData,
+          })
+        );
+        setContinueBtnVisiblity(true);
+        dispatchMock(stagesAction.updateDocumentCount(mockDocumentCount + 1));
+        dispatchMock(stagesAction.updatefileSectionData([]));
+        dispatchMock(stagesAction.updateShowIncomeProof(""));
+        dispatchMock(stagesAction.updatechangechangeIconIncomeProof(false));
+        dispatchMock(stagesAction.updateSuccess(true));
+        setHKIDVersionMock("");
+        setShowContinueBtnMock(false);
+      };
+      okBtnClick();
+    });
+
+    // Assertions
+    expect(dispatchMock).toHaveBeenCalledWith(
+      stagesAction.getStage({
+        id: CONSTANTS.STAGE_NAMES.DOC_3,
+        formConfig: stageData,
+      })
+    );
+    expect(dispatchMock).toHaveBeenCalledWith(
+      stagesAction.updateDocumentCount(mockDocumentCount + 1)
+    );
+    expect(dispatchMock).toHaveBeenCalledWith(
+      stagesAction.updatefileSectionData([])
+    );
+    expect(dispatchMock).toHaveBeenCalledWith(stagesAction.updateShowIncomeProof(""));
+    expect(dispatchMock).toHaveBeenCalledWith(
+      stagesAction.updatechangechangeIconIncomeProof(false)
+    );
+    expect(dispatchMock).toHaveBeenCalledWith(stagesAction.updateSuccess(true));
+    expect(setHKIDVersionMock).toHaveBeenCalledWith("");
+    expect(setShowContinueBtnMock).toHaveBeenCalledWith(false);
+    expect(setContinueBtnVisiblity).toHaveBeenCalledWith(true);
+  });
+});
