@@ -466,3 +466,247 @@ const QRScreen: React.FC<any> = ({
 };
 
 export default QRScreen;
+
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import QRScreen from "../QRScreen";
+import * as preApprovalServices from "../../../services/preApprovalPostServices";
+import * as commonService from "../../../../../services/common-service";
+import { stagesAction } from "../../../../../utils/store/stages-slice";
+
+// Mock images
+jest.mock("../images-du/illustration-03@3x.png", () => "mockBanner1");
+jest.mock("../images-du/illustration-06@3x.png", () => "mockBanner2");
+jest.mock("../images-du/illustration-05@3x.png", () => "mockBanner3");
+jest.mock("../images-du/illustration-02@3x.png", () => "mockBanner4");
+jest.mock("../images-du/illustration-01@3x.png", () => "mockBanner5");
+jest.mock("../images-du/illustration-04@3x.png", () => "mockBanner6");
+
+// Mock API calls
+jest.mock("../../../services/preApprovalPostServices", () => ({
+  postQRCodeZOLO: jest.fn(),
+  postZOLOCheck: jest.fn(),
+  postZolozAcknowledge: jest.fn(),
+  postPdfPreview: jest.fn(),
+}));
+
+// Mock dispatch actions
+jest.mock("../../../../../services/common-service", () => ({
+  dispatchLoader: jest.fn(),
+  dispatchError: jest.fn(),
+}));
+
+const middlewares = [thunk];
+const mockStore = configureStore(middlewares);
+
+describe("QRScreen Component", () => {
+  let store: any;
+  let mockDispatch: jest.Mock;
+
+  beforeEach(() => {
+    mockDispatch = jest.fn();
+    store = mockStore({
+      stages: {
+        dynamicDocumentsUpload: {
+          showUploadFileSuccess: false,
+          HKIDQRCodeData: { qrCode: "mockQRCode", transactionId: "12345" },
+          HKIDVersionValue: "mockVersion",
+          fileSectionData: {},
+          documentCount: 1,
+          showIncomeProof: false,
+        },
+        stages: [
+          {
+            stageInfo: {
+              applicant_documents: [
+                {
+                  document_list: [
+                    {
+                      document_category: "R0001",
+                      document_options: [
+                        {
+                          document_types: [
+                            {
+                              document_type_code: "A001",
+                              uploaded_documents: null,
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+      preApproval: {
+        imgPrevURL: "mockImageURL",
+        documentZoloCheckRes: {
+          data: {
+            documents: [
+              { documentName: "mockDocument", docId: "mockDocId" },
+            ],
+          },
+        },
+      },
+    });
+
+    store.dispatch = mockDispatch;
+  });
+
+  it("renders QRScreen correctly", () => {
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    expect(screen.getByText("Colour Identity Proof")).toBeInTheDocument();
+    expect(screen.getByAltText("ORError")).toBeInTheDocument();
+    expect(screen.getByText("© Standard Chartered Bank (HK) Limited")).toBeInTheDocument();
+  });
+
+  it("calls postQRCodeZOLO API on component mount", async () => {
+    (preApprovalServices.postQRCodeZOLO as jest.Mock).mockResolvedValue({
+      status: 200,
+      data: { qrCode: "mockQRCodeData" },
+    });
+
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(preApprovalServices.postQRCodeZOLO).toHaveBeenCalled();
+    });
+  });
+
+  it("handles Submit button click and API success", async () => {
+    (preApprovalServices.postZOLOCheck as jest.Mock).mockResolvedValue({
+      data: {
+        documents: [{ docId: "mockDocId", document_type_code: "A001" }],
+      },
+    });
+
+    (preApprovalServices.postZolozAcknowledge as jest.Mock).mockResolvedValue({
+      data: [{ responseStatus: "Success" }],
+    });
+
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText("Submit"));
+
+    await waitFor(() => {
+      expect(preApprovalServices.postZOLOCheck).toHaveBeenCalled();
+      expect(preApprovalServices.postZolozAcknowledge).toHaveBeenCalled();
+      expect(mockDispatch).toHaveBeenCalledWith(
+        stagesAction.updateshowUploadFileSuccess(true)
+      );
+    });
+  });
+
+  it("handles API error when submitting", async () => {
+    (preApprovalServices.postZOLOCheck as jest.Mock).mockRejectedValue(
+      new Error("API Error")
+    );
+
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText("Submit"));
+
+    await waitFor(() => {
+      expect(preApprovalServices.postZOLOCheck).toHaveBeenCalled();
+      expect(commonService.dispatchError).toHaveBeenCalled();
+    });
+  });
+
+  it("closes file upload section when Close button is clicked", () => {
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByText("CLOSE"));
+
+    expect(mockDispatch).toHaveBeenCalledWith(
+      stagesAction.updatefileSectionData([])
+    );
+  });
+
+  it("opens image preview modal when document is uploaded", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        dynamicDocumentsUpload: {
+          showUploadFileSuccess: true,
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByTestId("image-preview"));
+
+    expect(screen.getByTestId("image-preview")).toBeInTheDocument();
+  });
+
+  it("renders Continue button after successful file upload", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        dynamicDocumentsUpload: {
+          showUploadFileSuccess: true,
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <QRScreen setHKIDVersion={jest.fn()} setShowContinueBtn={jest.fn()} />
+      </Provider>
+    );
+
+    const continueButton = screen.getByText("Continue");
+    expect(continueButton).toBeInTheDocument();
+
+    fireEvent.click(continueButton);
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(
+        stagesAction.updateSuccess(true)
+      );
+    });
+  });
+});
