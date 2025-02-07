@@ -1,35 +1,32 @@
- <label htmlFor={props.data.logical_field_name}>
-          {props.data.rwb_label_name}
-        </label>
-        <div
-          className={`multi-select__field`}
-          onClick={(e) => dropdownHandler(e)}
-          onFocus={focusHandler.bind(this, props.data.logical_field_name)}
-        >
-          {selectedValue &&
-            selectedValue.length > 0 &&
-            selectedValue.map((item: LovInputValModel) => {
-              return (
-                <span
-                  className="multi-select__fieldlabel"
-                  key={item.CODE_VALUE}
-                >
-                  <span>{item.CODE_DESC}</span>
-                  <span
-                    className="multi-close"
-                    onClick={(
-                      event: React.MouseEvent<HTMLDivElement, MouseEvent>
-                    ) => removeSelectedValues(event, item)}
-                  ></span>
-                </span>
-              );
-            })}
-          {!(selectedValue && selectedValue.length > 0) && (
-            <input
-              type="text"
-              className="dropdown-select__input"
-              id={fieldIdAppend(props)}
-              placeholder={placeholder}
-            />
-          )}
-        </div>
+ const data = [
+    {
+      loanAmount: "1.$5,000-$199,999",
+      monthlyFlatRate: ["0.3100%", "0.3100%", "0.3100%", "0.3120%", "0.3150%"],
+      monthlyRepayment: ["$86.43", "$44.77", "$30.88", "$23.95", "$19.82"],
+      apr: ["7.01%", "7.22%", "7.23%", "7.25%", "7.26%"],
+    },
+    {
+      loanAmount: "2.$200,000-$499,999",
+      monthlyFlatRate: ["0.2700%", "0.2700%", "0.2310%", "0.2320%", "0.2330%"],
+      monthlyRepayment: ["$86.03", "$44.57", "$30.48", "$23.54", "$19.40"],
+      apr: ["6.09%", "6.28%", "6.31%", "6.31%", "6.31%"],
+    },
+    {
+      loanAmount: "3.$500,000-$699,999",
+      monthlyFlatRate: ["0.2300%", "0.2300%", "0.2310%", "0.2320%", "0.2330%"],
+      monthlyRepayment: ["$85.63", "$43.97", "$30.09", "$23.15", "$19.00"],
+      apr: ["5.18%", "5.34%", "5.39%", "5.40%", "5.40%"],
+    },
+    {
+      loanAmount: "4. $700,000-$1,499,999",
+      monthlyFlatRate: ["0.2300%", "0.2300%", "0.2310%", "0.2310%", "0.2320%"],
+      monthlyRepayment: ["$85.63", "$43.97", "$30.08", "$23.14", "$18.99"],
+      apr: ["5.18%", "5.34%", "5.37%", "5.38%", "5.38%"],
+    },
+    {
+      loanAmount: "5. $1,500,000 or above",
+      monthlyFlatRate: ["0.0830", "0.2200%", "0.2200%", "0.2200%", "0.2210%"],
+      monthlyRepayment: ["$ 84.16", "$ 43.87", "$ 29.98", "$ 23.03", "$ 18.88"],
+      apr: ["1.85%", "5.13%", "5.13%", "5.11%", "5.13%"],
+    },
+  ];
