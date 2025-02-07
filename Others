@@ -30,3 +30,48 @@
       apr: ["1.85%", "5.13%", "5.13%", "5.11%", "5.13%"],
     },
   ];
+
+
+
+
+
+
+
+<table border={1} cellPadding="10" cellSpacing="0">
+          <thead>
+            <tr>
+              <th>Loan Amount</th>
+              <th></th> {/* Empty header for Monthly Flat Rate, Repayment, APR below */}
+              <th>12 Months</th>
+              <th>24 Months</th>
+              <th>36 Months</th>
+              <th>48 Months</th>
+              <th>60 Months</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row: { loanAmount: string | number | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | React.ReactFragment | React.ReactPortal | null | undefined; monthlyFlatRate: any[]; monthlyRepayment: any[]; apr: any[]; }, index: React.Key | null | undefined) => (
+              <React.Fragment key={index}>
+                <tr>
+                  <td rowSpan={3}>{row.loanAmount}</td>
+                  <td>Monthly Flat Rate</td>
+                  {row.monthlyFlatRate.map((rate, i) => (
+                    <td key={i}>{rate}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <td>Monthly Repayment (HKD)</td>
+                  {row.monthlyRepayment.map((repayment, i) => (
+                    <td key={i}>{repayment}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <td>APR</td>
+                  {row.apr.map((apr, i) => (
+                    <td key={i}>{apr}</td>
+                  ))}
+                </tr>
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
