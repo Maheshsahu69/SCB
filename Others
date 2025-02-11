@@ -1612,3 +1612,234 @@ const Fields = (props: KeyWithAnyModel) => {
 };
 
 export default React.memo(Fields);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Fields from "../fields";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { ContinueBtnAction } from "../../../utils/store/continue-validation-slice";
+import { CONSTANTS } from "../../../utils/common/constants";
+
+// Mock store setup
+const mockStore = configureStore([]);
+let store: any;
+
+beforeEach(() => {
+  store = mockStore({
+    stages: {
+      stages: [{ stageId: CONSTANTS.STAGE_NAMES.PD_1, stageInfo: {} }],
+      currentStage: CONSTANTS.STAGE_NAMES.PD_1,
+      userInput: { applicants: [{ work_type: "S001" }] },
+    },
+    valueUpdate: { value: false },
+    error: { submit: false },
+    fielderror: { mandatoryFields: [] },
+    continueBtnSlice: { continueEnable: true },
+  });
+  store.dispatch = jest.fn(); // Mock dispatch function
+});
+
+// Utility function to render component with Redux store
+const renderComponent = () => {
+  return render(
+    <Provider store={store}>
+      <Fields />
+    </Provider>
+  );
+};
+
+describe("Fields Component", () => {
+  test("renders form correctly", () => {
+    renderComponent();
+    expect(screen.getByRole("form")).toBeInTheDocument();
+  });
+
+  test("renders the footer buttons", () => {
+    renderComponent();
+    expect(screen.getByText("Continue")).toBeInTheDocument();
+  });
+
+  test("dispatches correct action on form submission", async () => {
+    renderComponent();
+    fireEvent.submit(screen.getByRole("form"));
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: stagesAction.setOtpShow.type,
+        })
+      );
+    });
+  });
+
+  test("displays loading spinner on submission", async () => {
+    renderComponent();
+    fireEvent.submit(screen.getByRole("form"));
+    expect(screen.getByTestId("spinner")).toBeInTheDocument();
+  });
+
+  test("handles back button click", async () => {
+    renderComponent();
+    fireEvent.click(screen.getByText("Back"));
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: stagesAction.updateStageId.type,
+        })
+      );
+    });
+  });
+
+  test("updates input values correctly", async () => {
+    renderComponent();
+    const input = screen.getByLabelText("Full Name");
+    fireEvent.change(input, { target: { value: "John Doe" } });
+    expect(input).toHaveValue("John Doe");
+  });
+
+  test("validates mandatory fields", async () => {
+    store = mockStore({
+      ...store.getState(),
+      fielderror: { mandatoryFields: ["full_name"] },
+    });
+    renderComponent();
+    fireEvent.submit(screen.getByRole("form"));
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: fieldErrorAction.getFieldError.type,
+        })
+      );
+    });
+  });
+
+  test("navigates to next stage after submission", async () => {
+    renderComponent();
+    fireEvent.submit(screen.getByRole("form"));
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: stagesAction.updateStageId.type,
+        })
+      );
+    });
+  });
+
+  test("handles validation for missing fields", async () => {
+    store = mockStore({
+      ...store.getState(),
+      fielderror: { mandatoryFields: ["some_mandatory_field"] },
+    });
+    renderComponent();
+    fireEvent.submit(screen.getByRole("form"));
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: fieldErrorAction.getMandatoryFields.type,
+        })
+      );
+    });
+  });
+
+  test("updates checkbox status correctly", async () => {
+    renderComponent();
+    const checkbox = screen.getByLabelText("Accept Terms");
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
+  });
+
+  test("displays error messages when form validation fails", async () => {
+    store = mockStore({
+      ...store.getState(),
+      fielderror: { error: ["Error message"] },
+    });
+    renderComponent();
+    expect(screen.getByText("Error message")).toBeInTheDocument();
+  });
+
+  test("triggers form validation when fields change", async () => {
+    renderComponent();
+    const input = screen.getByLabelText("Full Name");
+    fireEvent.change(input, { target: { value: "" } });
+    fireEvent.blur(input);
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: fieldErrorAction.getFieldError.type,
+        })
+      );
+    });
+  });
+
+  test("handles conditional field updates", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        conditionalFields: { newFields: { some_field: "" } },
+      },
+    });
+    renderComponent();
+    expect(screen.getByLabelText("some_field")).toBeInTheDocument();
+  });
+
+  test("handles API error responses gracefully", async () => {
+    store = mockStore({
+      ...store.getState(),
+      error: { submit: true },
+    });
+    renderComponent();
+    expect(store.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: fieldErrorAction.getExceptionList.type,
+      })
+    );
+  });
+
+  test("updates Redux store on form submission", async () => {
+    renderComponent();
+    fireEvent.submit(screen.getByRole("form"));
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: stagesAction.getStage.type,
+        })
+      );
+    });
+  });
+
+  test("displays confirmation message after submission", async () => {
+    store = mockStore({
+      ...store.getState(),
+      error: { submit: true },
+    });
+    renderComponent();
+    expect(screen.getByText("Thank you for your submission")).toBeInTheDocument();
+  });
+});
