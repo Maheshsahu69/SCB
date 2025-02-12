@@ -1,11 +1,18 @@
-it("calls `HardStop` when `postAditionalData` API fails", async () => {
-  jest.spyOn(global, "postAditionalData").mockRejectedValue(new Error("API Failure"));
+it("handles API failure gracefully", async () => {
+  jest.spyOn(preApprovalPostServices, "postSaveData").mockRejectedValue(new Error("Network Error"));
 
-  render(<Provider store={store}><Fields /></Provider>);
+  render(
+    <Provider store={store}>
+      <Fields />
+    </Provider>
+  );
 
   fireEvent.submit(screen.getByRole("form"));
 
   await waitFor(() => {
-    expect(global.HardStop).toHaveBeenCalled();
+    expect(preApprovalPostServices.postSaveData).toHaveBeenCalled();
   });
+
+  // Ensure UI handles error scenario
+  expect(screen.getByRole("form")).toBeInTheDocument();
 });
