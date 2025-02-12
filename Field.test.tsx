@@ -324,3 +324,244 @@ window.HTMLElement.prototype.scrollTo = function() {};
 
 
 });
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import Fields from "./fields";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { CONSTANTS } from "../../../utils/common/constants";
+import * as preApprovalPostServices from "../../../modules/preApproval/services/preApprovalPostServices";
+import * as fieldsUtils from "./fields.utils";
+import * as stageUtils from "./stage.utils";
+
+// Mock API Calls
+jest.mock("../../../modules/preApproval/services/preApprovalPostServices", () => ({
+  postSaveData: jest.fn(),
+  postFulFilmentData: jest.fn(),
+}));
+
+// Mock Redux Actions
+jest.mock("../../../utils/store/stages-slice", () => ({
+  stagesAction: {
+    updateStageId: jest.fn(),
+    modifyStage: jest.fn(),
+    getStage: jest.fn(),
+    resetCurrentStage: jest.fn(),
+    setOtpShow: jest.fn(),
+  },
+}));
+jest.mock("../../../utils/store/field-error-slice", () => ({
+  fieldErrorAction: {
+    getMandatoryFields: jest.fn(),
+    getFieldError: jest.fn(),
+    removeToggleFieldError: jest.fn(),
+  },
+}));
+
+// Configure mock store with thunk middleware
+const mockStore = configureStore([thunk]);
+
+describe("Fields Component Dispatch Actions", () => {
+  let store: any, dispatchSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [
+          {
+            stageId: CONSTANTS.STAGE_NAMES.LD_1,
+            stageInfo: {
+              fieldMetaData: {
+                data: {
+                  stages: [
+                    { id: "pd-1", name: "Personal Details" },
+                    { id: "ad-1", name: "Address Details" },
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        userInput: {
+          applicants: [{ work_type: "S001" }],
+        },
+        parentChildFields: {
+          selectFields: [],
+          addSelectFields: [],
+          deleteSelectFields: [],
+        },
+        conditionalFields: { newFields: {} },
+        currentStage: "pd-1",
+        journeyType: "type",
+      },
+      fielderror: { mandatoryFields: [], error: [] },
+      valueUpdate: { value: false, changesUpdate: { changes: false } },
+      error: { submit: false },
+      continueBtnSlice: { continueEnable: false },
+      preApproval: { currentStage: "pd-1", formConfigmetaData: {} },
+    });
+
+    dispatchSpy = jest.spyOn(store, "dispatch");
+    jest.clearAllMocks();
+  });
+
+  it("dispatches `updateStageId` on back button click", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const backButton = screen.getByTestId("footer");
+    fireEvent.click(backButton);
+
+    expect(stagesAction.updateStageId).toHaveBeenCalled();
+  });
+
+  it("dispatches `modifyStage` when field input changes", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const inputField = document.createElement("input");
+    inputField.setAttribute("name", "test-field");
+    document.body.appendChild(inputField);
+
+    fireEvent.change(inputField, { target: { value: "New Value" } });
+
+    expect(stagesAction.modifyStage).toHaveBeenCalledWith({
+      fieldData: { fieldName: "test-field", value: "New Value" },
+      currentStageSection: { data: {} },
+    });
+  });
+
+  it("dispatches `getMandatoryFields` on form validation", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    expect(fieldErrorAction.getMandatoryFields).toHaveBeenCalled();
+  });
+
+  it("dispatches `setOtpShow` when stage is PD_1 and continue button is clicked", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "pd-1", stageInfo: {} }],
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(stagesAction.setOtpShow).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it("dispatches `postSaveData` when continue button is clicked", async () => {
+    jest.spyOn(preApprovalPostServices, "postSaveData").mockResolvedValue({
+      status: 200,
+      data: { application: { response_action: "SUCCESS" } },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(preApprovalPostServices.postSaveData).toHaveBeenCalled();
+    });
+  });
+
+  it("dispatches `resetCurrentStage` when stage changes", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(stagesAction.resetCurrentStage).toHaveBeenCalled();
+  });
+
+  it("dispatches `getLovMissing` when stage changes", () => {
+    jest.spyOn(fieldsUtils, "getLovMissing");
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(fieldsUtils.getLovMissing).toHaveBeenCalled();
+  });
+
+  it("dispatches `getStageName` when back button is clicked", () => {
+    jest.spyOn(stageUtils, "getStageName");
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    const backButton = screen.getByTestId("footer");
+    fireEvent.click(backButton);
+
+    expect(stageUtils.getStageName).toHaveBeenCalled();
+  });
+
+  it("dispatches `removeToggleFieldError` on validation", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(fieldErrorAction.removeToggleFieldError).toHaveBeenCalled();
+    });
+  });
+
+  it("dispatches `postFulFilmentData` on final stage", async () => {
+    jest.spyOn(preApprovalPostServices, "postFulFilmentData").mockResolvedValue({
+      status: 200,
+      data: { application: { response_action: "SUCCESS" } },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(preApprovalPostServices.postFulFilmentData).toHaveBeenCalled();
+    });
+  });
+});
