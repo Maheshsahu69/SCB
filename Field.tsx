@@ -58,6 +58,8 @@ import {
 import Spinner from "../../../shared/components/spinner/spinner";
 import Close from "../../../shared/components/close/close";
 import FundDisbursement from "../../preApproval/commonComponents/fundDisbursement/fund-disbursement";
+import Model from "../../../shared/components/model/model";
+import { store } from "../../../utils/store/store";
 
 const Fields = (props: KeyWithAnyModel) => {
   const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
@@ -118,6 +120,8 @@ const Fields = (props: KeyWithAnyModel) => {
   const [backText, setBackText] = useState("Continue");
   const [stage, setStage] = useState(0);
   const workType = applicantsSelector.work_type;
+  const productType = stageSelector[0].stageInfo?.products[0].product_type;
+  const campaign = stageSelector[0].stageInfo?.products[0].campaign;
 
   useEffect(() => {
     let updateUserInputs = { ...userInputs };
@@ -224,6 +228,7 @@ const Fields = (props: KeyWithAnyModel) => {
 
   let mandatoryFields: Array<string> = [];
   let value: KeyStringModel = {};
+
   useEffect(() => {
     if (valueSelector.value !== false) {
       let FieldsIgnore = [
@@ -232,6 +237,8 @@ const Fields = (props: KeyWithAnyModel) => {
         "client_pl_sc_consent5",
         "client_pl_sc_consent",
         "client_sc_consent_title",
+        "client_sc_consent", 
+        "client_sc_consent2","sc_tips",
         "sc_tips_pl",
         "name_of_related_person",
         "relationship_of_related_person",
@@ -240,6 +247,10 @@ const Fields = (props: KeyWithAnyModel) => {
         "marketing_questionaires",
         "direct_marketing_opt_out",
         "marketing_opt_out",
+        "res_floor",
+        "res_block",
+        "off_floor",
+        "off_block","fill_in_note"
       ];
 
       if (
@@ -250,6 +261,20 @@ const Fields = (props: KeyWithAnyModel) => {
       ) {
         FieldsIgnore.push("business_est_date");
       }
+      if(userInputSelector.applicants[0]['id type']==='Passport'){
+        FieldsIgnore.push("HKID");
+        mandatoryFields.push('passport_no','country_of_issue','expiry_date');
+      } 
+      if(userInputSelector.applicants[0].priority_banking ==='Yes' && stageSelector[0].stageId==='ad-5'){
+        mandatoryFields.push('rewards_360_indicator');
+        FieldsIgnore.push('choice_label','priority_banking');
+      }
+      if(userInputSelector.applicants[0].priority_banking ==='No' && stageSelector[0].stageId==='ad-5'){
+        FieldsIgnore.push('choice_label','priority_banking','rewards_360_indicator');
+      } 
+      if(userInputSelector.applicants[0]['id type']==='HKID'){
+        FieldsIgnore.push("Passport");
+      }
       if (fields && fields["fields"] && fields["fields"].length > 0) {
         fields.fields.forEach((res: FieldsetModel) => {
           res.fields.forEach((fName: KeyWithAnyModel) => {
@@ -258,7 +283,6 @@ const Fields = (props: KeyWithAnyModel) => {
                 fName.mandatory === "Yes" ||
                 fName.mandatory === "Conditional"
               ) {
-                // if (fName.mandatory === "Yes" && fName.editable) {
                 let logicalFieldVal =
                   stageSelector[0].stageInfo.applicants[0][
                     fName.logical_field_name + "_a_1"
@@ -293,19 +317,6 @@ const Fields = (props: KeyWithAnyModel) => {
                     mandatoryFields.push(fName.logical_field_name);
                   }
                 }
-                // if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
-                //   if (userInputSelector.applicants[0].res_room_flat != '' || userInputSelector.applicants[0].res_block != ''||userInputSelector.applicants[0].res_floor != '' ) {
-                //     mandatoryFields.filter(item => item !== 'res_room_flat'&&'res_floor'&& 'res_block')// = ['res_block', 'res_floor'];
-                //   }
-                //   // else if ( userInputSelector.applicants[0].res_block != '' ) {
-                //   //   mandatoryFields.filter(item => item !=='res_room_flat' &&'res_floor')// = ['res_room_flat', 'res_floor'];
-                //   // }
-                //   // else if (userInputSelector.applicants[0].res_floor != '') {
-                //   //   mandatoryFields.filter(item => item !=='res_room_flat'&& 'res_block')// = ['res_room_flat', 'res_block'];
-                //   // }
-                //   // value[fName.logical_field_name] = fieldValue ? 'res_room_flat' : "";
-                //   // mandatoryFields.push(fName.logical_field_name);
-                // }
                 else {
                   value[fName.logical_field_name] = fieldValue
                     ? fieldValue
@@ -314,34 +325,38 @@ const Fields = (props: KeyWithAnyModel) => {
                 }
               } else {
                 if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
-                  // Check if any of the fields (res_floor, res_room_flat, res_block) are filled
                   const applicants = userInputSelector.applicants[0];
                   const resFloorValue = applicants.res_floor;
                   const resRoomFlatValue = applicants.res_room_flat;
                   const resBlockValue = applicants.res_block;
-
-                  // Remove the other two fields if res_floor is filled
-                  if (resFloorValue) {
-                    mandatoryFields = mandatoryFields.filter(
-                      (item) => item !== "res_room_flat" && item !== "res_block"
-                    );
-                  }
-                  // Remove the other two fields if res_room_flat is filled
-                  else if (resRoomFlatValue) {
-                    mandatoryFields = mandatoryFields.filter(
-                      (item) => item !== "res_floor" && item !== "res_block"
-                    );
-                  }
-                  // Remove the other two fields if res_block is filled
-                  else if (resBlockValue) {
-                    mandatoryFields = mandatoryFields.filter(
-                      (item) => item !== "res_room_flat" && item !== "res_floor"
-                    );
-                  }
-
                   // Add all three back to mandatory if none are filled
                   if (!resFloorValue && !resRoomFlatValue && !resBlockValue) {
                     mandatoryFields = [...mandatoryFields, "res_room_flat"];
+                  }
+                  else {
+                    mandatoryFields = mandatoryFields.filter(
+                      (item) => item !== "res_room_flat" && item !== "res_floor" && item !== "res_block"
+                    );
+                    dispatch(fieldErrorAction.removeToggleFieldError("res_floor"));
+                    dispatch(fieldErrorAction.removeToggleFieldError("res_block"));
+                  }
+                }
+                if (stageId === CONSTANTS.STAGE_NAMES.AD_3) {
+                  const applicants = userInputSelector.applicants[0];
+                  const offFloorValue = applicants.off_floor;
+                  const offRoomFlatValue = applicants.off_room_flat;
+                  const offBlockValue = applicants.off_block;
+                  // Add all three back to mandatory if none are filled
+
+                  if (!offFloorValue && !offRoomFlatValue && !offBlockValue) {
+                    mandatoryFields = [...mandatoryFields, "off_room_flat"];
+                  }
+                  else {
+                    mandatoryFields = mandatoryFields.filter(
+                      (item) => item !== "off_room_flat" && item !== "off_floor" && item !== "off_block"
+                    );
+                    dispatch(fieldErrorAction.removeToggleFieldError("off_floor"));
+                    dispatch(fieldErrorAction.removeToggleFieldError("off_block"));
                   }
                 }
               }
@@ -389,7 +404,7 @@ const Fields = (props: KeyWithAnyModel) => {
         resumeFlag
       )
     ).then((stage: string) => {
-      if (stage === "pd-1") {
+            if (stage === "pd-1") {
         dispatch(stagesAction.setOtpShow(true));
       }
       // if (stage === "rp") {
@@ -417,55 +432,77 @@ const Fields = (props: KeyWithAnyModel) => {
     let saveData: any = null;
     if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
       saveData = postBasicData();
-    } else {
+    }
+   else if(stageId === CONSTANTS.STAGE_NAMES.AD_7) {
+      saveData = dispatch(ibankEncrypt(userInputSelector))
+    }
+    else {
       saveData = postSaveData();
     }
-    saveData.then((res: any) => {
+      saveData.then((res: any) => {
       if (res.status === 200) {
-        let responseType = res.data.application.response_type.toUpperCase();
-        let responseAction = res.data.application.response_action.toUpperCase();
-        let statusText = "";
-        let statusCode = "";
-        if (res.data.application.application_status === "E01") {
-          statusText = "Technical Error";
-          statusCode = "E01";
-          dispatch(
-            errorAction.getError({
-              statusCode: statusCode,
-              statusText: statusText,
-            })
-          );
+        if(stageId === CONSTANTS.STAGE_NAMES.AD_7){
           setShowSpinner(false);
           let stageData = JSON.parse(
             JSON.stringify(stageSelector[0].stageInfo)
           );
-          stageData.application = res.data.application;
+          stageData.applicants[0]["password_a_1"] = "";
+          stageData.applicants[0]["securityNonce"] = "";
+          stageData.applicants[0]["is_banking_registered_a_1"] = "";
+          stageData.applicants[0]["ibankingregDate_a_1"] = "";
           dispatch(
             stagesAction.getStage({
-              id: Nextstage,
+              id: CONSTANTS.STAGE_NAMES.RP,
               formConfig: stageData,
             })
           );
         }
-        if (
-          responseAction === "SUCCESS" ||
-          responseType === "INFO" ||
-          (responseType === "SOFT" && responseAction === "CONTINUE")
-        ) {
-          setShowSpinner(false);
-          let stageData = JSON.parse(
-            JSON.stringify(stageSelector[0].stageInfo)
-          );
-          stageData.application = res.data.application;
-          stageData.applicants = [res.data.applicants];
-          dispatch(
-            stagesAction.getStage({
-              id: Nextstage,
-              formConfig: stageData,
-            })
-          );
-        } else {
-          HardStop(res);
+        else {
+          let responseType = res.data.application.response_type.toUpperCase();
+          let responseAction = res.data.application.response_action.toUpperCase();
+          let statusText = "";
+          let statusCode = "";
+          if (res.data.application.application_status === "E01") {
+            statusText = "Technical Error";
+            statusCode = "E01";
+            dispatch(
+              errorAction.getError({
+                statusCode: statusCode,
+                statusText: statusText,
+              })
+            );
+            setShowSpinner(false);
+            let stageData = JSON.parse(
+              JSON.stringify(stageSelector[0].stageInfo)
+            );
+            stageData.application = res.data.application;
+            dispatch(
+              stagesAction.getStage({
+                id: Nextstage,
+                formConfig: stageData,
+              })
+            );
+          }
+          if (
+            responseAction === "SUCCESS" ||
+            responseType === "INFO" ||
+            (responseType === "SOFT" && responseAction === "CONTINUE")
+          ) {
+            setShowSpinner(false);
+            let stageData = JSON.parse(
+              JSON.stringify(stageSelector[0].stageInfo)
+            );
+            stageData.application = res.data.application;
+            stageData.applicants = [res.data.applicants];
+            dispatch(
+              stagesAction.getStage({
+                id: Nextstage,
+                formConfig: stageData,
+              })
+            );
+          } else {
+            HardStop(res);
+          }
         }
       }
     });
@@ -479,6 +516,7 @@ const Fields = (props: KeyWithAnyModel) => {
     var errorResp = response.data.application.error;
     let statusText = "";
     let statusCode = "";
+    let errorCode=errorResp?.application_error[0]["rtobCode"];
     if (
       errorResp.application_error?.length > 0 ||
       errorResp.applicant_error?.length > 0 ||
@@ -515,7 +553,19 @@ const Fields = (props: KeyWithAnyModel) => {
     ) {
       setShowSpinner(false);
       if (responseAction === "STOP") {
-        responseAction = "DECLINE";
+        if(errorCode==="A55"){
+          responseAction = "DECLINERLS";
+        }else{
+          responseAction = "DECLINE";
+        }
+      }
+      else if (responseAction === 'RESUBMIT') {
+        if(errorCode ==="A20" || errorCode ==="A26"){
+          responseAction="ErrorCode";
+          statusCode=errorCode;
+        }else{
+          responseAction="RESUBMIT";
+        }
       }
       dispatch(stagesAction.updateStageId(PreviousStage));
       dispatch(
@@ -545,7 +595,7 @@ const Fields = (props: KeyWithAnyModel) => {
     }
   };
   const handleSubmit = (event: React.FormEvent<EventTarget>): void => {
-    setBackText("Continue");
+        setBackText("Continue");
 
     madatoryFieldSelector.forEach((data: string) => {
       if (userInputs[data]) {
@@ -553,7 +603,6 @@ const Fields = (props: KeyWithAnyModel) => {
         delete userInputs["first_name"];
         delete userInputs["marketing_tooltip"];
         delete userInputs["estatement_tooltip"];
-        // delete userInputs["res_building_estate_pt"]
       }
     });
 
@@ -573,13 +622,19 @@ const Fields = (props: KeyWithAnyModel) => {
         dispatch(stagesAction.setOtpShow(true));
         if (continueBtnSelector === true) {
           dispatch(stagesAction.setOtpShow(true));
-        }
+        }       
+      } else if (stageId === CONSTANTS.STAGE_NAMES.BD_1A && applicationJourney === "ETC") { 
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.AD_1A,
+          CONSTANTS.STAGE_NAMES.BD_1A
+        );
       } else if (stageId === CONSTANTS.STAGE_NAMES.BD_1A) {
         SetNextStageDetaisAfterSave(
           CONSTANTS.STAGE_NAMES.BD_1,
           CONSTANTS.STAGE_NAMES.BD_1A
         );
-      } else if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
+      } 
+      else if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
         SetNextStageDetaisAfterSave(
           CONSTANTS.STAGE_NAMES.AD_1,
           CONSTANTS.STAGE_NAMES.BD_1
@@ -591,34 +646,70 @@ const Fields = (props: KeyWithAnyModel) => {
         );
       } else if (stageId === CONSTANTS.STAGE_NAMES.AD_1A) {
         if (
-          applicantsSelector.work_type === "S105" ||
-          applicantsSelector.work_type === "S107" ||
-          applicantsSelector.work_type === "S108"
+          (applicantsSelector.work_type === "S105" || stageSelector[0].stageInfo.applicants[0].work_type_a_1 === "S105") ||
+          (applicantsSelector.work_type === "S107" || stageSelector[0].stageInfo.applicants[0].work_type_a_1 === "S107") ||
+          (applicantsSelector.work_type === "S108" || stageSelector[0].stageInfo.applicants[0].work_type_a_1 === "S108") 
         ) {
+          if(productType === '1241' && (campaign === "HKSPG17VAWV000"  || campaign === "HKSPB17VAWV000")) {
+            SetNextStageDetaisAfterSave(
+              CONSTANTS.STAGE_NAMES.AD_5,
+              CONSTANTS.STAGE_NAMES.AD_1A
+            );
+          } else {
           SetNextStageDetaisAfterSave(
             CONSTANTS.STAGE_NAMES.AD_6,
             CONSTANTS.STAGE_NAMES.AD_1A
           );
+        }
         } else {
           SetNextStageDetaisAfterSave(
             CONSTANTS.STAGE_NAMES.AD_2,
             CONSTANTS.STAGE_NAMES.AD_1A
           );
         }
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_2 && applicationJourney === "ETC") {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.AD_6,
+          CONSTANTS.STAGE_NAMES.AD_2
+        );
       } else if (stageId === CONSTANTS.STAGE_NAMES.AD_2) {
         SetNextStageDetaisAfterSave(
           CONSTANTS.STAGE_NAMES.AD_3,
           CONSTANTS.STAGE_NAMES.AD_2
         );
       } else if (stageId === CONSTANTS.STAGE_NAMES.AD_3) {
+        if(productType === '1241'){
+          SetNextStageDetaisAfterSave(
+            CONSTANTS.STAGE_NAMES.AD_5,
+            CONSTANTS.STAGE_NAMES.AD_3
+          );
+        } else {
+          SetNextStageDetaisAfterSave(
+            CONSTANTS.STAGE_NAMES.AD_6,
+            CONSTANTS.STAGE_NAMES.AD_3
+          );
+        }
+      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_5) {
         SetNextStageDetaisAfterSave(
           CONSTANTS.STAGE_NAMES.AD_6,
-          CONSTANTS.STAGE_NAMES.AD_3
+          CONSTANTS.STAGE_NAMES.AD_5
         );
       } else if (stageId === CONSTANTS.STAGE_NAMES.AD_6) {
+        if(productType === '1241' || productType === '1282'){
+          SetNextStageDetaisAfterSave(
+            CONSTANTS.STAGE_NAMES.AD_7,
+            CONSTANTS.STAGE_NAMES.AD_6
+          );
+        } else {
         SetNextStageDetaisAfterSave(
           CONSTANTS.STAGE_NAMES.RP,
           CONSTANTS.STAGE_NAMES.AD_6
+        );
+        }
+      }  else if (stageId === CONSTANTS.STAGE_NAMES.AD_7) {
+        SetNextStageDetaisAfterSave(
+          CONSTANTS.STAGE_NAMES.RP,
+          CONSTANTS.STAGE_NAMES.AD_7
         );
       } else if (stageId === CONSTANTS.STAGE_NAMES.RP) {
         dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_1));
@@ -644,7 +735,7 @@ const Fields = (props: KeyWithAnyModel) => {
                   formConfig: stageData,
                 })
               );
-              dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_1));
+              dispatch(stagesAction.updateStageId(CONSTANTS.STAGE_NAMES.ACD_1)); 
               await getOffer(res.data).then(async (offerResponse: any) => {
                 if (offerResponse.status === 200) {
                   let applicants = offerResponse.data.applicants;
@@ -695,6 +786,18 @@ const Fields = (props: KeyWithAnyModel) => {
                       if (
                         offerResponse.data.products[0].product_category === "PL"
                       ) {
+                        if(offerResponse.data.products[0].offer_details[0].bestOffer === "N") {
+                        dispatch(
+                          stagesAction.getStage({
+                            id: CONSTANTS.STAGE_NAMES.ACD_3,
+                            formConfig: stageData,
+                          })
+                        );
+                        setShowSpinner(false);
+                        dispatch(
+                          preApprovalAction.setCurrentStage("LD")
+                        );
+                      } else {
                         dispatch(
                           stagesAction.updateStageId(
                             CONSTANTS.STAGE_NAMES.ACD_2
@@ -708,12 +811,7 @@ const Fields = (props: KeyWithAnyModel) => {
                                 offerRes.data.application.response_type.toUpperCase();
                               let responseAction =
                                 offerRes.data.application.response_action.toUpperCase();
-                              if (
-                                responseAction === "SUCCESS" ||
-                                responseType === "INFO" ||
-                                (responseType === "SOFT" &&
-                                  responseAction === "CONTINUE")
-                              ) {
+                              if ( responseAction === "SUCCESS" || responseType === "INFO" || (responseType === "SOFT" && responseAction === "CONTINUE") ) {
                                 let stageData = Object.assign(
                                   {},
                                   stageSelector[0].stageInfo
@@ -730,28 +828,55 @@ const Fields = (props: KeyWithAnyModel) => {
                                 stageData.products = offerRes.data.products;
                                 stageData.applicant_documents =
                                   offerRes.data.applicant_documents;
-                                dispatch(
-                                  stagesAction.getStage({
-                                    id: CONSTANTS.STAGE_NAMES.ACD_3,
-                                    formConfig: stageData,
-                                  })
-                                );
-                                setShowSpinner(false);
-                                dispatch(
-                                  preApprovalAction.setCurrentStage("LD")
-                                );
-                                dispatch(
-                                  stagesAction.updateStageId(
-                                    CONSTANTS.STAGE_NAMES.ACD_3
-                                  )
-                                );
+                                let offer_status = offerRes.data.products[0].offer_details[1].offer_status;
+                                if ((offer_status === "1001" || offer_status === "1003") ) {
+                                  dispatch(
+                                    stagesAction.getStage({
+                                      id: CONSTANTS.STAGE_NAMES.ACD_3,
+                                      formConfig: stageData,
+                                    })
+                                  );
+                                  setShowSpinner(false);
+                                  dispatch(
+                                    preApprovalAction.setCurrentStage("LD")
+                                  );
+                                  dispatch(
+                                    stagesAction.updateStageId(
+                                      CONSTANTS.STAGE_NAMES.ACD_3
+                                    )
+                                  );
+                                }
+                                else if ((offer_status === "1004" || offer_status === "1002") ) {
+                                  setShowSpinner(false);
+                                  
+                                  let statusText = offerRes.data.products[0].offer_details[1].reason_code_descriptions[0].reason_description;
+                                  let statusCode = offerRes.data.products[0].offer_details[1].reason_code_descriptions[0].reason_code;
+                                  let responseAction= "DECLINE";
+                                  let responseType= "";
+                                  dispatch(
+                                    errorAction.getExceptionList([
+                                      {
+                                        statusCode: statusCode,
+                                        statusText: statusText,
+                                        responseAction,
+                                        responseType,
+                                      },
+                                    ])
+                                  );
+                                }
+                                else {
+                                  setShowSpinner(false);
+                                  dispatch(preApprovalAction.setCurrentStage("FFD"));
+                                }
                               } else {
                                 HardStop(offerRes);
                               }
                             }
                           }
                         );
-                      } else {
+                      }
+                    }
+                      else {
                         const pdfPreviewRes = await postPdfPreview(
                           channel_reference
                         );
@@ -759,8 +884,23 @@ const Fields = (props: KeyWithAnyModel) => {
                           pdfPreviewRes.status >= 200 &&
                           pdfPreviewRes.status < 300
                         ) {
-                          setShowSpinner(false);
-                          dispatch(preApprovalAction.setCurrentStage("FFD"));
+                          if (
+                            offerResponse.data.products[0].product_category === "CC"
+                          ) {
+                            setShowSpinner(false);
+                            dispatch(
+                              stagesAction.getStage({
+                                id: CONSTANTS.STAGE_NAMES.DOC_3,
+                                formConfig: stageData,
+                              })
+                            );
+                            <Model name="preApprovedBanner" />
+                            
+                          }
+                          else{
+                            setShowSpinner(false);
+                            dispatch(preApprovalAction.setCurrentStage("FFD"));
+                          }
                         } else {
                           setShowSpinner(false);
                           dispatch(preApprovalAction.setCurrentStage("FFD"));
@@ -804,19 +944,44 @@ const Fields = (props: KeyWithAnyModel) => {
                               stageData.products = offerRes.data.products;
                               stageData.applicant_documents =
                                 offerRes.data.applicant_documents;
-                              dispatch(
-                                stagesAction.getStage({
-                                  id: CONSTANTS.STAGE_NAMES.ACD_3,
-                                  formConfig: stageData,
-                                })
-                              );
-                              setShowSpinner(false);
-                              dispatch(preApprovalAction.setCurrentStage("LD"));
-                              dispatch(
-                                stagesAction.updateStageId(
-                                  CONSTANTS.STAGE_NAMES.ACD_3
-                                )
-                              );
+                              let offer_status = offerRes.data.products[0].offer_details[1].offer_status;
+                              if ((offer_status === "1001" || offer_status === "1003") ) {
+                                dispatch(
+                                  stagesAction.getStage({
+                                    id: CONSTANTS.STAGE_NAMES.ACD_3,
+                                    formConfig: stageData,
+                                  })
+                                );
+                                setShowSpinner(false);
+                                dispatch(preApprovalAction.setCurrentStage("LD"));
+                                dispatch(
+                                  stagesAction.updateStageId(
+                                    CONSTANTS.STAGE_NAMES.ACD_3
+                                  )
+                                );
+                              }
+                              else if ((offer_status === "1004" || offer_status === "1002") ) {
+                                setShowSpinner(false);
+                                let statusText = offerRes.data.products[0].offer_details[1].reason_code_descriptions[0].reason_description;
+                                let statusCode = offerRes.data.products[0].offer_details[1].reason_code_descriptions[0].reason_code;
+                                let responseAction= "DECLINE";
+                                let responseType= "";
+                                dispatch(
+                                  errorAction.getExceptionList([
+                                    {
+                                      statusCode: statusCode,
+                                      statusText: statusText,
+                                      responseAction,
+                                      responseType,
+                                    },
+                                  ])
+                                );
+                              }
+                              else {
+                                setShowSpinner(false);
+                                dispatch(preApprovalAction.setCurrentStage("FFD"));
+                              }
+                              
                             } else {
                               HardStop(offerRes);
                             }
@@ -832,9 +997,41 @@ const Fields = (props: KeyWithAnyModel) => {
                     ) {
                       setShowSpinner(false);
                       dispatch(preApprovalAction.setCurrentStage("FFD"));
-                    } else {
+                    } 
+                    else if((offer_status === "1004" || offer_status === "1002") &&
+                    offerResponse.data.products[0].product_category ===
+                      "CC" ){
                       setShowSpinner(false);
-                      dispatch(preApprovalAction.setCurrentStage("FFD"));
+                      //card decline pop up
+                      dispatch(
+                        errorAction.getExceptionList([
+                          {
+                            statusCode: "",
+                            statusText: "",
+                            responseAction:"DECLINE",
+                            responseType,
+                          },
+                        ])
+                      );
+                    }
+                    else {
+                      if (
+                        offerResponse.data.products[0].product_category === "CC"
+                      ) {
+                        setShowSpinner(false);
+                        dispatch(
+                          stagesAction.getStage({
+                            id: CONSTANTS.STAGE_NAMES.DOC_3,
+                            formConfig: stageData,
+                          })
+                        );
+                        <Model name="preApprovedBanner" />
+                        
+                      }
+                      else{
+                        setShowSpinner(false);
+                        dispatch(preApprovalAction.setCurrentStage("FFD"));
+                      }
                     }
                   } else {
                     HardStop(offerResponse);
@@ -927,17 +1124,8 @@ const Fields = (props: KeyWithAnyModel) => {
             }
           }
         });
-      } else if (stageId === CONSTANTS.STAGE_NAMES.AD_3) {
-        if (continueBtnSelector) {
-          dispatch(ibankEncrypt(userInputSelector))
-            .then(() => {
-              submitSuccess();
-            })
-            .catch((error: AxiosError) => {
-              dispatchError(error);
-            });
-        }
-      } else {
+      } 
+      else {
         if (
           (resumeFlag.otpResume === true &&
             (continueBtnSelector === null || continueBtnSelector === true)) ||
@@ -957,28 +1145,7 @@ const Fields = (props: KeyWithAnyModel) => {
     }
     event.preventDefault();
   };
-  const roomFloorBlockValidation = (
-    fieldProps: KeyWithAnyModel,
-    childValue: string | number | null
-  ) => {
-    const { logical_field_name } = fieldProps;
 
-    // Relationships between fields
-    const relatedFields: any = {
-      res_room_flat: ["res_block", "res_floor"],
-      res_block: ["res_room_flat", "res_floor"],
-      res_floor: ["res_room_flat", "res_block"],
-    };
-
-    // Get the current state of the applicants
-    const applicants = userInputSelector.applicants[0];
-
-    // Check if the field is updated
-    if (childValue !== null && relatedFields[logical_field_name]) {
-      const fieldsToRemove = relatedFields[logical_field_name];
-      dispatch(fieldErrorAction.removeMandatoryFields(fieldsToRemove));
-    }
-  };
   const handleCallback = (
     fieldProps: KeyWithAnyModel,
     childData: string | number | null
@@ -992,8 +1159,6 @@ const Fields = (props: KeyWithAnyModel) => {
         madatoryFieldSelector &&
           madatoryFieldSelector.map((fieldName) => {
             let childValue = userInputSelector.applicants[0][fieldName];
-            stageId == CONSTANTS.STAGE_NAMES.BD_1 &&
-              roomFloorBlockValidation(fieldProps, childValue);
             if (fieldName === fieldProps.logical_field_name) {
               setUserInputs((prevUser: KeyStringModel) => ({
                 ...prevUser,
@@ -1035,7 +1200,6 @@ const Fields = (props: KeyWithAnyModel) => {
         setUserInputs({});
       }
     }
-    // updateFormVlidation();
   };
 
   const handleFieldDispatch = (
@@ -1101,6 +1265,39 @@ const Fields = (props: KeyWithAnyModel) => {
       stageUpdate = CONSTANTS.STAGE_NAMES.AD_1;
     }
 
+    if (stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_1A && applicationJourney === "ETC") {
+      stageUpdate = CONSTANTS.STAGE_NAMES.BD_1A;
+    }
+
+    if (stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_6 && applicationJourney === "ETC") {
+      stageUpdate = CONSTANTS.STAGE_NAMES.AD_2;
+    }
+
+    if(stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_5  && productType === '1241') {
+      stageUpdate = CONSTANTS.STAGE_NAMES.AD_3
+    }
+    if(stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_6 && productType === '1241') {
+      stageUpdate = CONSTANTS.STAGE_NAMES.AD_5;
+    }
+    if (stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_6 || (stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_5 && productType === '1241')) {
+      if (
+        (applicantsSelector.work_type === "S105" || stageSelector[0].stageInfo.applicants[0].work_type_a_1 === "S105") ||
+          (applicantsSelector.work_type === "S107" || stageSelector[0].stageInfo.applicants[0].work_type_a_1 === "S107") ||
+          (applicantsSelector.work_type === "S108" || stageSelector[0].stageInfo.applicants[0].work_type_a_1 === "S108") 
+      ) {
+        stageUpdate = CONSTANTS.STAGE_NAMES.AD_1A;
+      }
+    }
+    if(stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_6 && productType === '1241' && (campaign === "HKSPG17VAWV000"  || campaign === "HKSPB17VAWV000")) {
+      stageUpdate = CONSTANTS.STAGE_NAMES.AD_5;
+    }
+    if(stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.RP) {
+      if(productType === '1241' || productType === '1282') {
+        stageUpdate = CONSTANTS.STAGE_NAMES.AD_7;
+      } else {
+        stageUpdate = CONSTANTS.STAGE_NAMES.AD_6;
+      }
+    }
     if (stageUpdate !== CONSTANTS.STAGE_NAMES.PD_1) {
       if (resumeSelector) {
         dispatch(
@@ -1123,16 +1320,8 @@ const Fields = (props: KeyWithAnyModel) => {
           value: "",
         })
       );
-      // dispatch(lovRequests(stageSelector[0].stageInfo, stageTo));
       pageScrollTop();
     }
-    // else {
-
-    //   if (stageSelector && stageSelector.length > 0) {
-
-    //     setFields(stageFields(stageSelector, stageId));
-    //   }
-    // }
   };
 
   const getUserInputData = () => {
@@ -1141,46 +1330,18 @@ const Fields = (props: KeyWithAnyModel) => {
     madatoryFieldSelector.forEach((data: string) => {
       if (userInputNew[data] && isUserInput) {
         isUserInput = true;
-        // delete userInputs[data];
-        // delete userInputs["first_name"];
-        // delete userInputs["marketing_tooltip"];
-        // delete userInputs["estatement_tooltip"];
-        // if (userInputs["investment_experience"]) {
-        //   delete userInputs["investment_experience"];
-        // }
       } else {
         isUserInput = false;
       }
     });
-    // var newUsersData = userInputs;
-    // for (let data in madatoryFieldSelector) {
-    //   if (newUsersData[data]) {
-    //     delete newUsersData[data];
-    //     delete newUsersData["first_name"];
-    //     delete newUsersData["marketing_tooltip"];
-    //     delete newUsersData["estatement_tooltip"];
-    //     if (newUsersData["investment_experience"]) {
-    //       delete newUsersData["investment_experience"];
-    //     }
-    //   }
-    // }
     return isUserInput;
   };
 
   const updateFormVlidation = () => {
-    //let newUserInputs = JSON.stringify(userInputs)
-
     if (madatoryFieldSelector && madatoryFieldSelector.length > 0) {
       let sortUserInputData: any = getUserInputData();
-      // if (!(Object.keys(sortUserInputData).length > 0)) {
-
       if (sortUserInputData && isFormValid && fieldErrorSelector.length === 0) {
-        //if (continueBtnSelector === false) {
         setRequiredFormValidation("form-valid");
-
-        // } else {
-        //   setRequiredFormValidation("form-valid");
-        // }
       } else if (
         stageSelector[0] &&
         stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_6
@@ -1194,66 +1355,59 @@ const Fields = (props: KeyWithAnyModel) => {
           userInputSelector.applicants[0].name_of_related_person;
         const relationship_of_related_person =
           userInputSelector.applicants[0].relationship_of_related_person;
-
-        if (otherLoans === "N" && relatedParty === "N") {
-          setRequiredFormValidation("form-valid");
-        } else if (
-          otherLoans === "Y" &&
-          (monthly_installment_mortgage_payment === "" ||
-            monthly_installment_mortgage_payment === null) &&
-          relatedParty === "N"
-        ) {
-          setRequiredFormValidation("form-invalid");
-        } else if (
-          otherLoans === "Y" &&
-          (monthly_installment_mortgage_payment !== "" ||
-            monthly_installment_mortgage_payment !== null) &&
-          relatedParty === "N"
-        ) {
-          setRequiredFormValidation("form-valid");
-        } else if (
-          relatedParty === "Y" &&
-          (name_of_related_person === "" || name_of_related_person === null) &&
-          (relationship_of_related_person === "" ||
-            relationship_of_related_person === null)
-        ) {
-          setRequiredFormValidation("form-invalid");
-        } else if (
-          relatedParty === "Y" &&
-          (name_of_related_person === "" || name_of_related_person === null)
-        ) {
-          setRequiredFormValidation("form-invalid");
-        } else if (
-          relatedParty === "Y" &&
-          (relationship_of_related_person === "" ||
-            relationship_of_related_person === null)
-        ) {
-          setRequiredFormValidation("form-invalid");
-        } else if (
-          relatedParty === "Y" &&
-          (name_of_related_person !== "" || name_of_related_person !== null) &&
-          (relationship_of_related_person !== "" ||
-            relationship_of_related_person !== null) &&
-          otherLoans === "N"
-        ) {
-          setRequiredFormValidation("form-valid");
-        } else if (otherLoans === "Y" && relatedParty === "Y") {
-          if (
-            monthly_installment_mortgage_payment !== "" ||
-            monthly_installment_mortgage_payment !== null ||
-            name_of_related_person !== "" ||
-            name_of_related_person !== null ||
-            relationship_of_related_person !== "" ||
-            relationship_of_related_person !== null
+         
+          if (otherLoans === 'N' && relatedParty === 'N') {
+            setRequiredFormValidation("form-valid");
+          }
+          else if (otherLoans === 'Y' && (monthly_installment_mortgage_payment === '' || monthly_installment_mortgage_payment === null || monthly_installment_mortgage_payment=== undefined)|| (monthly_installment_mortgage_payment && monthly_installment_mortgage_payment.trim().length < 3)) {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (otherLoans === 'Y' && (monthly_installment_mortgage_payment === '' || monthly_installment_mortgage_payment === null || monthly_installment_mortgage_payment=== undefined) && relatedParty === 'N') {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (otherLoans === 'Y' && (monthly_installment_mortgage_payment !== '' || monthly_installment_mortgage_payment !== null) && relatedParty === 'N' &&(fieldErrorSelector.length > 0)) {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (otherLoans === 'Y' && (monthly_installment_mortgage_payment !== '' || monthly_installment_mortgage_payment !== null) && relatedParty === 'N' &&(fieldErrorSelector.length === 0)) {
+            setRequiredFormValidation("form-valid");
+          }
+          else if (relatedParty === 'Y' && ((name_of_related_person === '' || name_of_related_person === null ||name_of_related_person===undefined) && (relationship_of_related_person === '' || relationship_of_related_person === null|| relationship_of_related_person=== undefined))) {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (relatedParty === 'Y' && ((name_of_related_person === '' || name_of_related_person === null || name_of_related_person === undefined) || name_of_related_person.trim().length < 3)) {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (relatedParty === 'Y' && (relationship_of_related_person === '' || relationship_of_related_person === null|| relationship_of_related_person === undefined)) {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (relatedParty === 'Y' && name_of_related_person.trim().length > 3 && ((name_of_related_person !== '' || name_of_related_person !== null )&& (relationship_of_related_person !== '' || relationship_of_related_person !== null)) && otherLoans === 'N' 
+          &&(fieldErrorSelector.length === 0)
           ) {
             setRequiredFormValidation("form-valid");
-          } else {
+          }
+          else if (relatedParty === 'Y' && ((name_of_related_person !== '' || name_of_related_person !== null) && (relationship_of_related_person !== '' || relationship_of_related_person !== null)) && otherLoans === 'N' 
+          &&(fieldErrorSelector.length > 0)
+          ) {
+            setRequiredFormValidation("form-invalid");
+          }
+          else if (otherLoans === 'Y' && relatedParty === 'Y') {
+            if (((monthly_installment_mortgage_payment !== '' || monthly_installment_mortgage_payment !== null)
+           //  &&(monthly_installment_mortgage_payment.trim().length > 3)
+             &&(( name_of_related_person !== '' || name_of_related_person !== null)
+             &&( relationship_of_related_person !== '' || relationship_of_related_person !== null)))
+             &&(fieldErrorSelector.length === 0)
+            //  &&(name_of_related_person.trim().length > 3)
+            ){
+              setRequiredFormValidation("form-valid");
+            }
+            else {
+              setRequiredFormValidation("form-invalid");
+            }
+          }
+          else {
             setRequiredFormValidation("form-invalid");
           }
         } else {
-          setRequiredFormValidation("form-invalid");
-        }
-      } else {
         setRequiredFormValidation("form-invalid");
       }
     }
@@ -1269,6 +1423,14 @@ const Fields = (props: KeyWithAnyModel) => {
         if (userInputSelector.applicants[0].oth_bank_number?.length === 12) {
           setRequiredFormValidation("form-valid");
         }
+      }
+    }
+    if (
+      stageSelector[0] &&
+      stageSelector[0].stageId === CONSTANTS.STAGE_NAMES.AD_5
+    ) {
+      if(userInputSelector.applicants[0].priority_banking==="No"){
+        setRequiredFormValidation("form-valid");
       }
     }
   };
@@ -1350,7 +1512,7 @@ const Fields = (props: KeyWithAnyModel) => {
         stageId !== "ffd-1" &&
         stageId !== "ffd-2" && <Spinner type="saving" />}
       {!showSpinner && (
-        <form className="form" onSubmit={handleSubmit} onChange={validateForm}>
+        <form role="form" className="form" onSubmit={handleSubmit} onChange={validateForm}>
           {stageId === "ld-1" && (
             <FundDisbursement
               fields={fields?.fields}
