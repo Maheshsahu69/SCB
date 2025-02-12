@@ -16,3 +16,46 @@ it("does not proceed when mandatory fields are missing", async () => {
     expect(fieldErrorAction.getFieldError).toHaveBeenCalled();
   });
 });
+
+
+
+
+
+
+it("removes user input fields when mandatory fields are missing", async () => {
+  // Arrange: Store setup with mandatory fields
+  store = mockStore({
+    ...store.getState(),
+    fielderror: { mandatoryFields: ["first_name"], error: [] }, // Ensures loop runs
+  });
+
+  // Mock `userInputs` with values that should be deleted
+  let userInputs = {
+    first_name: "John",
+    marketing_tooltip: "tooltip data",
+    estatement_tooltip: "estatement data",
+    field1: "some value",
+  };
+
+  // Spy on setUserInputs to track state updates
+  const setUserInputsMock = jest.fn();
+  jest.spyOn(React, "useState").mockReturnValue([userInputs, setUserInputsMock]);
+
+  // Act: Render the component and submit form
+  render(<Provider store={store}><Fields /></Provider>);
+  fireEvent.submit(screen.getByRole("form"));
+
+  // Assert: Verify setUserInputs is called without the deleted fields
+  await waitFor(() => {
+    expect(setUserInputsMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        first_name: expect.anything(),
+        marketing_tooltip: expect.anything(),
+        estatement_tooltip: expect.anything(),
+      })
+    );
+  });
+
+  // Ensure validation error is triggered
+  expect(fieldErrorAction.getFieldError).toHaveBeenCalled();
+});
