@@ -1,104 +1,18 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { Provider } from "react-redux";
-import configureStore from "redux-mock-store";
-import YourComponent from "../path-to-your-component";
-import { stagesAction } from "../path-to-actions";
-
-const mockStore = configureStore([]);
-const store = mockStore({}); // Adjust the initial state accordingly
-
-describe("Conditional Flow Coverage", () => {
-  let mockDispatch;
-
-  beforeEach(() => {
-    mockDispatch = jest.fn();
-    store.dispatch = mockDispatch;
+it("does not proceed when mandatory fields are missing", async () => {
+  store = mockStore({
+    ...store.getState(),
+    fielderror: { mandatoryFields: ["first_name"], error: [] },
   });
 
-  test("dispatches setOtpShow when stageId is PD_1", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent stageId="PD_1" continueBtnSelector={true} />
-      </Provider>
-    );
+  render(
+    <Provider store={store}>
+      <Fields />
+    </Provider>
+  );
 
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(stagesAction.setOtpShow(true));
-    });
-  });
+  fireEvent.submit(screen.getByRole("form"));
 
-  test("handles BD_1A stage with ETC applicationJourney", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent stageId="BD_1A" applicationJourney="ETC" />
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with actual function
-    });
-  });
-
-  test("handles BD_1A stage without ETC", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent stageId="BD_1A" applicationJourney="NON_ETC" />
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with actual function
-    });
-  });
-
-  test("handles BD_1 stage", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent stageId="BD_1" />
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with actual function
-    });
-  });
-
-  test("handles AD_1A stage", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent stageId="AD_1A" />
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with actual function
-    });
-  });
-
-  test("handles AD_1 stage", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent stageId="AD_1" />
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with actual function
-    });
-  });
-
-  test("handles AD_1A with work_type conditions", async () => {
-    render(
-      <Provider store={store}>
-        <YourComponent
-          stageId="AD_1A"
-          applicantsSelector={{ work_type: "S105" }}
-        />
-      </Provider>
-    );
-
-    await waitFor(() => {
-      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Replace with actual function
-    });
+  await waitFor(() => {
+    expect(fieldErrorAction.getFieldError).toHaveBeenCalled();
   });
 });
