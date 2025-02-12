@@ -18,3 +18,48 @@ it("dispatches `getFieldError` when userInputs is empty", async () => {
     expect(fieldErrorAction.getFieldError).toHaveBeenCalled();
   });
 });
+
+
+
+
+it("dispatches `setOtpShow` when `stageId` is PD_1", async () => {
+  store = mockStore({
+    ...store.getState(),
+    stages: {
+      ...store.getState().stages,
+      stages: [{ stageId: CONSTANTS.STAGE_NAMES.PD_1, stageInfo: {} }],
+    },
+  });
+
+  render(<Provider store={store}><Fields /></Provider>);
+
+  fireEvent.submit(screen.getByRole("form"));
+
+  await waitFor(() => {
+    expect(stagesAction.setOtpShow).toHaveBeenCalledWith(true);
+  });
+});
+
+
+it("calls `SetNextStageDetaisAfterSave` when stageId is AD_1A", async () => {
+  store = mockStore({
+    ...store.getState(),
+    stages: {
+      ...store.getState().stages,
+      stages: [{ stageId: CONSTANTS.STAGE_NAMES.AD_1A, stageInfo: {} }],
+    },
+  });
+
+  const setNextStageSpy = jest.spyOn(global, "SetNextStageDetaisAfterSave");
+
+  render(<Provider store={store}><Fields /></Provider>);
+
+  fireEvent.submit(screen.getByRole("form"));
+
+  await waitFor(() => {
+    expect(setNextStageSpy).toHaveBeenCalledWith(
+      CONSTANTS.STAGE_NAMES.AD_6,
+      CONSTANTS.STAGE_NAMES.AD_1A
+    );
+  });
+});
