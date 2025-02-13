@@ -151,3 +151,183 @@ useEffect(() => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fields, dispatch, valueSelector.value, stageSelector, userInputSelector]);
+
+
+
+
+
+
+import React from "react";
+import { render, screen, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import Fields from "./fields";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+
+const mockStore = configureStore([thunk]);
+
+describe("Fields Component - useEffect Coverage", () => {
+  let store: any;
+  let setUserInputsMock: jest.Mock;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [
+          {
+            stageId: "ad-5",
+            stageInfo: {
+              applicants: [{ "id type": "Passport", priority_banking: "Yes" }],
+            },
+          },
+        ],
+        userInput: {
+          applicants: [
+            {
+              work_type: "S001",
+              res_floor: "",
+              res_room_flat: "",
+              res_block: "",
+              priority_banking: "Yes",
+              "id type": "Passport",
+            },
+          ],
+        },
+        conditionalFields: { newFields: {} },
+        currentStage: "ad-5",
+      },
+      fielderror: { mandatoryFields: [], error: [] },
+      valueUpdate: { value: true },
+    });
+
+    setUserInputsMock = jest.fn();
+    jest.spyOn(React, "useState").mockReturnValue([{}, setUserInputsMock]);
+    jest.spyOn(store, "dispatch").mockImplementation(jest.fn());
+  });
+
+  it("removes ignored fields correctly", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(setUserInputsMock).toHaveBeenCalled();
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.getMandatoryFields(null)
+      );
+    });
+  });
+
+  it("adds passport fields to mandatoryFields when ID type is Passport", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.getMandatoryFields(
+          expect.arrayContaining(["passport_no", "country_of_issue", "expiry_date"])
+        )
+      );
+    });
+  });
+
+  it("adds rewards_360_indicator if priority banking is Yes", async () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.getMandatoryFields(
+          expect.arrayContaining(["rewards_360_indicator"])
+        )
+      );
+    });
+  });
+
+  it("removes unnecessary address fields when at BD_1 stage", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "bd-1", stageInfo: {} }],
+        userInput: {
+          applicants: [{ res_floor: "12", res_room_flat: "", res_block: "" }],
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.removeToggleFieldError("res_floor")
+      );
+    });
+  });
+
+  it("adds off_room_flat to mandatoryFields when all address fields are empty at AD_3 stage", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "ad-3", stageInfo: {} }],
+        userInput: {
+          applicants: [{ off_floor: "", off_room_flat: "", off_block: "" }],
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.getMandatoryFields(expect.arrayContaining(["off_room_flat"]))
+      );
+    });
+  });
+
+  it("removes off_floor and off_block from mandatoryFields when one of them is filled at AD_3", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: {
+        ...store.getState().stages,
+        stages: [{ stageId: "ad-3", stageInfo: {} }],
+        userInput: {
+          applicants: [{ off_floor: "5", off_room_flat: "", off_block: "" }],
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.removeToggleFieldError("off_floor")
+      );
+      expect(store.dispatch).toHaveBeenCalledWith(
+        fieldErrorAction.removeToggleFieldError("off_block")
+      );
+    });
+  });
+});
