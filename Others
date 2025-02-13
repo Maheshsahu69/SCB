@@ -151,3 +151,234 @@
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fields, dispatch, valueSelector.value, stageSelector, userInputSelector]);
+
+
+
+
+
+
+import { render } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Fields from "./fields";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+
+jest.mock("../../../utils/store/field-error-slice", () => ({
+  fieldErrorAction: {
+    getMandatoryFields: jest.fn(),
+    removeToggleFieldError: jest.fn(),
+  },
+}));
+
+const mockStore = configureStore([]);
+
+describe("Fields Component - useEffect Code Coverage", () => {
+  let store: any;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [{ stageId: "ad-5", stageInfo: { products: [{ product_type: "PL" }] } }],
+        userInput: { applicants: [{ work_type: "S001", priority_banking: "Yes", "id type": "Passport" }] },
+      },
+      valueUpdate: { value: true },
+      fielderror: { mandatoryFields: [], error: [] },
+    });
+
+    store.dispatch = jest.fn();
+  });
+
+  it("ignores HKID when id type is Passport", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["passport_no", "country_of_issue", "expiry_date"]))
+    );
+  });
+
+  it("adds 'rewards_360_indicator' as a mandatory field when priority banking is Yes", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["rewards_360_indicator"]))
+    );
+  });
+
+  it("removes business_est_date when workType is S001", () => {
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).not.toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["business_est_date"]))
+    );
+  });
+
+  it("ignores Passport when id type is HKID", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: { applicants: [{ "id type": "HKID" }] },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).not.toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["Passport"]))
+    );
+  });
+
+  it("excludes 'rewards_360_indicator' when priority banking is No", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: { applicants: [{ priority_banking: "No" }] },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).not.toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["rewards_360_indicator"]))
+    );
+  });
+
+  it("removes res_floor, res_block, and res_room_flat if at least one is filled", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: { applicants: [{ res_floor: "12A", res_block: "", res_room_flat: "" }] },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeToggleFieldError("res_floor")
+    );
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeToggleFieldError("res_block")
+    );
+  });
+
+  it("adds 'off_room_flat' as mandatory if all office address fields are empty", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: { applicants: [{ off_floor: "", off_room_flat: "", off_block: "" }] },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["off_room_flat"]))
+    );
+  });
+
+  it("removes 'off_room_flat' from mandatory fields if at least one field is filled", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: { applicants: [{ off_floor: "5F", off_room_flat: "", off_block: "" }] },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeToggleFieldError("off_floor")
+    );
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.removeToggleFieldError("off_block")
+    );
+  });
+
+  it("sets user inputs correctly when fields are populated", () => {
+    store = mockStore({
+      ...store,
+      valueUpdate: { value: true },
+      stages: {
+        ...store.stages,
+        userInput: {
+          applicants: [
+            {
+              "id type": "Passport",
+              work_type: "S001",
+              priority_banking: "Yes",
+              name_of_related_person: "John Doe",
+              relationship_of_related_person: "Brother",
+              other_loans: "Y",
+            },
+          ],
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      fieldErrorAction.getMandatoryFields(expect.arrayContaining(["passport_no", "country_of_issue", "expiry_date"]))
+    );
+  });
+
+  it("dispatches mandatory field updates when workType is S103", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: {
+          applicants: [{ work_type: "S103" }],
+        },
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <Fields />
+      </Provider>
+    );
+
+    expect(store.dispatch).toHaveBeenCalled();
+  });
+});
