@@ -16,3 +16,15 @@ it("handles API failure gracefully", async () => {
   // Ensure UI handles error scenario
   expect(screen.getByRole("form")).toBeInTheDocument();
 });
+
+
+
+    madatoryFieldSelector.forEach((data: string) => {
+        /*istanbul ignore else*/ 
+      if (userInputs[data]) {
+        delete userInputs[data];
+        delete userInputs["first_name"];
+        delete userInputs["marketing_tooltip"];
+        delete userInputs["estatement_tooltip"];
+      }
+    });
