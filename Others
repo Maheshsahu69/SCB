@@ -28,3 +28,76 @@ it("handles API failure gracefully", async () => {
         delete userInputs["estatement_tooltip"];
       }
     });
+
+
+
+
+it("removes specific fields when userInputs contains mandatory fields", async () => {
+  // Mock the Redux store with mandatory fields
+  store = mockStore({
+    ...store.getState(),
+    fielderror: { mandatoryFields: ["field1", "field2"] }, // Fields to check
+  });
+
+  let userInputs = {
+    field1: "value1",
+    field2: "value2",
+    first_name: "John",
+    marketing_tooltip: "Tooltip data",
+    estatement_tooltip: "E-statement data",
+  };
+
+  // Mock state setter
+  const setUserInputsMock = jest.fn();
+  jest.spyOn(React, "useState").mockReturnValue([userInputs, setUserInputsMock]);
+
+  render(<Provider store={store}><Fields /></Provider>);
+
+  fireEvent.submit(screen.getByRole("form"));
+
+  await waitFor(() => {
+    expect(setUserInputsMock).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        field1: expect.anything(),
+        field2: expect.anything(),
+        first_name: expect.anything(),
+        marketing_tooltip: expect.anything(),
+        estatement_tooltip: expect.anything(),
+      })
+    );
+  });
+});
+
+
+
+
+
+it("does not remove fields when userInputs does not contain mandatory fields", async () => {
+  store = mockStore({
+    ...store.getState(),
+    fielderror: { mandatoryFields: ["non_existent_field"] }, // Field that doesn't exist
+  });
+
+  let userInputs = {
+    first_name: "John",
+    marketing_tooltip: "Tooltip data",
+    estatement_tooltip: "E-statement data",
+  };
+
+  const setUserInputsMock = jest.fn();
+  jest.spyOn(React, "useState").mockReturnValue([userInputs, setUserInputsMock]);
+
+  render(<Provider store={store}><Fields /></Provider>);
+
+  fireEvent.submit(screen.getByRole("form"));
+
+  await waitFor(() => {
+    expect(setUserInputsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        first_name: "John",
+        marketing_tooltip: "Tooltip data",
+        estatement_tooltip: "E-statement data",
+      })
+    );
+  });
+});
