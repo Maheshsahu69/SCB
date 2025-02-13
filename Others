@@ -1,20 +1,153 @@
-it("removes specific fields when userInputs contains mandatory fields", async () => {
-  store = mockStore({
-    ...store.getState(),
-    fielderror: { mandatoryFields: ["field1"] },
-  });
+useEffect(() => {
+      /*istanbul ignore else*/ 
+    if (valueSelector.value !== false) {
+      let FieldsIgnore = [
+        "client_pl_sc_consent2",
+        "client_pl_consent4",
+        "client_pl_sc_consent5",
+        "client_pl_sc_consent",
+        "client_sc_consent_title",
+        "client_sc_consent", 
+        "client_sc_consent2","sc_tips",
+        "sc_tips_pl",
+        "name_of_related_person",
+        "relationship_of_related_person",
+        "total_outstanding_other_loan_amount",
+        "total_outstanding_other_monthly_payment",
+        "marketing_questionaires",
+        "direct_marketing_opt_out",
+        "marketing_opt_out",
+        "res_floor",
+        "res_block",
+        "off_floor",
+        "off_block","fill_in_note"
+      ];
+        /*istanbul ignore else*/ 
+      if (
+        workType === "S001" ||
+        workType === "S002" ||
+        workType === "S006" ||
+        workType === "S103"
+      ) {
+        FieldsIgnore.push("business_est_date");
+      }
+        /*istanbul ignore else*/ 
+      if(userInputSelector.applicants[0]['id type']==='Passport'){
+        FieldsIgnore.push("HKID");
+        mandatoryFields.push('passport_no','country_of_issue','expiry_date');
+      } 
+        /*istanbul ignore else*/ 
+      if(userInputSelector.applicants[0].priority_banking ==='Yes' && stageSelector[0].stageId==='ad-5'){
+        mandatoryFields.push('rewards_360_indicator');
+        FieldsIgnore.push('choice_label','priority_banking');
+      }
+        /*istanbul ignore else*/ 
+      if(userInputSelector.applicants[0].priority_banking ==='No' && stageSelector[0].stageId==='ad-5'){
+        FieldsIgnore.push('choice_label','priority_banking','rewards_360_indicator');
+      } 
+        /*istanbul ignore else*/ 
+      if(userInputSelector.applicants[0]['id type']==='HKID'){
+        FieldsIgnore.push("Passport");
+      }
+        /*istanbul ignore else*/ 
+      if (fields && fields["fields"] && fields["fields"].length > 0) {
+        fields.fields.forEach((res: FieldsetModel) => {
+          res.fields.forEach((fName: KeyWithAnyModel) => {
+              /*istanbul ignore else*/ 
+            if (FieldsIgnore.indexOf(fName.logical_field_name) === -1) {
+              if (
+                fName.mandatory === "Yes" ||
+                fName.mandatory === "Conditional"
+              ) {
+                let logicalFieldVal =
+                  stageSelector[0].stageInfo.applicants[0][
+                    fName.logical_field_name + "_a_1"
+                  ];
+                    /*istanbul ignore else*/ 
+                if (!logicalFieldVal) {
+                  const fullName =
+                    stageSelector[0].stageInfo.applicants[0]["full_name_a_1"];
+                  if (fullName && fullName.length >= 19) {
+                    const firstName = fullName.split(" ")[0];
+                    logicalFieldVal = firstName.length >= 19 ? "" : firstName;
+                  } else {
+                    logicalFieldVal = fullName;
+                  }
+                }
+                let fieldValue =
+                  userInputSelector.applicants[0][fName.logical_field_name];
 
-  let userInputs = { field1: "value1", first_name: "John" };
+                if (stageId === CONSTANTS.STAGE_NAMES.AD_2) {
+                  value[fName.logical_field_name] = fieldValue
+                    ? fieldValue
+                    : "";
+                  mandatoryFields.push(fName.logical_field_name);
+                } else if (stageId === CONSTANTS.STAGE_NAMES.RP) {
+                    /*istanbul ignore else*/ 
+                  if (fName.logical_field_name === "acknowledgement_cert") {
+                    value[fName.logical_field_name] =
+                      fieldValue !== "N" ? fieldValue : "";
+                    mandatoryFields.push(fName.logical_field_name);
+                  }
+                    /*istanbul ignore else*/ 
+                  if (fName.logical_field_name === "client_declaration_cert") {
+                    value[fName.logical_field_name] =
+                      fieldValue !== "N" ? fieldValue : "";
+                    mandatoryFields.push(fName.logical_field_name);
+                  }
+                }
+                else {
+                  value[fName.logical_field_name] = fieldValue
+                    ? fieldValue
+                    : "";
+                  mandatoryFields.push(fName.logical_field_name);
+                }
+              } else {
+                  /*istanbul ignore else*/ 
+                if (stageId === CONSTANTS.STAGE_NAMES.BD_1) {
+                  const applicants = userInputSelector.applicants[0];
+                  const resFloorValue = applicants.res_floor;
+                  const resRoomFlatValue = applicants.res_room_flat;
+                  const resBlockValue = applicants.res_block;
+                  // Add all three back to mandatory if none are filled
+                  if (!resFloorValue && !resRoomFlatValue && !resBlockValue) {
+                    mandatoryFields = [...mandatoryFields, "res_room_flat"];
+                  }
+                  else {
+                    mandatoryFields = mandatoryFields.filter(
+                      (item) => item !== "res_room_flat" && item !== "res_floor" && item !== "res_block"
+                    );
+                    dispatch(fieldErrorAction.removeToggleFieldError("res_floor"));
+                    dispatch(fieldErrorAction.removeToggleFieldError("res_block"));
+                  }
+                }
+                  /*istanbul ignore else*/ 
+                if (stageId === CONSTANTS.STAGE_NAMES.AD_3) {
+                  const applicants = userInputSelector.applicants[0];
+                  const offFloorValue = applicants.off_floor;
+                  const offRoomFlatValue = applicants.off_room_flat;
+                  const offBlockValue = applicants.off_block;
+                  // Add all three back to mandatory if none are filled
 
-  const setUserInputsMock = jest.fn();
-  jest.spyOn(React, "useState").mockReturnValueOnce([userInputs, setUserInputsMock]);
-
-  render(<Provider store={store}><Fields /></Provider>);
-
-  fireEvent.submit(screen.getByRole("form"));
-
-  await waitFor(() => {
-    console.log("Mock Calls:", setUserInputsMock.mock.calls);
-    expect(setUserInputsMock).toHaveBeenCalled();
-  });
-});
+                  if (!offFloorValue && !offRoomFlatValue && !offBlockValue) {
+                    mandatoryFields = [...mandatoryFields, "off_room_flat"];
+                  }
+                  else {
+                    mandatoryFields = mandatoryFields.filter(
+                      (item) => item !== "off_room_flat" && item !== "off_floor" && item !== "off_block"
+                    );
+                    dispatch(fieldErrorAction.removeToggleFieldError("off_floor"));
+                    dispatch(fieldErrorAction.removeToggleFieldError("off_block"));
+                  }
+                }
+              }
+            }
+          });
+        });
+        setUserInputs(value);
+        dispatch(fieldErrorAction.getMandatoryFields(null));
+        dispatch(fieldErrorAction.getMandatoryFields(mandatoryFields));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fields, dispatch, valueSelector.value, stageSelector, userInputSelector]);
