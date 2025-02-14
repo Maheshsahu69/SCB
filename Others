@@ -477,3 +477,81 @@ describe('User Input Dispatch Tests', () => {
     expect(setShowSpinner).not.toHaveBeenCalled();
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { deleteMandatoryFields } from "../path-to-your-function"; // Update with actual path
+
+describe("deleteMandatoryFields function", () => {
+  let userInputs: Record<string, any>;
+  let mandatoryFieldSelector: string[];
+
+  beforeEach(() => {
+    userInputs = {
+      first_name: "John",
+      marketing_tooltip: "Some tooltip",
+      estatement_tooltip: "Another tooltip",
+      field1: "value1",
+      field2: "value2",
+    };
+  });
+
+  it("should delete specified fields when at least one mandatory field is present", () => {
+    mandatoryFieldSelector = ["field1", "non_existent_field"];
+
+    deleteMandatoryFields(userInputs, mandatoryFieldSelector);
+
+    expect(userInputs).not.toHaveProperty("first_name");
+    expect(userInputs).not.toHaveProperty("marketing_tooltip");
+    expect(userInputs).not.toHaveProperty("estatement_tooltip");
+    expect(userInputs).toHaveProperty("field2"); // Unrelated field should remain
+  });
+
+  it("should not delete fields if no mandatory fields exist in userInputs", () => {
+    mandatoryFieldSelector = ["non_existent_field1", "non_existent_field2"];
+
+    deleteMandatoryFields(userInputs, mandatoryFieldSelector);
+
+    expect(userInputs).toHaveProperty("first_name");
+    expect(userInputs).toHaveProperty("marketing_tooltip");
+    expect(userInputs).toHaveProperty("estatement_tooltip");
+    expect(userInputs).toHaveProperty("field1");
+    expect(userInputs).toHaveProperty("field2");
+  });
+
+  it("should handle an empty mandatoryFieldSelector", () => {
+    mandatoryFieldSelector = [];
+
+    deleteMandatoryFields(userInputs, mandatoryFieldSelector);
+
+    expect(userInputs).toHaveProperty("first_name");
+    expect(userInputs).toHaveProperty("marketing_tooltip");
+    expect(userInputs).toHaveProperty("estatement_tooltip");
+  });
+
+  it("should handle an empty userInputs object", () => {
+    userInputs = {};
+    mandatoryFieldSelector = ["field1"];
+
+    deleteMandatoryFields(userInputs, mandatoryFieldSelector);
+
+    expect(userInputs).toEqual({}); // Should remain empty
+  });
+});
