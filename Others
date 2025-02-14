@@ -382,3 +382,98 @@ describe("Fields Component - useEffect Code Coverage", () => {
     expect(store.dispatch).toHaveBeenCalled();
   });
 });
+
+
+
+
+
+import configureMockStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import * as stagesAction from '../path-to-actions/stagesAction'; // Update with actual path
+import { userInputPayload } from '../path-to-actions/userInputActions'; // Update with actual path
+import { CONSTANTS } from '../path-to-constants/constants'; // Update with actual path
+
+// Mock store setup
+const middlewares = [thunk];
+const mockStore = configureMockStore(middlewares);
+
+describe('User Input Dispatch Tests', () => {
+  let store;
+  let getStagePayload;
+  let userInputSelector;
+  let stageSelector;
+  let applicantsSelector;
+  let userInputs;
+  let stageId;
+  let continueBtnSelector;
+  let setShowSpinner;
+
+  beforeEach(() => {
+    store = mockStore({});
+    getStagePayload = jest.fn().mockReturnValue({ mockPayload: true });
+    setShowSpinner = jest.fn();
+
+    userInputSelector = { applicants: [{ name: 'Test User' }] };
+    stageSelector = { stage: 'mock-stage' };
+    applicantsSelector = [{ id: 1, name: 'Applicant 1' }];
+    userInputs = { key1: 'value1' };
+    stageId = CONSTANTS.STAGE_NAMES.PD_1;
+    continueBtnSelector = true;
+  });
+
+  it('should dispatch user input actions when userInputs is not empty', () => {
+    const expectedActions = [
+      userInputPayload(getStagePayload(stageSelector, applicantsSelector), stageSelector),
+      userInputPayload(userInputSelector.applicants[0], stageSelector),
+      stagesAction.resetNewAndOldFields(),
+    ];
+
+    if (stageId === CONSTANTS.STAGE_NAMES.PD_1) {
+      expectedActions.push(stagesAction.setOtpShow(true));
+
+      if (continueBtnSelector) {
+        expectedActions.push(stagesAction.setOtpShow(true));
+      }
+    }
+
+    // Dispatch actions
+    if (Object.keys(userInputs).length > 0) {
+      store.dispatch(userInputPayload(getStagePayload(stageSelector, applicantsSelector), stageSelector));
+      store.dispatch(userInputPayload(userInputSelector.applicants[0], stageSelector));
+      store.dispatch(stagesAction.resetNewAndOldFields());
+      setShowSpinner(true);
+
+      if (stageId === CONSTANTS.STAGE_NAMES.PD_1) {
+        store.dispatch(stagesAction.setOtpShow(true));
+        if (continueBtnSelector === true) {
+          store.dispatch(stagesAction.setOtpShow(true));
+        }
+      }
+    }
+
+    expect(store.getActions()).toEqual(expectedActions);
+    expect(setShowSpinner).toHaveBeenCalledWith(true);
+  });
+
+  it('should not dispatch actions when userInputs is empty', () => {
+    userInputs = {}; // Simulating empty object
+
+    // Dispatch actions
+    if (Object.keys(userInputs).length > 0) {
+      store.dispatch(userInputPayload(getStagePayload(stageSelector, applicantsSelector), stageSelector));
+      store.dispatch(userInputPayload(userInputSelector.applicants[0], stageSelector));
+      store.dispatch(stagesAction.resetNewAndOldFields());
+      setShowSpinner(true);
+
+      if (stageId === CONSTANTS.STAGE_NAMES.PD_1) {
+        store.dispatch(stagesAction.setOtpShow(true));
+        if (continueBtnSelector === true) {
+          store.dispatch(stagesAction.setOtpShow(true));
+        }
+      }
+    }
+
+    expect(store.getActions()).toEqual([]); // No actions should be dispatched
+    expect(setShowSpinner).not.toHaveBeenCalled();
+  });
+});
