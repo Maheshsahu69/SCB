@@ -1,84 +1,71 @@
-The image contains key facts about a Personal Instalment Loan offered by Standard Chartered Bank (Hong Kong) Limited, dated April 2020. Below is a structured document summarizing the information:
+import { KeyWithAnyModel, ValidationObjModel } from '../../utils/model/common-model';
+import rulesUtils from './rules.utils';
+import { checkProductDetails } from '../../services/common-service';
+import { authenticateType, getUrl } from '../../utils/common/change.utils';
 
-Key Facts Statement (KFS) for Personal Instalment Loan
+const Rules_ld_1 = (props: KeyWithAnyModel, stageInfo: KeyWithAnyModel): KeyWithAnyModel => {
+ const validationObj: ValidationObjModel = {
+        nonEditable: [],
+        hidden: [],
+        modifyVisibility:[]
+    };
+    const auth = authenticateType()
+    const isCASAProduct = checkProductDetails(stageInfo.products);
+    let defaultVisiblity:any= []
+    /*istanbul ignore else */
+    if(auth === "manual"||"myinfo"){
+      let hiddenFields = ["email","full_name","date_of_birth","mobile_number","residency_status","NRIC","work_type","year_of_assessment_fff_1","year_of_assessment_fff_2","annual_income_fff_1","annual_income_fff_2","dsa_code",
+        "credit_limit_consent"]
+       if(auth === "myinfo") {
+            hiddenFields.push(
+            "postal_code",
+            "postal",
+            "block",
+            "building_name",
+            "street_name",
+            "unit_no",
+            "account_currency_9",
+            "myinfo_data_cli",
+            "banca_ins_request_1",
+            "banca_ins_request_2",
+            "banca_ins_request_amount",
+            "banca_ins_Consent_rp2",
+            "banca_ins_Consent_rp3",
+            "banca_ins_Consent_rp5",
+            "banca_ins_Consent_rp6",
+            "myinfo_data_cli_1",
+            "contact_preference",
+            "multi_currency_selection",
+            "credit_limit_consent_1",
+            "contact_preference_casa"
+            );
+            defaultVisiblity.push("residential_address")
+            const nonEditableFields = ["marital_status","residential_address"]
+            validationObj.nonEditable.push(nonEditableFields)
+        }
+         
+/*istanbul ignore else */
+        if(!isCASAProduct){
+            hiddenFields.push('nationality_add');
+        }
+        if(stageInfo.applicants['residency_status_a_1'] === "CT"){
+            hiddenFields.push("postal_code_other")
+ 
+        }
+        if(stageInfo.applicants['residency_status_a_1'] === "FR"){
+            hiddenFields.push("postal_code")
+ 
+        }
+ 
+        if(stageInfo.applicants['residency_status_a_1'] === "FR"){
+            defaultVisiblity = ["overseas_contact_country_code","overseas_contact_area_code","overseas_contact_no"];
+        }
+        defaultVisiblity.push( "residential_address_consent","block","street_name")
+        validationObj.hidden!.push(hiddenFields);
+        validationObj.modifyVisibility!.push(defaultVisiblity)
+      }
+ 
+    return rulesUtils(props, validationObj);
+}
 
-Issued by: Standard Chartered Bank (Hong Kong) Limited
-Date: April 2020
-
-1. Product Overview
-
-This document outlines the indicative information on interest rates, fees, and charges applicable to the personal instalment loan. For exact terms, the applicant should refer to the final offer letter.
-
-2. Interest Rates and Charges
-	•	Annualised Percentage Rate (APR) for a loan amount of HKD 100,000:
-	•	6-month tenor: Not applicable (minimum loan tenor is 12 months)
-	•	12-month tenor: 6.85%
-	•	24-month tenor: 7.25%
-	•	Annualised Overdue/Default Interest Rate: Not applicable
-
-3. Fees and Charges
-	•	Handling Fee: 0%
-	•	Late Payment Fee and Charge: HKD 1,000 per month if the borrower fails to repay an instalment on or before the due date.
-	•	Prepayment/Early Settlement/Redemption Fee: 2.5% of the outstanding loan balance if the borrower repays the loan in full before the scheduled term.
-	•	Returned Cheque/Rejected Autopay Charge: Not applicable
-
-4. Additional Information
-	•	Minimum Loan Amount: HKD 5,000
-
-Acknowledgment and Agreement
-
-By proceeding with the loan application, the applicant acknowledges and understands the terms outlined in this Key Facts Statement.
-
-This document presents the loan details in a structured and professional format, making it easy for borrowers to understand the key aspects before applying. Let me know if you need any modifications!
-
-
-
-
-
-
-
-Here’s a structured document based on the Personal Loan Application Declaration from the image:
-
-Personal Loan Application Declaration
-
-(PL Declaration – 07/2022)
-
-By signing and submitting this application, the applicant agrees to the following terms:
-
-1. Applicant’s Declaration
-	1.	The applicant confirms that all information (including documents) provided to Standard Chartered Bank (Hong Kong) Limited (“the Bank”) is accurate, complete, and not misleading.
-	2.	The Bank reserves the right to decline any application without providing any reason.
-
-2. Acknowledgment of Terms
-	3.	The applicant acknowledges that the loan approval, terms, and conditions are governed by:
-	•	Bank’s Client Terms
-	•	Applicable documents referenced in Part A
-	•	Personal Loan (or Personal Line of Credit) Product Terms
-	•	Important Notes, promotional terms, and other related documents
-The applicant confirms they have read, understood, and agreed to be bound by these terms.
-
-3. Personal Data and Privacy Consent
-	4.	The applicant acknowledges that the Bank will collect, use, and process personal data, including:
-	•	Data required under regulatory laws (e.g., Personal Data (Privacy) Ordinance)
-	•	Data processing in connection with the loan application and account management
-	•	Sharing of personal data with credit reference agencies, law enforcement, or other financial institutions as per regulatory requirements
-	5.	If the applicant provides information about other persons (e.g., guarantors, referees), they confirm they have obtained consent from those individuals for data sharing.
-
-4. Compliance and Restrictions
-	6.	The applicant confirms they:
-	•	Do not hold any outstanding tax liabilities
-	•	Are not subject to bankruptcy or insolvency proceedings
-	•	Have not been involved in money laundering or financial crimes
-	7.	The applicant acknowledges restrictions related to foreign exchange, currency controls, and regulatory limitations that may apply to the loan.
-
-5. Account and Repayment Terms
-	8.	If required, the applicant authorizes the Bank to designate an account for loan repayment and agrees to maintain sufficient funds for repayment.
-	9.	Any fees, charges, or costs will be deducted from the designated account.
-
-6. Loan Disbursement and Cancellation
-	10.	The applicant understands that loan disbursement is subject to final approval and submission of required documents.
-	11.	If the necessary documents are not submitted within 30 days, the application may be canceled.
-
-By proceeding with the application, the applicant agrees to the above terms and confirms their compliance with all applicable regulations.
-
-This version structures the declaration in a clear and professional format while retaining all the key details. Let me know if you need any modifications!
+export default Rules_ld_1;
