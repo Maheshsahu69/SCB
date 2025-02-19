@@ -69,3 +69,141 @@ const Rules_ld_1 = (props: KeyWithAnyModel, stageInfo: KeyWithAnyModel): KeyWith
 }
 
 export default Rules_ld_1;
+
+
+
+
+
+
+
+
+import Rules_ld_1 from '../path-to/Rules_ld_1'; // Adjust path accordingly
+import rulesUtils from '../path-to/rules.utils';
+import { checkProductDetails } from '../../services/common-service';
+import { authenticateType } from '../../utils/common/change.utils';
+
+jest.mock('../path-to/rules.utils', () => jest.fn());
+jest.mock('../../services/common-service', () => ({
+    checkProductDetails: jest.fn(),
+}));
+jest.mock('../../utils/common/change.utils', () => ({
+    authenticateType: jest.fn(),
+}));
+
+describe('Rules_ld_1 Function', () => {
+    let props: any;
+    let stageInfo: any;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+
+        props = { testProp: 'value' };
+        stageInfo = {
+            products: ['product1'],
+            applicants: {
+                residency_status_a_1: '',
+            },
+        };
+    });
+
+    test('should return default validation object when auth is neither "manual" nor "myinfo"', () => {
+        (authenticateType as jest.Mock).mockReturnValue('other');
+        (checkProductDetails as jest.Mock).mockReturnValue(false);
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, {
+            nonEditable: [],
+            hidden: [],
+            modifyVisibility: [],
+        });
+        expect(result).toEqual(rulesUtils(props, {
+            nonEditable: [],
+            hidden: [],
+            modifyVisibility: [],
+        }));
+    });
+
+    test('should handle case where auth is "manual"', () => {
+        (authenticateType as jest.Mock).mockReturnValue('manual');
+        (checkProductDetails as jest.Mock).mockReturnValue(false);
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, expect.objectContaining({
+            hidden: expect.arrayContaining([
+                'email', 'full_name', 'date_of_birth', 'mobile_number', 'residency_status', 'NRIC',
+                'work_type', 'year_of_assessment_fff_1', 'year_of_assessment_fff_2', 'annual_income_fff_1',
+                'annual_income_fff_2', 'dsa_code', 'credit_limit_consent'
+            ]),
+            modifyVisibility: expect.any(Array),
+        }));
+    });
+
+    test('should handle case where auth is "myinfo"', () => {
+        (authenticateType as jest.Mock).mockReturnValue('myinfo');
+        (checkProductDetails as jest.Mock).mockReturnValue(false);
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, expect.objectContaining({
+            hidden: expect.arrayContaining([
+                'postal_code', 'postal', 'block', 'building_name', 'street_name', 'unit_no',
+                'account_currency_9', 'myinfo_data_cli', 'banca_ins_request_1', 'banca_ins_request_2',
+                'banca_ins_request_amount', 'banca_ins_Consent_rp2', 'banca_ins_Consent_rp3',
+                'banca_ins_Consent_rp5', 'banca_ins_Consent_rp6', 'myinfo_data_cli_1', 'contact_preference',
+                'multi_currency_selection', 'credit_limit_consent_1', 'contact_preference_casa'
+            ]),
+            nonEditable: expect.arrayContaining(["marital_status", "residential_address"]),
+            modifyVisibility: expect.arrayContaining(["residential_address"]),
+        }));
+    });
+
+    test('should hide "nationality_add" when product is not CASA', () => {
+        (authenticateType as jest.Mock).mockReturnValue('manual');
+        (checkProductDetails as jest.Mock).mockReturnValue(false);
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, expect.objectContaining({
+            hidden: expect.arrayContaining(['nationality_add']),
+        }));
+    });
+
+    test('should handle "CT" residency case', () => {
+        (authenticateType as jest.Mock).mockReturnValue('manual');
+        stageInfo.applicants.residency_status_a_1 = 'CT';
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, expect.objectContaining({
+            hidden: expect.arrayContaining(['postal_code_other']),
+        }));
+    });
+
+    test('should handle "FR" residency case', () => {
+        (authenticateType as jest.Mock).mockReturnValue('manual');
+        stageInfo.applicants.residency_status_a_1 = 'FR';
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, expect.objectContaining({
+            hidden: expect.arrayContaining(['postal_code']),
+            modifyVisibility: expect.arrayContaining([
+                'overseas_contact_country_code', 'overseas_contact_area_code', 'overseas_contact_no'
+            ]),
+        }));
+    });
+
+    test('should modify visibility for all cases', () => {
+        (authenticateType as jest.Mock).mockReturnValue('manual');
+
+        const result = Rules_ld_1(props, stageInfo);
+
+        expect(rulesUtils).toHaveBeenCalledWith(props, expect.objectContaining({
+            modifyVisibility: expect.arrayContaining([
+                'residential_address_consent', 'block', 'street_name'
+            ]),
+        }));
+    });
+});
