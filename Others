@@ -162,3 +162,111 @@ describe("Rules_ld_1 Function", () => {
     expect(result).toEqual(rulesUtils(mockProps, expectedValidationObj));
   });
 });
+
+
+
+
+
+import { render,cleanup,screen } from "@testing-library/react";
+
+import { mount, shallow, ShallowWrapper } from "enzyme";
+
+import configureStore from "redux-mock-store";
+import thunk from "redux-thunk";
+import { useDispatch, useSelector } from "react-redux";
+import storeMockData from './../../utils/mock/store-spec.json';
+import Dashboard from "./dashboard";
+import React from "react";
+import { useNavigate } from "react-router-dom";
+
+jest.autoMockOff();
+jest.mock("axios", () => ({
+  __esModule: true,
+}));
+jest.mock("@lottiefiles/react-lottie-player", () => ({
+  __esModule: true,
+}));
+
+const middlewares = [thunk];
+const mockStore = configureStore(middlewares);
+let store: any;
+
+
+beforeEach(() => {
+  global.scrollTo = jest.fn();
+  store = mockStore(storeMockData);
+});
+afterEach(() => {
+  jest.resetAllMocks();
+});
+afterAll(() => {
+  cleanup();
+  jest.clearAllMocks();
+});
+
+
+jest.mock('react-redux',()=>({
+  useDispatch:jest.fn(),
+  useSelector:jest.fn(),
+}));
+
+jest.mock('react-router-dom',()=>({
+  useNavigate:jest.fn(),
+  useLocation:jest.fn(),
+}));
+
+
+describe("Dashboard Testing useLayoufEffect", () => {
+  let mockDispatch:jest.Mock;
+  let mockNavigate:jest.Mock;;
+  const mockHeaderHeight={current:{offsetHeight:50}};
+
+  beforeEach(()=>{
+    jest.clearAllMocks();
+    mockDispatch=jest.fn();
+    mockNavigate=jest.fn();
+
+    jest.spyOn(React,'useState')
+      .mockImplementationOnce(()=>[false,jest.fn()])
+      .mockImplementationOnce(()=>[167,jest.fn()])
+      .mockImplementationOnce(()=>[false,jest.fn()])
+      .mockImplementationOnce(()=>[false,jest.fn()])
+      .mockImplementationOnce(()=>[0,jest.fn()])
+      .mockImplementationOnce(()=>[false,jest.fn()])
+      .mockImplementationOnce(()=>[false,jest.fn()]);  
+
+    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
+    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
+    (useSelector as jest.Mock).mockClear();
+
+    (useSelector as jest.Mock).mockImplementation((selectorFn)=>{
+      if (selectorFn.toString().includes('state.stages.stages')){
+          return [{
+            "stageId": "ssf-1",
+            "stageInfo": {
+              "application": {
+                "source_system_name": 3
+              }
+            }
+          }];
+      }
+      return false;
+    });
+
+      jest.spyOn(React,'useRef').mockReturnValueOnce(mockHeaderHeight);
+  });
+
+  it('should dispatch getClientInfo and navigate on success',async()=>{
+    const mockResponse={data:'mockResponseData'};
+    mockDispatch.mockImplementation((action:any)=>{
+      if(typeof action==='function'){
+        return Promise.resolve(mockResponse);
+      }
+      return action;
+    });
+    render(<Dashboard />);
+   expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
+   await Promise.resolve();
+  expect(mockNavigate).toHaveBeenCalledWith('sg/super-short-form'); 
+});
+});
