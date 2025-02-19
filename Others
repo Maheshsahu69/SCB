@@ -102,3 +102,63 @@ describe('ld1 rules',()=>{
 
  });
 });
+
+
+
+
+
+
+
+
+
+
+import Rules_ld_1 from "./rules_ld-1";
+import rulesUtils from "./rules.utils";
+import { KeyWithAnyModel, ValidationObjModel } from "../../utils/model/common-model";
+import { checkProductDetails } from "../../services/common-service";
+import { authenticateType } from "../../utils/common/change.utils";
+
+jest.mock("./rules.utils", () => jest.fn());
+jest.mock("../../services/common-service", () => ({
+  checkProductDetails: jest.fn(),
+}));
+jest.mock("../../utils/common/change.utils", () => ({
+  authenticateType: jest.fn(),
+}));
+
+describe("Rules_ld_1 Function", () => {
+  let mockProps: KeyWithAnyModel;
+  let mockState: KeyWithAnyModel;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockProps = { key1: "value1", key2: "value2" };
+    mockState = {
+      products: ["product1"],
+      applicants: {
+        residency_status_a_1: "CT", // Ensure a defined value
+      },
+    };
+  });
+
+  test("should return correct validation object when auth is 'manual'", () => {
+    (authenticateType as jest.Mock).mockReturnValue("manual");
+    (checkProductDetails as jest.Mock).mockReturnValue(false);
+
+    const expectedValidationObj: ValidationObjModel = {
+      nonEditable: [],
+      hidden: [
+        "email", "full_name", "date_of_birth", "mobile_number", "residency_status", "NRIC",
+        "work_type", "year_of_assessment_fff_1", "year_of_assessment_fff_2", "annual_income_fff_1",
+        "annual_income_fff_2", "dsa_code", "credit_limit_consent", "nationality_add",
+        "postal_code_other" // Because residency_status_a_1 is "CT"
+      ],
+      modifyVisibility: ["residential_address_consent", "block", "street_name"]
+    };
+
+    const result = Rules_ld_1(mockProps, mockState);
+
+    expect(rulesUtils).toHaveBeenCalledWith(mockProps, expectedValidationObj);
+    expect(result).toEqual(rulesUtils(mockProps, expectedValidationObj));
+  });
+});
