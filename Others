@@ -418,3 +418,111 @@ const ThankYouCC = (props: KeyWithAnyModel) => {
 };
 
 export default ThankYouCC;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import { render, screen, fireEvent } from "@testing-library/react";
+import ThankYouCC from "./thankYouCC";
+
+describe("ThankYouCC Component", () => {
+  const mockShowOTPPopup = jest.fn();
+  const mockShowContinuePopup = jest.fn();
+  const mockSubmitForm = jest.fn();
+
+  const mockProps = {
+    applicationDetails: {
+      isStp: false,
+      thankyouProp: "prop1",
+      thankyouText: "text1",
+      productName: ["Credit Card"],
+      cardNumber: "1234-5678-9012-3456",
+    },
+    thankyou: {
+      prop1: {
+        CCPL: {
+          banner_header: "Congratulations!",
+          banner_body_2: "Your credit card is approved!",
+          resumeUrl: "/resume",
+          title: "Application Approved",
+          content: "Your application has been successfully processed.",
+          note_title: "Important Note",
+          note_content_1: "Your card will be delivered in 7 days.",
+          note_content_2: "Track your application status online.",
+          note_content_3: "Need help?",
+          note_content_4: "Contact support",
+          note_link: "/support",
+          refId_lbl: "Reference ID",
+        },
+      },
+      text1: {
+        timeLine: "Processing Timeline",
+        timeline_header: "Next Steps",
+        timeline_desc: "Expect delivery within 5-7 days.",
+        continueButton: "Continue",
+        doneButton: "Done",
+      },
+      CCSTP: "STP Timeline Data",
+      STPCCBanner: {
+        banner_header: "Welcome!",
+        banner_body_1: "You have successfully applied for a card.",
+        banner_body_2: "Expect further updates soon.",
+      },
+    },
+    showOTPPopup: mockShowOTPPopup,
+    showContinuePopup: mockShowContinuePopup,
+    submitForm: mockSubmitForm,
+    applicationReferenceNo: "REF123456",
+  };
+
+  test("renders ThankYouCC correctly when isStp is false", () => {
+    render(<ThankYouCC {...mockProps} />);
+
+    expect(screen.getByText("Congratulations!")).toBeInTheDocument();
+    expect(screen.getByText("Your credit card is approved!")).toBeInTheDocument();
+    expect(screen.getByText("Application Approved")).toBeInTheDocument();
+    expect(screen.getByText("Your application has been successfully processed.")).toBeInTheDocument();
+    expect(screen.getByText("Important Note")).toBeInTheDocument();
+    expect(screen.getByText("Your card will be delivered in 7 days.")).toBeInTheDocument();
+    expect(screen.getByText("Track your application status online.")).toBeInTheDocument();
+    expect(screen.getByText("Reference ID")).toBeInTheDocument();
+    expect(screen.getByText("REF123456")).toBeInTheDocument();
+
+    // Ensure Done button is present for isStp=false
+    const doneButton = screen.getByText("Done");
+    expect(doneButton).toBeInTheDocument();
+    fireEvent.click(doneButton);
+    expect(mockSubmitForm).toHaveBeenCalled();
+  });
+
+  test("renders ThankYouCC correctly when isStp is true", () => {
+    const stpProps = { ...mockProps, applicationDetails: { ...mockProps.applicationDetails, isStp: true } };
+    render(<ThankYouCC {...stpProps} />);
+
+    expect(screen.getByText("Welcome!")).toBeInTheDocument();
+    expect(screen.getByText("You have successfully applied for a card.")).toBeInTheDocument();
+    expect(screen.getByText("Expect further updates soon.")).toBeInTheDocument();
+    expect(screen.getByText("1234-5678-9012-3456")).toBeInTheDocument();
+
+    // Ensure Continue button is present for isStp=true
+    const continueButton = screen.getByText("Continue");
+    expect(continueButton).toBeInTheDocument();
+    fireEvent.click(continueButton);
+    expect(mockShowContinuePopup).toHaveBeenCalled();
+  });
+});
