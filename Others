@@ -307,3 +307,169 @@ const Toggle = (props: KeyWithAnyModel) => {
 };
 
 export default Toggle;
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Toggle from "./toggle";
+import { taxAction } from "../../../utils/store/tax-slice";
+import { aliasAction } from "../../../utils/store/alias-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { stagesAction } from "../../../utils/store/stages-slice";
+
+const mockStore = configureStore([]);
+
+describe("Toggle Component", () => {
+  let store: any;
+  let defaultProps: any;
+
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [{ stageId: "ssf-1", stageInfo: { applicants: {} } }],
+        userInput: { applicants: {} },
+        journeyType: "test-journey",
+      },
+      alias: { fields: [], count: 0 },
+      tax: { fields: [], count: 0 },
+    });
+
+    defaultProps = {
+      data: { 
+        logical_field_name: "other_name_or_alias",
+        rwb_label_name: "Other Name or Alias",
+        info_tooltips: "Yes",
+        details: "Some tooltip details",
+      },
+      handleCallback: jest.fn(),
+      handleFieldDispatch: jest.fn(),
+      value: "test-value",
+    };
+  });
+
+  const renderComponent = (customProps = defaultProps) =>
+    render(
+      <Provider store={store}>
+        <Toggle {...customProps} />
+      </Provider>
+    );
+
+  test("renders the toggle component", () => {
+    renderComponent();
+    expect(screen.getByText("Other Name or Alias")).toBeInTheDocument();
+  });
+
+  test("toggles the checkbox and dispatches actions", () => {
+    renderComponent();
+    const checkbox = screen.getByRole("checkbox");
+
+    // Initially unchecked
+    expect(checkbox).not.toBeChecked();
+
+    // Click to toggle ON
+    fireEvent.click(checkbox);
+    expect(store.getActions()).toContainEqual(
+      expect.objectContaining({ type: "last/getField" })
+    );
+
+    // Click to toggle OFF
+    fireEvent.click(checkbox);
+    expect(store.getActions()).toContainEqual(
+      expect.objectContaining({ type: "last/getField" })
+    );
+  });
+
+  test("toggles alias field when logical_field_name is other_name_or_alias", () => {
+    renderComponent();
+    const checkbox = screen.getByRole("checkbox");
+
+    // Click to enable
+    fireEvent.click(checkbox);
+    expect(store.getActions()).toContainEqual(aliasAction.addAliasField("alias_1"));
+    expect(store.getActions()).toContainEqual(aliasAction.updateCount(1));
+
+    // Click to disable
+    fireEvent.click(checkbox);
+    expect(store.getActions()).toContainEqual(aliasAction.resetAliasField([]));
+  });
+
+  test("toggles tax field when logical_field_name is tax_resident_of_other_country", () => {
+    const taxProps = {
+      ...defaultProps,
+      data: { ...defaultProps.data, logical_field_name: "tax_resident_of_other_country" },
+    };
+    renderComponent(taxProps);
+    const checkbox = screen.getByRole("checkbox");
+
+    // Click to enable
+    fireEvent.click(checkbox);
+    expect(store.getActions()).toContainEqual(
+      taxAction.addTaxFiled("no_of_tax_residency_country")
+    );
+    expect(store.getActions()).toContainEqual(taxAction.updateCount(1));
+
+    // Click to disable
+    fireEvent.click(checkbox);
+    expect(store.getActions()).toContainEqual(taxAction.resetTaxField([]));
+  });
+
+  test("renders tooltip when info_tooltips is 'Yes'", () => {
+    renderComponent();
+    const tooltipIcon = screen.getByClassName("tool-tip__icon");
+    expect(tooltipIcon).toBeInTheDocument();
+
+    // Click to open modal
+    fireEvent.click(tooltipIcon);
+    expect(screen.getByText("Some tooltip details")).toBeInTheDocument();
+  });
+
+  test("renders the Alias component when toggle is enabled for alias", () => {
+    renderComponent();
+    const checkbox = screen.getByRole("checkbox");
+
+    fireEvent.click(checkbox);
+    expect(screen.getByText("Alias Component")).toBeInTheDocument();
+  });
+
+  test("renders the Tax component when toggle is enabled for tax_resident_of_other_country", () => {
+    const taxProps = {
+      ...defaultProps,
+      data: { ...defaultProps.data, logical_field_name: "tax_resident_of_other_country" },
+    };
+    renderComponent(taxProps);
+    const checkbox = screen.getByRole("checkbox");
+
+    fireEvent.click(checkbox);
+    expect(screen.getByText("Tax Component")).toBeInTheDocument();
+  });
+
+  test("handles tax residency field count updates", () => {
+    store = mockStore({
+      ...store,
+      stages: {
+        ...store.stages,
+        userInput: { applicants: { no_of_tax_residency_country_a_1: "2" } },
+      },
+    });
+
+    renderComponent();
+
+    expect(store.getActions()).toContainEqual(
+      taxAction.addTaxFiled("country_of_tax_residence_1")
+    );
+    expect(store.getActions()).toContainEqual(
+      taxAction.addTaxFiled("country_of_tax_residence_2")
+    );
+  });
+});
+
