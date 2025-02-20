@@ -1,174 +1,309 @@
-import { createSlice } from "@reduxjs/toolkit";
-import {taxStoreModel} from '../model/common-model'
-const initialState: taxStoreModel = {
-        maxCount: 5,
-        count: 0,
-        fields: []
+import React, { useState, useEffect } from "react";
+import "./toggle.scss";
+import { useDispatch, useSelector } from "react-redux";
+import { KeyWithAnyModel, StoreModel } from "../../../utils/model/common-model";
+import { isFieldUpdate } from "../../../utils/common/change.utils";
+import Alias from "../../components/alias/alias";
+import SelectionBox from "../selection-box/selection-box";
+import { aliasAction } from "../../../utils/store/alias-slice";
+import tax, { taxAction } from "../../../utils/store/tax-slice";
+import Text from "../text/text";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { lastAction } from "../../../utils/store/last-accessed-slice";
+import Model from "../model/model";
+ import "../information/information.scss";
+import Tax from "../../tax/tax";
+import fields from "../../../modules/dashboard/fields/fields";
+ 
+const Toggle = (props: KeyWithAnyModel) => {
+  const [defaultValue, setDefaultValue] = useState(false);
+  const [defaultTaxValue, setDefaultTaxValue] = useState("");
+  const [stageId, setStageId] = useState("");
+  const [showInfoPopup, setShowInfoPopup] = useState(false);
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
+  const aliasSelector = useSelector((state: StoreModel) => state.alias);
+  const taxSelector =useSelector((state:StoreModel)=>state.tax);
+  const userInputSelector = useSelector(
+    (state: StoreModel) => state.stages.userInput
+  );
+  const journeyType = useSelector(
+    (state: StoreModel) => state.stages.journeyType
+  );
+  const dispatch = useDispatch();
+  const handlePopupBackButton = () => {
+    setShowInfoPopup(false);
+  };
+
+  useEffect(() => {
+    /*istanbul ignore else */
+    if (
+      stageSelector &&
+      stageSelector[0] &&
+      stageSelector[0].stageInfo &&
+      stageSelector[0].stageInfo.applicants
+    ) {
+       /*istanbul ignore else */
+      if (
+        props.data.logical_field_name === "cheque_book_request" ||
+        props.data.logical_field_name === "other_name_or_alias" ||
+        props.data.logical_field_name === "tax_resident_of_other_country"
+      ) {
+        const storeVal =
+          stageSelector[0].stageInfo.applicants[
+            props.data.logical_field_name + "_a_1"
+          ];
+           /*istanbul ignore else */
+        if (storeVal) {
+          dispatch(
+            isFieldUpdate(props, storeVal, props.data.logical_field_name)
+          );
+        }
+
+        if (
+          stageSelector[0].stageInfo.applicants[
+            props.data.logical_field_name + "_a_1"
+          ] === "Y"
+        ) {
+          setDefaultValue(true);
+        } else if (
+          stageSelector[0].stageInfo.applicants[
+            props.data.logical_field_name + "_a_1"
+          ] === "N"
+        ) {
+          setDefaultValue(false);
+        } else {
+          setDefaultValue(false);
+          if ((props.data.logical_field_name !== "other_name_or_alias")||(props.data.logical_field_name !== "tax_resident_of_other_country")) {
+            dispatch(isFieldUpdate(props, "N", props.data.logical_field_name));
+          }
+        }
+      }
+       /*istanbul ignore else */
+      if (
+        stageSelector &&
+        stageSelector.length > 0 &&
+        stageSelector[0].stageId
+      ) {
+        setStageId(stageSelector[0].stageId);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onToggle = () => {
+    dispatch(lastAction.getField(props.data.logical_field_name));
+    if (defaultValue) {
+      setDefaultValue(false);
+      dispatch(isFieldUpdate(props, "N", props.data.logical_field_name));
+      /*istanbul ignore else */
+      if (
+        props.data.logical_field_name === "other_name_or_alias" &&
+        aliasSelector &&
+        aliasSelector.fields.length > 0
+      ) {
+        dispatch(fieldErrorAction.removeMandatoryFields(aliasSelector.fields));
+        dispatch(
+          stagesAction.removeAddToggleField({
+            removeFields: aliasSelector.fields,
+            newFields: [],
+          })
+        );
+        dispatch(aliasAction.resetAliasField([]));
+      }
+      if (
+        props.data.logical_field_name === "tax_resident_of_other_country"
+        ) {
+        dispatch(fieldErrorAction.removeMandatoryFields(taxSelector.fields));
+        dispatch(
+          stagesAction.removeAddToggleField({
+            removeFields: taxSelector.fields,
+            newFields: [],
+          })
+        );
+        dispatch(taxAction.resetTaxField([]));
+        // setDefaultTaxValue("");
+      }
+    } else {
+      setDefaultValue(true);
+      dispatch(isFieldUpdate(props, "Y", props.data.logical_field_name));
+       /*istanbul ignore else */
+      if (
+        props.data.logical_field_name === "other_name_or_alias" &&
+        aliasSelector &&
+        aliasSelector.count < 1
+      ) {
+        dispatch(fieldErrorAction.getMandatoryFields(["alias_1"]));
+        dispatch(aliasAction.addAliasField("alias_1"));
+        dispatch(aliasAction.updateCount(1));
+      }
+      else if(props.data.logical_field_name === "tax_resident_of_other_country"
+      ){
+        dispatch(fieldErrorAction.getMandatoryFields(["no_of_tax_residency_country"]));
+        dispatch(taxAction.addTaxFiled("no_of_tax_residency_country"));
+        dispatch(taxAction.updateCount(1));
+        }
+        }
+  };
+  useEffect(() => {
+    const taxCountryCount = parseInt(userInputSelector.applicants["no_of_tax_residency_country_a_1"] || "0");
+    if (taxCountryCount > 0) {
+      const existingFields = [...taxSelector.fields].filter(field => field.startsWith("country_of_tax_residence_"));
+      const existingFieldSet = new Set(existingFields);
+      for (let i = 1; i <= taxCountryCount; i++) {
+        const countryField = `country_of_tax_residence_${i}`;
+        if (!existingFieldSet.has(countryField)) {
+          dispatch(taxAction.addTaxFiled(countryField));
+        }
+      }
+      existingFields.forEach(field => {
+        const fieldIndex = parseInt(field.split("_").pop() || "0");
+        if (fieldIndex > taxCountryCount) {
+          dispatch(taxAction.removeTaxField(field));
+          dispatch(stagesAction.removeAddToggleField({
+            removeFields:[field],
+            newFields:[],
+            value:''
+          }))
+}
+      });
+      }
+  }, [userInputSelector.applicants["no_of_tax_residency_country_a_1"]]);
+  
+
+  useEffect(() => {
+    taxSelector.fields.forEach(field => {
+        const fieldIndex = field.split("_").pop(); 
+        const fieldValue = userInputSelector.applicants[`${field}_a_1`];
+        if (fieldValue && fieldValue.length >= 9) {
+          const reasonField = `crs_reason_code_${fieldIndex}`;
+          if (taxSelector.fields.includes(reasonField)) {
+            dispatch(taxAction.removeTaxField(reasonField));
+            dispatch(
+              stagesAction.removeAddToggleField({
+                removeFields: [reasonField],
+                newFields: [],
+              })
+            );
+          }
+        }else if(fieldValue && fieldValue.length === 3){
+          const reasonField = `crs_reason_code_${fieldIndex}_a_1`;
+          // if (userInputSelector.applicants[reasonField]==="B00") {
+          //   const crsCommentsField=`crs_comments_${fieldIndex}`;
+          //   dispatch(taxAction.updateTax({[crsCommentsField]:''}));
+          //   dispatch(
+          //     stagesAction.removeAddToggleField({
+          //       removeFields: [
+          //     "casa_fatca_declaration",
+          //       ],
+          //       newFields: [`crs_comments_${fieldIndex}`],
+          //       value:''
+          //     })
+          //   );
+          // }
+          // else{
+            const taxValue= `tax_id_no_${fieldIndex}_a_1`
+            if(userInputSelector.applicants[taxValue]){
+            dispatch(
+              stagesAction.removeAddToggleField({
+                removeFields: [`crs_reason_code_${fieldIndex}`],
+                newFields: [],
+              })
+            );
+            }else{
+              dispatch(
+                stagesAction.removeAddToggleField({
+                  removeFields: [`tax_id_no_${fieldIndex}`],
+                  newFields: [],
+                })
+              );
+            }
+          // }
+        }
+    });
+  }, [taxSelector.fields, userInputSelector.applicants]);
+
+  useEffect(() => {
+    const countryFields = [
+      "country_of_tax_residence_1_a_1",
+      "country_of_tax_residence_2_a_1",
+      "country_of_tax_residence_3_a_1",
+      "country_of_tax_residence_4_a_1",
+    ];
+ 
+    countryFields.forEach((field) => {
+      const countryValue = userInputSelector.applicants[field];
+     if (countryValue) {
+        dispatch(taxAction.updateTax({ [field]: countryValue }));
+      }
+    });
+  }, [
+    userInputSelector.applicants["country_of_tax_residence_1_a_1"],
+    userInputSelector.applicants["country_of_tax_residence_2_a_1"],
+    userInputSelector.applicants["country_of_tax_residence_3_a_1"],
+    userInputSelector.applicants["country_of_tax_residence_4_a_1"],
+  ]);
+
+
+ 
+ 
+  return (
+    <>
+      {!(stageId === "ssf-2" && journeyType) && (
+        <div className="toggle__content">
+          <div className="toggle__content__inner">
+            <div className="toggle__desc">{props.data.rwb_label_name}</div>
+            <div className="toggle__button__block">
+              <div className="toggle__button" onClick={() => onToggle()}>
+                <input
+                  onChange={() => {
+                    // do nothing
+                  }}
+                  type="checkbox"
+                  checked={defaultValue}
+                />
+                <span className="toggle__slider"></span>
+              </div>
+            </div>
+            <span className="radio__header">
+        {props.data.info_tooltips === "Yes" &&
+           props.data.logical_field_name !== "casa_fatca_declaration" && (
+            <div  className="tool-tip__icon">
+             <span
+               className=" tool-tip"
+               onClick={() => setShowInfoPopup(true)}
+             ></span>
+             </div>
+           )}
+       </span>
+          </div>
+          <>
+         </>
+        </div>
+       
+      )}
+      {defaultValue &&
+        props.data.logical_field_name === "other_name_or_alias" && (
+          <Alias
+            handleCallback={props.handleCallback}
+            handleFieldDispatch={props.handleFieldDispatch}
+            value={props.value}
+          />
+        )}
+        {defaultValue &&
+        props.data.logical_field_name === "tax_resident_of_other_country" && (
+          
+          <Tax
+             handleCallback={props.handleCallback}
+             handleFieldDispatch={props.handleFieldDispatch}
+             props={props}
+          />
+        )}
+       {showInfoPopup && (
+        <Model name={props.data.logical_field_name} isTooltip={true} data={props.data.details}  handlebuttonClick={handlePopupBackButton} />
+      )}
+    </>
+  );
 };
 
-const tax = createSlice({
-        name: "tax",
-        initialState,
-        reducers: {
-                addTaxFiled(state, action) {
-                        state.fields.push(action.payload);
-                },
-                updateCount(state, action) {
-                        state.count = action.payload;
-                },
-                removeTaxField(state, action) {
-                       // if (state.count >= 0) {
-                           if(action.payload!=="no_of_tax_residency_country"){
-                                state.count = --state.count;
-                                let findIndex = state.fields.findIndex(
-                                        (field: string) => field === action.payload
-                                );
-                                state.fields.splice(findIndex,1);
-                           }
-                       // }
-                        
-                },
-                updateTax(state, action) {
-                        const updatedFields = [...state.fields]; 
-                        const [field, value] = Object.entries(action.payload)[0];
-                      
-                        const normalizedField = field.replace(/_a_\d+$/, '');
-                      
-                        const index = updatedFields.findIndex(
-                          (item) => item.replace(/_a_\d+$/, '') === normalizedField
-                        );
-                       const taxField = `tax_id_no_${field.split("_")[4]}`;
-                       const reasonField = `crs_reason_code_${field.split("_")[4]}`;
-                //        if(field.startsWith('crs_comments')){
-                //         debugger
-                //         const crsCommentsField = `crs_comments_${field.split("_")[2]}`;
-                //         const existCrsComments = updatedFields.includes(crsCommentsField);         
-                //         if (!existCrsComments) {
-                //                 updatedFields.splice(index + 1, 0, `tax_id_no_${field.split("_")[4]}`, `crs_reason_code_${field.split("_")[4]}`, `crs_comments_${field.split("_")[4]}`);
-                //         }  
-                //        }
-                       const taxAlone = updatedFields.includes(taxField)
-                       const alreadyExists = updatedFields.includes(taxField) && updatedFields.includes(reasonField);
-                      
-                        if (value && index !== -1 &&!alreadyExists &&!taxAlone) {
-                          updatedFields.splice(index + 1, 0, `tax_id_no_${field.split("_")[4]}`, `crs_reason_code_${field.split("_")[4]}`);
-                        }
-                      
-                        state.fields = updatedFields; // Update state fields
-                      }
-                      ,
-                resetTaxField(state, action) {
-                        state.maxCount = 4;
-                        state.count = 0;
-                        state.fields = action.payload;
-                }
-        }
-});
-export const taxAction = tax.actions;
-export default tax;
-
-
-
-
-
-
-import tax, { taxAction } from "./tax-slice";
-
-describe("tax slice", () => {
-  let initialState: any;
-
-  beforeEach(() => {
-    initialState = {
-      maxCount: 5,
-      count: 0,
-      fields: [],
-    };
-  });
-
-  test("should return the initial state", () => {
-    expect(tax.reducer(undefined, { type: undefined })).toEqual(initialState);
-  });
-
-  test("should add a tax field", () => {
-    const newState = tax.reducer(initialState, taxAction.addTaxFiled("taxField1"));
-    expect(newState.fields).toContain("taxField1");
-  });
-
-  test("should update count", () => {
-    const newState = tax.reducer(initialState, taxAction.updateCount(3));
-    expect(newState.count).toBe(3);
-  });
-
-  test("should remove a tax field", () => {
-    const populatedState = {
-      ...initialState,
-      count: 2,
-      fields: ["taxField1", "taxField2"],
-    };
-
-    const newState = tax.reducer(populatedState, taxAction.removeTaxField("taxField1"));
-    expect(newState.fields).not.toContain("taxField1");
-    expect(newState.count).toBe(1);
-  });
-
-  test("should NOT remove 'no_of_tax_residency_country' field", () => {
-    const populatedState = {
-      ...initialState,
-      count: 2,
-      fields: ["no_of_tax_residency_country", "taxField1"],
-    };
-
-    const newState = tax.reducer(populatedState, taxAction.removeTaxField("no_of_tax_residency_country"));
-    expect(newState.fields).toContain("no_of_tax_residency_country");
-    expect(newState.count).toBe(2);
-  });
-
-  test("should not remove field if it does not exist", () => {
-    const populatedState = {
-      ...initialState,
-      count: 2,
-      fields: ["taxField1"],
-    };
-
-    const newState = tax.reducer(populatedState, taxAction.removeTaxField("nonExistentField"));
-    expect(newState.fields.length).toBe(1);
-  });
-
-  test("should update tax fields correctly", () => {
-    const populatedState = {
-      ...initialState,
-      fields: ["existing_field"],
-    };
-
-    const newState = tax.reducer(populatedState, taxAction.updateTax({ tax_id_no_a_1: "value" }));
-    expect(newState.fields).toContain("existing_field");
-    expect(newState.fields).toContain("tax_id_no_1");
-    expect(newState.fields).toContain("crs_reason_code_1");
-  });
-
-  test("should reset tax fields", () => {
-    const populatedState = {
-      maxCount: 10,
-      count: 3,
-      fields: ["field1", "field2"],
-    };
-
-    const newState = tax.reducer(populatedState, taxAction.resetTaxField([]));
-    expect(newState.maxCount).toBe(4);
-    expect(newState.count).toBe(0);
-    expect(newState.fields).toEqual([]);
-  });
-
-  test("should reset tax fields with default value when payload is undefined", () => {
-    const populatedState = {
-      maxCount: 10,
-      count: 3,
-      fields: ["field1", "field2"],
-    };
-
-    const newState = tax.reducer(populatedState, taxAction.resetTaxField(undefined));
-    expect(newState.maxCount).toBe(4);
-    expect(newState.count).toBe(0);
-    expect(newState.fields).toEqual([]);
-  });
-});
+export default Toggle;
