@@ -66,3 +66,109 @@ const tax = createSlice({
 });
 export const taxAction = tax.actions;
 export default tax;
+
+
+
+
+
+
+import tax, { taxAction } from "./tax-slice";
+
+describe("tax slice", () => {
+  let initialState: any;
+
+  beforeEach(() => {
+    initialState = {
+      maxCount: 5,
+      count: 0,
+      fields: [],
+    };
+  });
+
+  test("should return the initial state", () => {
+    expect(tax.reducer(undefined, { type: undefined })).toEqual(initialState);
+  });
+
+  test("should add a tax field", () => {
+    const newState = tax.reducer(initialState, taxAction.addTaxFiled("taxField1"));
+    expect(newState.fields).toContain("taxField1");
+  });
+
+  test("should update count", () => {
+    const newState = tax.reducer(initialState, taxAction.updateCount(3));
+    expect(newState.count).toBe(3);
+  });
+
+  test("should remove a tax field", () => {
+    const populatedState = {
+      ...initialState,
+      count: 2,
+      fields: ["taxField1", "taxField2"],
+    };
+
+    const newState = tax.reducer(populatedState, taxAction.removeTaxField("taxField1"));
+    expect(newState.fields).not.toContain("taxField1");
+    expect(newState.count).toBe(1);
+  });
+
+  test("should NOT remove 'no_of_tax_residency_country' field", () => {
+    const populatedState = {
+      ...initialState,
+      count: 2,
+      fields: ["no_of_tax_residency_country", "taxField1"],
+    };
+
+    const newState = tax.reducer(populatedState, taxAction.removeTaxField("no_of_tax_residency_country"));
+    expect(newState.fields).toContain("no_of_tax_residency_country");
+    expect(newState.count).toBe(2);
+  });
+
+  test("should not remove field if it does not exist", () => {
+    const populatedState = {
+      ...initialState,
+      count: 2,
+      fields: ["taxField1"],
+    };
+
+    const newState = tax.reducer(populatedState, taxAction.removeTaxField("nonExistentField"));
+    expect(newState.fields.length).toBe(1);
+  });
+
+  test("should update tax fields correctly", () => {
+    const populatedState = {
+      ...initialState,
+      fields: ["existing_field"],
+    };
+
+    const newState = tax.reducer(populatedState, taxAction.updateTax({ tax_id_no_a_1: "value" }));
+    expect(newState.fields).toContain("existing_field");
+    expect(newState.fields).toContain("tax_id_no_1");
+    expect(newState.fields).toContain("crs_reason_code_1");
+  });
+
+  test("should reset tax fields", () => {
+    const populatedState = {
+      maxCount: 10,
+      count: 3,
+      fields: ["field1", "field2"],
+    };
+
+    const newState = tax.reducer(populatedState, taxAction.resetTaxField([]));
+    expect(newState.maxCount).toBe(4);
+    expect(newState.count).toBe(0);
+    expect(newState.fields).toEqual([]);
+  });
+
+  test("should reset tax fields with default value when payload is undefined", () => {
+    const populatedState = {
+      maxCount: 10,
+      count: 3,
+      fields: ["field1", "field2"],
+    };
+
+    const newState = tax.reducer(populatedState, taxAction.resetTaxField(undefined));
+    expect(newState.maxCount).toBe(4);
+    expect(newState.count).toBe(0);
+    expect(newState.fields).toEqual([]);
+  });
+});
