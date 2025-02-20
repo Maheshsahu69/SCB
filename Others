@@ -1,528 +1,68 @@
-import { KeyWithAnyModel, ValidationObjModel } from '../../utils/model/common-model';
-import rulesUtils from './rules.utils';
-import { checkProductDetails } from '../../services/common-service';
-import { authenticateType, getUrl } from '../../utils/common/change.utils';
-
-const Rules_ld_1 = (props: KeyWithAnyModel, stageInfo: KeyWithAnyModel): KeyWithAnyModel => {
- const validationObj: ValidationObjModel = {
-        nonEditable: [],
-        hidden: [],
-        modifyVisibility:[]
-    };
-    const auth = authenticateType()
-    const isCASAProduct = checkProductDetails(stageInfo.products);
-    let defaultVisiblity:any= []
-    /*istanbul ignore else */
-    if(auth === "manual"||"myinfo"){
-      let hiddenFields = ["email","full_name","date_of_birth","mobile_number","residency_status","NRIC","work_type","year_of_assessment_fff_1","year_of_assessment_fff_2","annual_income_fff_1","annual_income_fff_2","dsa_code",
-        "credit_limit_consent"]
-       if(auth === "myinfo") {
-            hiddenFields.push(
-            "postal_code",
-            "postal",
-            "block",
-            "building_name",
-            "street_name",
-            "unit_no",
-            "account_currency_9",
-            "myinfo_data_cli",
-            "banca_ins_request_1",
-            "banca_ins_request_2",
-            "banca_ins_request_amount",
-            "banca_ins_Consent_rp2",
-            "banca_ins_Consent_rp3",
-            "banca_ins_Consent_rp5",
-            "banca_ins_Consent_rp6",
-            "myinfo_data_cli_1",
-            "contact_preference",
-            "multi_currency_selection",
-            "credit_limit_consent_1",
-            "contact_preference_casa"
-            );
-            defaultVisiblity.push("residential_address")
-            const nonEditableFields = ["marital_status","residential_address"]
-            validationObj.nonEditable.push(nonEditableFields)
-        }
-         
-/*istanbul ignore else */
-        if(!isCASAProduct){
-            hiddenFields.push('nationality_add');
-        }
-        if(stageInfo.applicants['residency_status_a_1'] === "CT"){
-            hiddenFields.push("postal_code_other")
- 
-        }
-        if(stageInfo.applicants['residency_status_a_1'] === "FR"){
-            hiddenFields.push("postal_code")
- 
-        }
- 
-        if(stageInfo.applicants['residency_status_a_1'] === "FR"){
-            defaultVisiblity = ["overseas_contact_country_code","overseas_contact_area_code","overseas_contact_no"];
-        }
-        defaultVisiblity.push( "residential_address_consent","block","street_name")
-        validationObj.hidden!.push(hiddenFields);
-        validationObj.modifyVisibility!.push(defaultVisiblity)
-      }
- 
-    return rulesUtils(props, validationObj);
-}
-
-export default Rules_ld_1;
-
-
-
-
-
-
-
-
-import Rules_ld_1 from "./rules_ld-1";
-import rulesUtils from "./rules.utils";
-import { KeyWithAnyModel,ValidationObjModel } from "../../utils/model/common-model";
-jest.mock('./rules.utils',()=> jest.fn())
-
-jest.mock("axios", () => ({
-   __esModule: true,
- }));
- 
-
-describe('ld1 rules',()=>{
- test('render rule utils',()=>{
-    const mockProps:KeyWithAnyModel={key1:'value1',key2:'value2'};
-    const mockState:KeyWithAnyModel={stateKey:'stateValue'};
-    const _s={};
-    const mockValidationObj:ValidationObjModel={nonEditable:[],hidden:[]}
-    const mockReturnValue:KeyWithAnyModel={processedKey:"processdValue"};
-
-    (rulesUtils as jest.Mock).mockReturnValue(mockReturnValue)
-    const result = Rules_ld_1(mockProps, mockState);
- expect(rulesUtils).toHaveBeenCalledWith(mockProps,mockValidationObj);
- expect(result).toEqual(mockReturnValue);
-
- });
-});
-
-
-
-
-
-
-
-
-
-
-import Rules_ld_1 from "./rules_ld-1";
-import rulesUtils from "./rules.utils";
-import { KeyWithAnyModel, ValidationObjModel } from "../../utils/model/common-model";
-import { checkProductDetails } from "../../services/common-service";
-import { authenticateType } from "../../utils/common/change.utils";
-
-jest.mock("./rules.utils", () => jest.fn());
-jest.mock("../../services/common-service", () => ({
-  checkProductDetails: jest.fn(),
-}));
-jest.mock("../../utils/common/change.utils", () => ({
-  authenticateType: jest.fn(),
-}));
-
-describe("Rules_ld_1 Function", () => {
-  let mockProps: KeyWithAnyModel;
-  let mockState: KeyWithAnyModel;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockProps = { key1: "value1", key2: "value2" };
-    mockState = {
-      products: ["product1"],
-      applicants: {
-        residency_status_a_1: "CT", // Ensure a defined value
-      },
-    };
-  });
-
-  test("should return correct validation object when auth is 'manual'", () => {
-    (authenticateType as jest.Mock).mockReturnValue("manual");
-    (checkProductDetails as jest.Mock).mockReturnValue(false);
-
-    const expectedValidationObj: ValidationObjModel = {
-      nonEditable: [],
-      hidden: [
-        "email", "full_name", "date_of_birth", "mobile_number", "residency_status", "NRIC",
-        "work_type", "year_of_assessment_fff_1", "year_of_assessment_fff_2", "annual_income_fff_1",
-        "annual_income_fff_2", "dsa_code", "credit_limit_consent", "nationality_add",
-        "postal_code_other" // Because residency_status_a_1 is "CT"
-      ],
-      modifyVisibility: ["residential_address_consent", "block", "street_name"]
-    };
-
-    const result = Rules_ld_1(mockProps, mockState);
-
-    expect(rulesUtils).toHaveBeenCalledWith(mockProps, expectedValidationObj);
-    expect(result).toEqual(rulesUtils(mockProps, expectedValidationObj));
-  });
-});
-
-
-
-
-
-import { render,cleanup,screen } from "@testing-library/react";
-
-import { mount, shallow, ShallowWrapper } from "enzyme";
-
-import configureStore from "redux-mock-store";
-import thunk from "redux-thunk";
-import { useDispatch, useSelector } from "react-redux";
-import storeMockData from './../../utils/mock/store-spec.json';
-import Dashboard from "./dashboard";
-import React from "react";
-import { useNavigate } from "react-router-dom";
-
-jest.autoMockOff();
-jest.mock("axios", () => ({
-  __esModule: true,
-}));
-jest.mock("@lottiefiles/react-lottie-player", () => ({
-  __esModule: true,
-}));
-
-const middlewares = [thunk];
-const mockStore = configureStore(middlewares);
-let store: any;
-
-
-beforeEach(() => {
-  global.scrollTo = jest.fn();
-  store = mockStore(storeMockData);
-});
-afterEach(() => {
-  jest.resetAllMocks();
-});
-afterAll(() => {
-  cleanup();
-  jest.clearAllMocks();
-});
-
-
-jest.mock('react-redux',()=>({
-  useDispatch:jest.fn(),
-  useSelector:jest.fn(),
-}));
-
-jest.mock('react-router-dom',()=>({
-  useNavigate:jest.fn(),
-  useLocation:jest.fn(),
-}));
-
-
-describe("Dashboard Testing useLayoufEffect", () => {
-  let mockDispatch:jest.Mock;
-  let mockNavigate:jest.Mock;;
-  const mockHeaderHeight={current:{offsetHeight:50}};
-
-  beforeEach(()=>{
-    jest.clearAllMocks();
-    mockDispatch=jest.fn();
-    mockNavigate=jest.fn();
-
-    jest.spyOn(React,'useState')
-      .mockImplementationOnce(()=>[false,jest.fn()])
-      .mockImplementationOnce(()=>[167,jest.fn()])
-      .mockImplementationOnce(()=>[false,jest.fn()])
-      .mockImplementationOnce(()=>[false,jest.fn()])
-      .mockImplementationOnce(()=>[0,jest.fn()])
-      .mockImplementationOnce(()=>[false,jest.fn()])
-      .mockImplementationOnce(()=>[false,jest.fn()]);  
-
-    (useDispatch as jest.Mock).mockReturnValue(mockDispatch);
-    (useNavigate as jest.Mock).mockReturnValue(mockNavigate);
-    (useSelector as jest.Mock).mockClear();
-
-    (useSelector as jest.Mock).mockImplementation((selectorFn)=>{
-      if (selectorFn.toString().includes('state.stages.stages')){
-          return [{
-            "stageId": "ssf-1",
-            "stageInfo": {
-              "application": {
-                "source_system_name": 3
-              }
-            }
-          }];
-      }
-      return false;
-    });
-
-      jest.spyOn(React,'useRef').mockReturnValueOnce(mockHeaderHeight);
-  });
-
-  it('should dispatch getClientInfo and navigate on success',async()=>{
-    const mockResponse={data:'mockResponseData'};
-    mockDispatch.mockImplementation((action:any)=>{
-      if(typeof action==='function'){
-        return Promise.resolve(mockResponse);
-      }
-      return action;
-    });
-    render(<Dashboard />);
-   expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function));
-   await Promise.resolve();
-  expect(mockNavigate).toHaveBeenCalledWith('sg/super-short-form'); 
-});
-});
-
-
-
-
-
-
-
-import "./thank-you.scss";
-import { KeyWithAnyModel } from "../../../utils/model/common-model";
-import ThankYouTimeline from "./thankyou-timeline";
-import ThankYouBanner from "./thankyou-banner";
-import ThankYouSurvey from "./thankyou-survey"
-const ThankYouCC = (props: KeyWithAnyModel) => {
-  const applicationDetails = props.applicationDetails;
-  const thankyou = props.thankyou;
-
-  const getTimelineData = () => {
-    /*istanbul ignore else */
-    if (!applicationDetails.isStp) {
-      return thankyou[applicationDetails.thankyouProp].CCPL.timeLine;
-    }
-
-    return thankyou.CCSTP;
-  };
-  return (
-    <>
-      <ThankYouBanner
-        banner_header={
-          !applicationDetails.isStp
-            ? thankyou[applicationDetails.thankyouProp].CCPL.banner_header
-            : thankyou.STPCCBanner.banner_header
-        }
-        banner_content={true}
-        // banner_body_1={
-        //   !applicationDetails.isStp
-        //     ? thankyou[applicationDetails.thankyouProp].CCPL.banner_body_1
-        //     : ""
-        // }
-        productName={applicationDetails.productName.join(" and ")}
-        banner_body_2={
-          !applicationDetails.isStp
-            ? thankyou[applicationDetails.thankyouProp].CCPL.banner_body_2
-            : ""
-        }
-        resumeUrl={
-          !applicationDetails.isStp
-            ? thankyou[applicationDetails.thankyouProp].CCPL.resumeUrl
-            : ""
-        }
-      />
-      <div className="thankyou__body__outer">
-        <div className="thankyou__body">
-          {!applicationDetails.isStp && (
-            <>
-              <div className="thankyou__title">
-                <label>
-                  {thankyou[applicationDetails.thankyouProp].CCPL.title}
-                </label>
-              </div>
-              <div className="thankyou__content">
-                <label>
-                  {thankyou[applicationDetails.thankyouProp].CCPL.content}
-                </label>
-              </div>
-            </>
-          )}
-          {applicationDetails.isStp && (
-            <div className="thankyou__title">
-              <div>
-                {thankyou.STPCCBanner.banner_body_1}
-                {applicationDetails.productName}
-                {thankyou.STPCCBanner.banner_body_2}
-              </div>
-              <div>{applicationDetails.productName}</div>
-              <div>{applicationDetails.cardNumber}</div>
-            </div>
-          )}
-          <ThankYouTimeline
-            title={thankyou[applicationDetails.thankyouText].timeLine}
-            data={getTimelineData()}
-            checkCompletedStatus={true}
-            handleLink={props.showOTPPopup}
-          />
-          {applicationDetails.isStp && (
-            <div>
-              <div>
-                {thankyou[applicationDetails.thankyouText].timeline_header}
-              </div>
-              <div>
-                {thankyou[applicationDetails.thankyouText].timeline_desc}
-              </div>
-            </div>
-          )}
-          {!applicationDetails.isStp && (
-            <div>
-              <div className="thankyou__note__content">
-                <label>{thankyou.CCPL.note_title}</label>
-              </div>
-              <div className="thankyou__note__content">
-                <div>{thankyou.CCPL.note_content_1}</div>
-                <div>{thankyou.CCPL.note_content_2}</div>
-              </div>
-              <div className="thankyou__note__content">
-                <div>{thankyou.CCPL.note_content_3}</div>
-                <div>
-                  <a
-                    target="_blank"
-                    rel="feedback noreferrer"
-                    href={thankyou.CCPL.note_link}
-                  >
-                    {thankyou.CCPL.note_content_4}
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="body__app-details">
-            <label>{thankyou.CCPL.refId_lbl}</label>
-            {props.applicationReferenceNo!}
-          </div>
-          <div className="body__refno">
-            {applicationDetails.isStp ? (
-              <>
-                <button
-                  onClick={(e) => props.showContinuePopup(e)}
-                  className="thankyou__continue"
-                >
-                  {thankyou[applicationDetails.thankyouText].continueButton}
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={(e) => props.submitForm(e)}
-                className="thankyou__continue"
-              >
-                {thankyou[applicationDetails.thankyouText].doneButton}
-              </button>
-            )}
-          </div>
-          <ThankYouSurvey/>
-        </div>
-      </div>   
-    </>
-  );
+import { createSlice } from "@reduxjs/toolkit";
+import {taxStoreModel} from '../model/common-model'
+const initialState: taxStoreModel = {
+        maxCount: 5,
+        count: 0,
+        fields: []
 };
 
-export default ThankYouCC;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import { render, screen, fireEvent } from "@testing-library/react";
-import ThankYouCC from "./thankYouCC";
-
-describe("ThankYouCC Component", () => {
-  const mockShowOTPPopup = jest.fn();
-  const mockShowContinuePopup = jest.fn();
-  const mockSubmitForm = jest.fn();
-
-  const mockProps = {
-    applicationDetails: {
-      isStp: false,
-      thankyouProp: "prop1",
-      thankyouText: "text1",
-      productName: ["Credit Card"],
-      cardNumber: "1234-5678-9012-3456",
-    },
-    thankyou: {
-      prop1: {
-        CCPL: {
-          banner_header: "Congratulations!",
-          banner_body_2: "Your credit card is approved!",
-          resumeUrl: "/resume",
-          title: "Application Approved",
-          content: "Your application has been successfully processed.",
-          note_title: "Important Note",
-          note_content_1: "Your card will be delivered in 7 days.",
-          note_content_2: "Track your application status online.",
-          note_content_3: "Need help?",
-          note_content_4: "Contact support",
-          note_link: "/support",
-          refId_lbl: "Reference ID",
-        },
-      },
-      text1: {
-        timeLine: "Processing Timeline",
-        timeline_header: "Next Steps",
-        timeline_desc: "Expect delivery within 5-7 days.",
-        continueButton: "Continue",
-        doneButton: "Done",
-      },
-      CCSTP: "STP Timeline Data",
-      STPCCBanner: {
-        banner_header: "Welcome!",
-        banner_body_1: "You have successfully applied for a card.",
-        banner_body_2: "Expect further updates soon.",
-      },
-    },
-    showOTPPopup: mockShowOTPPopup,
-    showContinuePopup: mockShowContinuePopup,
-    submitForm: mockSubmitForm,
-    applicationReferenceNo: "REF123456",
-  };
-
-  test("renders ThankYouCC correctly when isStp is false", () => {
-    render(<ThankYouCC {...mockProps} />);
-
-    expect(screen.getByText("Congratulations!")).toBeInTheDocument();
-    expect(screen.getByText("Your credit card is approved!")).toBeInTheDocument();
-    expect(screen.getByText("Application Approved")).toBeInTheDocument();
-    expect(screen.getByText("Your application has been successfully processed.")).toBeInTheDocument();
-    expect(screen.getByText("Important Note")).toBeInTheDocument();
-    expect(screen.getByText("Your card will be delivered in 7 days.")).toBeInTheDocument();
-    expect(screen.getByText("Track your application status online.")).toBeInTheDocument();
-    expect(screen.getByText("Reference ID")).toBeInTheDocument();
-    expect(screen.getByText("REF123456")).toBeInTheDocument();
-
-    // Ensure Done button is present for isStp=false
-    const doneButton = screen.getByText("Done");
-    expect(doneButton).toBeInTheDocument();
-    fireEvent.click(doneButton);
-    expect(mockSubmitForm).toHaveBeenCalled();
-  });
-
-  test("renders ThankYouCC correctly when isStp is true", () => {
-    const stpProps = { ...mockProps, applicationDetails: { ...mockProps.applicationDetails, isStp: true } };
-    render(<ThankYouCC {...stpProps} />);
-
-    expect(screen.getByText("Welcome!")).toBeInTheDocument();
-    expect(screen.getByText("You have successfully applied for a card.")).toBeInTheDocument();
-    expect(screen.getByText("Expect further updates soon.")).toBeInTheDocument();
-    expect(screen.getByText("1234-5678-9012-3456")).toBeInTheDocument();
-
-    // Ensure Continue button is present for isStp=true
-    const continueButton = screen.getByText("Continue");
-    expect(continueButton).toBeInTheDocument();
-    fireEvent.click(continueButton);
-    expect(mockShowContinuePopup).toHaveBeenCalled();
-  });
+const tax = createSlice({
+        name: "tax",
+        initialState,
+        reducers: {
+                addTaxFiled(state, action) {
+                        state.fields.push(action.payload);
+                },
+                updateCount(state, action) {
+                        state.count = action.payload;
+                },
+                removeTaxField(state, action) {
+                       // if (state.count >= 0) {
+                           if(action.payload!=="no_of_tax_residency_country"){
+                                state.count = --state.count;
+                                let findIndex = state.fields.findIndex(
+                                        (field: string) => field === action.payload
+                                );
+                                state.fields.splice(findIndex,1);
+                           }
+                       // }
+                        
+                },
+                updateTax(state, action) {
+                        const updatedFields = [...state.fields]; 
+                        const [field, value] = Object.entries(action.payload)[0];
+                      
+                        const normalizedField = field.replace(/_a_\d+$/, '');
+                      
+                        const index = updatedFields.findIndex(
+                          (item) => item.replace(/_a_\d+$/, '') === normalizedField
+                        );
+                       const taxField = `tax_id_no_${field.split("_")[4]}`;
+                       const reasonField = `crs_reason_code_${field.split("_")[4]}`;
+                //        if(field.startsWith('crs_comments')){
+                //         debugger
+                //         const crsCommentsField = `crs_comments_${field.split("_")[2]}`;
+                //         const existCrsComments = updatedFields.includes(crsCommentsField);         
+                //         if (!existCrsComments) {
+                //                 updatedFields.splice(index + 1, 0, `tax_id_no_${field.split("_")[4]}`, `crs_reason_code_${field.split("_")[4]}`, `crs_comments_${field.split("_")[4]}`);
+                //         }  
+                //        }
+                       const taxAlone = updatedFields.includes(taxField)
+                       const alreadyExists = updatedFields.includes(taxField) && updatedFields.includes(reasonField);
+                      
+                        if (value && index !== -1 &&!alreadyExists &&!taxAlone) {
+                          updatedFields.splice(index + 1, 0, `tax_id_no_${field.split("_")[4]}`, `crs_reason_code_${field.split("_")[4]}`);
+                        }
+                      
+                        state.fields = updatedFields; // Update state fields
+                      }
+                      ,
+                resetTaxField(state, action) {
+                        state.maxCount = 4;
+                        state.count = 0;
+                        state.fields = action.payload;
+                }
+        }
 });
+export const taxAction = tax.actions;
+export default tax;
