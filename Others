@@ -373,3 +373,195 @@ const ThankYou = () => {
 };
 
 export default ThankYou;
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import { MemoryRouter } from "react-router-dom";
+import ThankYou from "./ThankYou"; // Your main component
+import { store } from "../../../utils/store/store";
+
+// Mock Services
+jest.mock("../../../services/track-events", () => ({
+  triggerAdobeEvent: jest.fn(),
+}));
+
+jest.mock("../../../services/ga-track-events", () => ({
+  pageView: jest.fn(),
+}));
+
+jest.mock("../../../services/common-service", () => ({
+  redirectingToIbanking: jest.fn(),
+  activateDigitalCard: jest.fn(() => Promise.resolve({ status: "SUCCESS" })),
+}));
+
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getChannelRefNo: jest.fn(() => ({
+      applicationRefNo: "123456",
+    })),
+    getParameterByName: jest.fn(() => ""),
+    getUpdatedStage: jest.fn(() => ({ ccplChannel: "" })),
+  },
+}));
+
+// Mock Components
+jest.mock("./thankyou-casa", () => () => <div data-testid="ThankYouCASA" />);
+jest.mock("./thankyou-cc", () => () => <div data-testid="ThankYouCC" />);
+jest.mock("./thankyou-upload", () => () => <div data-testid="ThankYouUpload" />);
+jest.mock("./cc-without-activation", () => () => <div data-testid="CCWithoutActivation" />);
+jest.mock("./cc-activation-success", () => () => <div data-testid="CCActivationSuccess" />);
+jest.mock("./thankyou-error", () => () => <div data-testid="ThankYouError" />);
+
+// Mock Redux Store
+const mockStore = configureStore([]);
+const initialState = {
+  stages: {
+    stages: [
+      {
+        stageId: "123",
+        stageInfo: {
+          application: { application_reference: "123456" },
+          products: [
+            { product_category: "CC", name: "Credit Card", product_sequence_number: 1, acct_details: [{ account_number: "987654", card_no: "1111-2222-3333-4444" }] },
+          ],
+          applicants: { embossed_name_a_1: "John Doe" },
+        },
+      },
+    ],
+    journeyType: "NTB",
+    otpSuccess: false,
+    isDocumentUpload: false,
+  },
+};
+
+const renderComponent = (state = initialState) => {
+  const testStore = mockStore(state);
+  return render(
+    <Provider store={testStore}>
+      <MemoryRouter>
+        <ThankYou />
+      </MemoryRouter>
+    </Provider>
+  );
+};
+
+describe("ThankYou Component", () => {
+  test("renders without crashing", () => {
+    renderComponent();
+    expect(screen.getByTestId("form")).toBeInTheDocument();
+  });
+
+  test("renders ThankYouCASA if product category is CA or SA", () => {
+    const state = {
+      ...initialState,
+      stages: {
+        ...initialState.stages,
+        stages: [
+          {
+            ...initialState.stages.stages[0],
+            stageInfo: {
+              ...initialState.stages.stages[0].stageInfo,
+              products: [{ product_category: "SA", name: "Savings Account" }],
+            },
+          },
+        ],
+      },
+    };
+    renderComponent(state);
+    expect(screen.getByTestId("ThankYouCASA")).toBeInTheDocument();
+  });
+
+  test("renders ThankYouCC if product category is CC", () => {
+    renderComponent();
+    expect(screen.getByTestId("ThankYouCC")).toBeInTheDocument();
+  });
+
+  test("renders ThankYouUpload if document upload is required", () => {
+    const state = {
+      ...initialState,
+      stages: {
+        ...initialState.stages,
+        isDocumentUpload: true,
+      },
+    };
+    renderComponent(state);
+    expect(screen.getByTestId("ThankYouUpload")).toBeInTheDocument();
+  });
+
+  test("activates card when OTP success is true", async () => {
+    const state = {
+      ...initialState,
+      stages: {
+        ...initialState.stages,
+        otpSuccess: true,
+      },
+    };
+
+    renderComponent(state);
+    
+    await waitFor(() => expect(screen.getByTestId("CCActivationSuccess")).toBeInTheDocument());
+  });
+
+  test("shows error UI when card activation fails", async () => {
+    jest.mock("../../../services/common-service", () => ({
+      activateDigitalCard: jest.fn(() => Promise.resolve({ status: "FAILED" })),
+    }));
+
+    const state = {
+      ...initialState,
+      stages: {
+        ...initialState.stages,
+        otpSuccess: true,
+      },
+    };
+
+    renderComponent(state);
+
+    await waitFor(() => expect(screen.getByTestId("ThankYouError")).toBeInTheDocument());
+  });
+
+  test("handles continue without activation", () => {
+    renderComponent();
+
+    fireEvent.click(screen.getByTestId("ThankYouCC")); // Simulating button click in CC component
+
+    expect(screen.getByTestId("CCWithoutActivation")).toBeInTheDocument();
+  });
+
+  test("handles iBanking redirection", () => {
+    renderComponent();
+
+    const submitButton = screen.getByTestId("form");
+    fireEvent.submit(submitButton);
+
+    expect(window.location.href).toContain(process.env.REACT_APP_HOME_PAGE_URL);
+  });
+
+  test("shows popup when attempting to continue without activation", () => {
+    renderComponent();
+
+    fireEvent.click(screen.getByTestId("ThankYouCC")); // Simulate clicking the activation button
+
+    expect(screen.getByTestId("CCWithoutActivation")).toBeInTheDocument();
+  });
+
+  test("redirects to OTP page", () => {
+    renderComponent();
+
+    fireEvent.click(screen.getByTestId("ThankYouCC")); // Simulating button click to show OTP popup
+
+    expect(window.location.pathname).toBe("/otp");
+  });
+
+  test("triggers analytics events on load", () => {
+    renderComponent();
+
+    expect(require("../../../services/track-events").triggerAdobeEvent).toHaveBeenCalledWith("formSubmit");
+    expect(require("../../../services/ga-track-events").pageView).toHaveBeenCalledWith("123");
+  });
+});
