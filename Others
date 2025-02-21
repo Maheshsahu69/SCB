@@ -217,3 +217,188 @@ const Amount = (props: KeyWithAnyModel) => {
 };
 
 export default Amount;
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Amount from "./Amount";
+
+const mockStore = configureStore([]);
+const mockDispatch = jest.fn();
+
+jest.mock("react-redux", () => ({
+  ...jest.requireActual("react-redux"),
+  useDispatch: () => mockDispatch,
+}));
+
+jest.mock("../../../utils/common/change.utils", () => ({
+  isFieldUpdate: jest.fn(),
+  isFieldValueUpdate: jest.fn(),
+  fieldIdAppend: jest.fn(() => "test-field"),
+  getUrl: {
+    getUpdatedStage: jest.fn(() => ({
+      updatedStageInputs: [],
+    })),
+  },
+  fieldError: jest.fn(() => ""),
+}));
+
+jest.mock("../../../services/validation-service", () => ({
+  allowOnlyCharacter: jest.fn(),
+}));
+
+const mockProps = {
+  data: {
+    logical_field_name: "required_annual_income",
+    rwb_label_name: "Annual Income",
+    type: "text",
+    min_length: 1,
+    length: 10,
+  },
+  handleCallback: jest.fn(),
+};
+
+const initialState = {
+  stages: {
+    stages: [
+      {
+        stageId: "123",
+        stageInfo: {
+          applicants: {
+            annual_income_a_1: "50000",
+          },
+        },
+      },
+    ],
+    userInput: {
+      applicants: {
+        required_annual_income_a_1: "55000",
+      },
+    },
+  },
+  fielderror: { error: {} },
+};
+
+const renderComponent = (state = initialState) => {
+  const testStore = mockStore(state);
+  return render(
+    <Provider store={testStore}>
+      <Amount {...mockProps} />
+    </Provider>
+  );
+};
+
+describe("Amount Component", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("renders input field with correct label", () => {
+    renderComponent();
+    expect(screen.getByLabelText("Annual Income")).toBeInTheDocument();
+  });
+
+  test("displays initial formatted value", () => {
+    renderComponent();
+    expect(screen.getByLabelText("Annual Income")).toHaveValue("50,000");
+  });
+
+  test("updates value on user input", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "60000" } });
+
+    expect(input).toHaveValue("60,000");
+    expect(mockProps.handleCallback).toHaveBeenCalledWith(
+      mockProps.data,
+      "60000"
+    );
+  });
+
+  test("shows error message if amount is too low", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "900" } });
+
+    expect(screen.getByText(/Please enter a minimum of \$1,000/i)).toBeInTheDocument();
+  });
+
+  test("shows error message if amount is too high", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "300000" } });
+
+    expect(screen.getByText(/Maximum allowed is \$250,000/i)).toBeInTheDocument();
+  });
+
+  test("formats input as currency", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "123456" } });
+
+    expect(input).toHaveValue("123,456");
+  });
+
+  test("does not allow non-numeric input", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "abc123" } });
+
+    expect(input).toHaveValue("123");
+  });
+
+  test("dispatches Redux actions on input change", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "75000" } });
+
+    expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  test("calls handleCallback with correct value", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.change(input, { target: { value: "70000" } });
+
+    expect(mockProps.handleCallback).toHaveBeenCalledWith(
+      mockProps.data,
+      "70000"
+    );
+  });
+
+  test("binds input handler correctly on blur", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.blur(input, { target: { value: "60000" } });
+
+    expect(input).toHaveValue("60,000");
+    expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  test("removes commas when input is focused", () => {
+    renderComponent();
+    const input = screen.getByLabelText("Annual Income");
+
+    fireEvent.focus(input);
+
+    expect(input).toHaveValue("50000");
+  });
+});
