@@ -1,475 +1,375 @@
-import React, { useState, useEffect } from "react";
-import "./toggle.scss";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useState } from "react";
+import "./thank-you.scss";
 import { KeyWithAnyModel, StoreModel } from "../../../utils/model/common-model";
-import { isFieldUpdate } from "../../../utils/common/change.utils";
-import Alias from "../../components/alias/alias";
-import SelectionBox from "../selection-box/selection-box";
-import { aliasAction } from "../../../utils/store/alias-slice";
-import tax, { taxAction } from "../../../utils/store/tax-slice";
-import Text from "../text/text";
-import { fieldErrorAction } from "../../../utils/store/field-error-slice";
-import { stagesAction } from "../../../utils/store/stages-slice";
-import { lastAction } from "../../../utils/store/last-accessed-slice";
-import Model from "../model/model";
- import "../information/information.scss";
-import Tax from "../../tax/tax";
-import fields from "../../../modules/dashboard/fields/fields";
- 
-const Toggle = (props: KeyWithAnyModel) => {
-  const [defaultValue, setDefaultValue] = useState(false);
-  const [defaultTaxValue, setDefaultTaxValue] = useState("");
-  const [stageId, setStageId] = useState("");
-  const [showInfoPopup, setShowInfoPopup] = useState(false);
+import thankyouData from "../../../assets/_json/thankyou.json";
+import { useSelector, useDispatch } from "react-redux";
+import { getUrl } from "../../../utils/common/change.utils";
+import trackEvents from "../../../services/track-events";
+import {
+  redirectingToIbanking,
+  activateDigitalCard,
+} from "../../../services/common-service";
+import Model from "../../../shared/components/model/model";
+import PopupModel from "../../../shared/components/popup-model/popup-model";
+import ThankYouCASA from "./thankyou-casa";
+import ThankYouCC from "./thankyou-cc";
+// import ThankYouPL from "./thankyou-pl";
+import CCWithoutActivation from "./cc-without-activation";
+import gaTrackEvents from "../../../services/ga-track-events";
+import CCActivationSucess from "./cc-activation-success";
+import ThankyouError from "./thankyou-error";
+import { useNavigate } from "react-router-dom";
+import ThankYouUpload from "./thankyou-upload";
+import { store } from "../../../utils/store/store";
+
+const ThankYou = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  /*istanbul ignore next */
   const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
-  const aliasSelector = useSelector((state: StoreModel) => state.alias);
-  const taxSelector =useSelector((state:StoreModel)=>state.tax);
-  const userInputSelector = useSelector(
-    (state: StoreModel) => state.stages.userInput
-  );
-  const journeyType = useSelector(
+  const applicationJourney = useSelector(
     (state: StoreModel) => state.stages.journeyType
   );
-  const dispatch = useDispatch();
-  const handlePopupBackButton = () => {
-    setShowInfoPopup(false);
-  };
-
+  const otpSuccessSelector = useSelector(
+    (state: StoreModel) => state.stages.otpSuccess
+  );
+  const thankyou: KeyWithAnyModel = thankyouData;
+  //const [isFunding, setIsFunding] = useState(false);
+  const applicationReferenceNo = getUrl.getChannelRefNo().applicationRefNo || stageSelector[0].stageInfo.application.application_reference;
+  const [applicationDetails, setApplicationDetails] = useState({
+    productCategory: [],
+    productName: [],
+    acct_details: [],
+    account_number: "",
+    thankyouProp: "NSTP",
+    accountNum: "",
+    thankyouText: "Common",
+    thankyouFeedback: "Feedback",
+    feedbackUrl: "",
+    isStp: false,
+    loanTenureMonths: "",
+    approvedLoan: 0,
+    productType: [],
+    feeAmount: "",
+    card_no: "",
+    cardNumber: "",
+    cardName: "",
+    productSequenceNo: [],
+  });
+  const [enableActivation, setEnableActivation] = useState<boolean>(false);
+  const [showPlatinum, setShowPlatinum] = useState<boolean>(false);
+  const [isCampaignBenefits, setIsCampaignBenefits] = useState<boolean>(false);
+  const [
+    showContinueWithoutActivationMsg,
+    setShowContinueWithoutActivationMsg,
+  ] = useState<boolean>(false);
+  const [continueWithoutActivationUI, setContinueWithoutActivationUI] =
+    useState(false);
+  const [cardActivationSuccessUI, setCardActivationSuccessUI] = useState(false);
+  const [showErrorUI, setShowerrorUI] = useState(false);
   useEffect(() => {
-    /*istanbul ignore else */
-    if (
-      stageSelector &&
-      stageSelector[0] &&
-      stageSelector[0].stageInfo &&
-      stageSelector[0].stageInfo.applicants
-    ) {
-       /*istanbul ignore else */
-      if (
-        props.data.logical_field_name === "cheque_book_request" ||
-        props.data.logical_field_name === "other_name_or_alias" ||
-        props.data.logical_field_name === "tax_resident_of_other_country"
-      ) {
-        const storeVal =
-          stageSelector[0].stageInfo.applicants[
-            props.data.logical_field_name + "_a_1"
-          ];
-           /*istanbul ignore else */
-        if (storeVal) {
-          dispatch(
-            isFieldUpdate(props, storeVal, props.data.logical_field_name)
-          );
-        }
-
-        if (
-          stageSelector[0].stageInfo.applicants[
-            props.data.logical_field_name + "_a_1"
-          ] === "Y"
-        ) {
-          setDefaultValue(true);
-        } else if (
-          stageSelector[0].stageInfo.applicants[
-            props.data.logical_field_name + "_a_1"
-          ] === "N"
-        ) {
-          setDefaultValue(false);
-        } else {
-          setDefaultValue(false);
-          if ((props.data.logical_field_name !== "other_name_or_alias")||(props.data.logical_field_name !== "tax_resident_of_other_country")) {
-            dispatch(isFieldUpdate(props, "N", props.data.logical_field_name));
-          }
-        }
-      }
-       /*istanbul ignore else */
+    setApplicationDetails((prevValue) => {
       if (
         stageSelector &&
-        stageSelector.length > 0 &&
-        stageSelector[0].stageId
+        stageSelector[0].stageInfo && stageSelector[0].stageInfo.products &&
+        stageSelector[0].stageInfo.products.length >= 1
       ) {
-        setStageId(stageSelector[0].stageId);
+        prevValue.productCategory =
+          stageSelector[0].stageInfo.products.map((product:any)=> product.product_category);
+        prevValue.productName = stageSelector[0].stageInfo.products.map((product:any)=> product.name);
+        prevValue.productSequenceNo =
+          stageSelector[0].stageInfo.products.map((product:any)=> product.product_sequence_number);
+        prevValue.productType =
+          stageSelector[0].stageInfo.products.map((product:any)=> product.product_type);
+        if (
+          stageSelector[0].stageInfo.products[0].acct_details &&
+          stageSelector[0].stageInfo.products[0].acct_details.length >= 1
+        ) {
+          prevValue.acct_details =
+            stageSelector[0].stageInfo.products[0].acct_details;
+          prevValue.account_number =
+            stageSelector[0].stageInfo.products[0].acct_details[0].account_number;
+          prevValue.card_no =
+            stageSelector[0].stageInfo.products[0].acct_details[0].card_no;
+        }
       }
+      prevValue.thankyouProp = "NSTP";
+      if (
+        prevValue.acct_details &&
+        prevValue.acct_details[0] &&
+        prevValue.account_number
+      ) {
+        prevValue.thankyouProp = "STP";
+        prevValue.accountNum = prevValue.account_number;
+      }
+      if (
+        prevValue.acct_details &&
+        prevValue.acct_details[0] &&
+        prevValue.card_no
+      ) {
+        prevValue.thankyouProp = "STP";
+        prevValue.cardNumber = prevValue.card_no;
+      }
+      prevValue.isStp = prevValue.thankyouProp === "STP" ? true : false;
+      prevValue.feedbackUrl =
+        thankyou[prevValue.thankyouFeedback]["url_prefix"] +
+        thankyou[prevValue.thankyouFeedback]["casa"] +
+        thankyou[prevValue.thankyouFeedback]["url_suffix"] +
+        applicationReferenceNo!;
+
+      prevValue = setSTPData(prevValue);
+      if (prevValue.isStp) {
+        if (prevValue.productCategory[0] === "CC"
+        && (prevValue.productCategory[1] === "CA"
+        || prevValue.productCategory[1] === "SA"
+        || prevValue.productCategory[0] === "CC")) {
+          prevValue.thankyouText="CCSTP"
+          
+          if (stageSelector[0].stageInfo.applicants) {
+            if (stageSelector[0].stageInfo.applicants.embossed_name_a_1) {
+              prevValue.cardName =
+                stageSelector[0].stageInfo.applicants.embossed_name_a_1.toUpperCase();
+            }
+            if (prevValue.card_no) {
+              prevValue.cardNumber = prevValue.card_no;
+            }
+          }
+        } 
+        // else if (prevValue.productCategory[1] === "PL") {
+        //   if (stageSelector && stageSelector[0].stageInfo) {
+        //     if (stageSelector[0].stageInfo.products.length >= 1) {
+        //       prevValue.productType =
+        //         stageSelector[0].stageInfo.products[0].product_type;
+        //       if (
+        //         stageSelector[0].stageInfo.products[0].offer_details &&
+        //         stageSelector[0].stageInfo.products[0].offer_details[0].fees
+        //       )
+        //         prevValue.feeAmount =
+        //           stageSelector[0].stageInfo.products[0].offer_details[0].fees[0].fee_amount;
+        //       setIsCampaignBenefits(
+        //         thankyou.CCPL.FeeFreeCampaignCode.indexOf(
+        //           stageSelector[0].stageInfo.products[0].campaign
+        //         ) !== -1
+        //       );
+        //       if (stageSelector[0].stageInfo.products[0].acct_details) {
+        //         setShowPlatinum(
+        //           stageSelector[0].stageInfo.products[0].acct_details.length > 1
+        //         );
+        //       }
+        //     }
+        //     if (stageSelector[0].stageInfo.applicants) {
+        //       if (stageSelector[0].stageInfo.applicants.loan_tenor_a_1)
+        //         prevValue.loanTenureMonths =
+        //           stageSelector[0].stageInfo.applicants.loan_tenor_a_1;
+        //       if (
+        //         stageSelector[0].stageInfo.applicants.required_loan_amount_a_1
+        //       )
+        //         prevValue.approvedLoan =
+        //           stageSelector[0].stageInfo.applicants.required_loan_amount_a_1;
+        //       let auth_mode =
+        //         stageSelector[0].stageInfo.applicants["auth_mode_a_1"] || "";
+        //       let activate = !(
+        //         applicationJourney === "NTB" && auth_mode[1] === "N"
+        //       );
+              
+        //       setEnableActivation(activate);
+        //     }
+        //   }
+        // }
+      }
+      return { ...prevValue };
+    });
+    /*istanbul ignore next */
+    if (stageSelector[0] && stageSelector[0].stageId && getUrl.getParameterByName("auth") !== "upload" && !store.getState().stages.isDocumentUpload) {
+      gaTrackEvents.pageView(stageSelector[0].stageId);
+    }
+    /* istanbul ignore else */
+    if(getUrl.getParameterByName("auth") !== "upload" && !store.getState().stages.isDocumentUpload){
+    trackEvents.triggerAdobeEvent("formSubmit");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onToggle = () => {
-    dispatch(lastAction.getField(props.data.logical_field_name));
-    if (defaultValue) {
-      setDefaultValue(false);
-      dispatch(isFieldUpdate(props, "N", props.data.logical_field_name));
-      /*istanbul ignore else */
-      if (
-        props.data.logical_field_name === "other_name_or_alias" &&
-        aliasSelector &&
-        aliasSelector.fields.length > 0
-      ) {
-        dispatch(fieldErrorAction.removeMandatoryFields(aliasSelector.fields));
-        dispatch(
-          stagesAction.removeAddToggleField({
-            removeFields: aliasSelector.fields,
-            newFields: [],
-          })
-        );
-        dispatch(aliasAction.resetAliasField([]));
-      }
-      if (
-        props.data.logical_field_name === "tax_resident_of_other_country"
-        ) {
-        dispatch(fieldErrorAction.removeMandatoryFields(taxSelector.fields));
-        dispatch(
-          stagesAction.removeAddToggleField({
-            removeFields: taxSelector.fields,
-            newFields: [],
-          })
-        );
-        dispatch(taxAction.resetTaxField([]));
-        // setDefaultTaxValue("");
-      }
-    } else {
-      setDefaultValue(true);
-      dispatch(isFieldUpdate(props, "Y", props.data.logical_field_name));
-       /*istanbul ignore else */
-      if (
-        props.data.logical_field_name === "other_name_or_alias" &&
-        aliasSelector &&
-        aliasSelector.count < 1
-      ) {
-        dispatch(fieldErrorAction.getMandatoryFields(["alias_1"]));
-        dispatch(aliasAction.addAliasField("alias_1"));
-        dispatch(aliasAction.updateCount(1));
-      }
-      else if(props.data.logical_field_name === "tax_resident_of_other_country"
-      ){
-        dispatch(fieldErrorAction.getMandatoryFields(["no_of_tax_residency_country"]));
-        dispatch(taxAction.addTaxFiled("no_of_tax_residency_country"));
-        dispatch(taxAction.updateCount(1));
-        }
-        }
+  useEffect(() => {
+    if (otpSuccessSelector) {
+      activateCard();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otpSuccessSelector]);
+  const setSTPData = (prevValue: any) => {
+    if (prevValue.isStp && prevValue.productCategory) {
+      if (prevValue.productCategory[0] === "CC"
+        && (prevValue.productCategory[1] === "CA"
+        || prevValue.productCategory[1] === "SA"
+        || prevValue.productCategory[0] === "CC")) {
+        prevValue.feedbackUrl =
+          thankyou[prevValue.thankyouFeedback]["url_prefix"] +
+          thankyou[prevValue.thankyouFeedback]["cc"] +
+          thankyou[prevValue.thankyouFeedback]["url_suffix"] +
+          applicationReferenceNo!;
+      } 
+      // else if (prevValue.productCategory[1] === "PL") {
+      //   prevValue.feedbackUrl =
+      //     thankyou[prevValue.thankyouFeedback]["url_prefix"] +
+      //     thankyou[prevValue.thankyouFeedback]["pl"] +
+      //     thankyou[prevValue.thankyouFeedback]["url_suffix"] +
+      //     applicationReferenceNo!;
+      // }
+    }
+    return prevValue;
   };
-  useEffect(() => {
-    const taxCountryCount = parseInt(userInputSelector.applicants["no_of_tax_residency_country_a_1"] || "0");
-    if (taxCountryCount > 0) {
-      const existingFields = [...taxSelector.fields].filter(field => field.startsWith("country_of_tax_residence_"));
-      const existingFieldSet = new Set(existingFields);
-      for (let i = 1; i <= taxCountryCount; i++) {
-        const countryField = `country_of_tax_residence_${i}`;
-        if (!existingFieldSet.has(countryField)) {
-          dispatch(taxAction.addTaxFiled(countryField));
-        }
-      }
-      existingFields.forEach(field => {
-        const fieldIndex = parseInt(field.split("_").pop() || "0");
-        if (fieldIndex > taxCountryCount) {
-          dispatch(taxAction.removeTaxField(field));
-          dispatch(stagesAction.removeAddToggleField({
-            removeFields:[field],
-            newFields:[],
-            value:''
-          }))
-}
-      });
-      }
-  }, [userInputSelector.applicants["no_of_tax_residency_country_a_1"]]);
-  
 
-  useEffect(() => {
-    taxSelector.fields.forEach(field => {
-        const fieldIndex = field.split("_").pop(); 
-        const fieldValue = userInputSelector.applicants[`${field}_a_1`];
-        if (fieldValue && fieldValue.length >= 9) {
-          const reasonField = `crs_reason_code_${fieldIndex}`;
-          if (taxSelector.fields.includes(reasonField)) {
-            dispatch(taxAction.removeTaxField(reasonField));
-            dispatch(
-              stagesAction.removeAddToggleField({
-                removeFields: [reasonField],
-                newFields: [],
-              })
-            );
-          }
-        }else if(fieldValue && fieldValue.length === 3){
-          const reasonField = `crs_reason_code_${fieldIndex}_a_1`;
-          // if (userInputSelector.applicants[reasonField]==="B00") {
-          //   const crsCommentsField=`crs_comments_${fieldIndex}`;
-          //   dispatch(taxAction.updateTax({[crsCommentsField]:''}));
-          //   dispatch(
-          //     stagesAction.removeAddToggleField({
-          //       removeFields: [
-          //     "casa_fatca_declaration",
-          //       ],
-          //       newFields: [`crs_comments_${fieldIndex}`],
-          //       value:''
-          //     })
-          //   );
-          // }
-          // else{
-            const taxValue= `tax_id_no_${fieldIndex}_a_1`
-            if(userInputSelector.applicants[taxValue]){
-            dispatch(
-              stagesAction.removeAddToggleField({
-                removeFields: [`crs_reason_code_${fieldIndex}`],
-                newFields: [],
-              })
-            );
-            }else{
-              dispatch(
-                stagesAction.removeAddToggleField({
-                  removeFields: [`tax_id_no_${fieldIndex}`],
-                  newFields: [],
-                })
-              );
-            }
-          // }
-        }
-    });
-  }, [taxSelector.fields, userInputSelector.applicants]);
+  const submitForm = (event:React.FormEvent<EventTarget>) => {
+    if (
+      stageSelector &&
+      (stageSelector[0].stageInfo.applicants["auth_mode_a_1"] === "IX" || stageSelector[0].stageInfo.applicants["auth_mode_a_1"] === "IM")
+    ) {
+      goToIBanking(event);
+    } else {
+      window.location.href = `${process.env.REACT_APP_HOME_PAGE_URL}`;
+    }
+    event.preventDefault();
+  };
 
-  useEffect(() => {
-    const countryFields = [
-      "country_of_tax_residence_1_a_1",
-      "country_of_tax_residence_2_a_1",
-      "country_of_tax_residence_3_a_1",
-      "country_of_tax_residence_4_a_1",
-    ];
- 
-    countryFields.forEach((field) => {
-      const countryValue = userInputSelector.applicants[field];
-     if (countryValue) {
-        dispatch(taxAction.updateTax({ [field]: countryValue }));
+  const continueWithoutActivation = () => {
+    setShowContinueWithoutActivationMsg(false);
+    setContinueWithoutActivationUI(true);
+  };
+  const showContinuePopup = (event: React.FormEvent<EventTarget>) => {
+    setShowContinueWithoutActivationMsg(true);
+    event.preventDefault();
+  };
+  const handlePopupBackButton = () => {
+    setShowContinueWithoutActivationMsg(false);
+    setContinueWithoutActivationUI(false);
+  };
+  const showOTPPopup = () => {
+    navigate("/otp");
+  };
+  const goToIBanking = (event: React.FormEvent<EventTarget>) => {
+    if (getUrl.getParameterByName("source") === "scm") {
+      //Ibanking redirection for app
+      window.location.href = `${process.env.REACT_APP_IBANKING_SC_MOBILE}`;
+    }  else if(getUrl.getUpdatedStage().ccplChannel=== "MBNK" || getUrl.getParameterByName("channel") === "MBNK") {
+      const redirectUrl =  `${process.env.REACT_APP_IBANKING_SC_MOBILE_TRANSFER}`;
+      window.location.href = redirectUrl;
+    }else {
+      redirectingToIbanking();
+    }
+    event.preventDefault();
+  };
+  const activateCard = () => {
+    setShowContinueWithoutActivationMsg(false);
+    setContinueWithoutActivationUI(false);
+    setShowerrorUI(false);
+    dispatch(activateDigitalCard(applicationDetails)).then((result: any) => {
+      if (result.status && result.status.toUpperCase() === "SUCCESS") {
+        setCardActivationSuccessUI(true);
+      } else {
+        setShowerrorUI(true);
       }
     });
-  }, [
-    userInputSelector.applicants["country_of_tax_residence_1_a_1"],
-    userInputSelector.applicants["country_of_tax_residence_2_a_1"],
-    userInputSelector.applicants["country_of_tax_residence_3_a_1"],
-    userInputSelector.applicants["country_of_tax_residence_4_a_1"],
-  ]);
-
-
- 
- 
+  };
   return (
     <>
-      {!(stageId === "ssf-2" && journeyType) && (
-        <div className="toggle__content">
-          <div className="toggle__content__inner">
-            <div className="toggle__desc">{props.data.rwb_label_name}</div>
-            <div className="toggle__button__block">
-              <div className="toggle__button" onClick={() => onToggle()}>
-                <input
-                  onChange={() => {
-                    // do nothing
-                  }}
-                  type="checkbox"
-                  checked={defaultValue}
-                />
-                <span className="toggle__slider"></span>
+      {applicationDetails && (
+        <form data-testid="form" className="form">
+          <div data-testid="app thankyou" className="app thankyou">
+            <div  data-testid="app__body" className="app__body">
+              <div className="app__right">
+                <div className="thankyou__container">
+                  {!showErrorUI &&
+                    !continueWithoutActivationUI &&
+                    !cardActivationSuccessUI && (
+                      <>
+                      {(getUrl.getParameterByName("auth") === "upload" || store.getState().stages.isDocumentUpload) &&(
+                          <ThankYouUpload
+                          applicationDetails={applicationDetails}
+                          thankyou={thankyou}
+                          applicationReferenceNo={applicationReferenceNo}
+                          submitForm={submitForm}
+                        />
+                        )}
+                        {(applicationDetails.productCategory[1] === "CA" ||
+                          applicationDetails.productCategory[1] === "SA") && (
+                          <ThankYouCASA
+                            applicationDetails={applicationDetails}
+                            thankyou={thankyou}
+                            applicationReferenceNo={applicationReferenceNo}
+                            submitForm={submitForm}
+                          />
+                        )}
+                        {applicationDetails.productCategory[1] === "CC" && (
+                          <ThankYouCC
+                            applicationDetails={applicationDetails}
+                            thankyou={thankyou}
+                            applicationReferenceNo={applicationReferenceNo}
+                            submitForm={submitForm}
+                            activateCard={activateCard}
+                            showContinuePopup={showContinuePopup}
+                            showOTPPopup={showOTPPopup}
+                          />
+                        )}
+                        {/* {applicationDetails.productCategory === "PL" && (
+                          <ThankYouPL
+                            applicationDetails={applicationDetails}
+                            thankyou={thankyou}
+                            applicationReferenceNo={applicationReferenceNo}
+                            submitForm={submitForm}
+                            enableActivation={enableActivation}
+                            showPlatinum={showPlatinum}
+                            isCampaignBenefits={isCampaignBenefits}
+                          />
+                        )} */}
+                        {showContinueWithoutActivationMsg && (
+                          <PopupModel displayPopup={true}>
+                            <Model
+                              name="CCThankYou"
+                              handlebuttonClick={handlePopupBackButton}
+                              handleContinueWithoutActivation={
+                                continueWithoutActivation
+                              }
+                            />
+                          </PopupModel>
+                        )}
+                      </>
+                    )}
+                  {applicationDetails.productCategory[0] === "CC" && (
+                    <>
+                      {continueWithoutActivationUI && (
+                        <CCWithoutActivation
+                          applicationDetails={applicationDetails}
+                          thankyou={thankyou}
+                          applicationReferenceNo={applicationReferenceNo}
+                          goToIBanking={goToIBanking}
+                        />
+                      )}
+                      {cardActivationSuccessUI && (
+                        <CCActivationSucess
+                          applicationDetails={applicationDetails}
+                          thankyou={thankyou}
+                          applicationReferenceNo={applicationReferenceNo}
+                          goToIBanking={goToIBanking}
+                        />
+                      )}
+                    </>
+                  )}
+                  {showErrorUI && (
+                    <ThankyouError
+                      applicationDetails={applicationDetails}
+                      thankyou={thankyou}
+                      applicationReferenceNo={applicationReferenceNo}
+                      goToIBanking={goToIBanking}
+                    />
+                  )}
+                </div>
               </div>
             </div>
-            <span className="radio__header">
-        {props.data.info_tooltips === "Yes" &&
-           props.data.logical_field_name !== "casa_fatca_declaration" && (
-            <div  className="tool-tip__icon">
-             <span
-               className=" tool-tip"
-               onClick={() => setShowInfoPopup(true)}
-             ></span>
-             </div>
-           )}
-       </span>
           </div>
-          <>
-         </>
-        </div>
-       
-      )}
-      {defaultValue &&
-        props.data.logical_field_name === "other_name_or_alias" && (
-          <Alias
-            handleCallback={props.handleCallback}
-            handleFieldDispatch={props.handleFieldDispatch}
-            value={props.value}
-          />
-        )}
-        {defaultValue &&
-        props.data.logical_field_name === "tax_resident_of_other_country" && (
-          
-          <Tax
-             handleCallback={props.handleCallback}
-             handleFieldDispatch={props.handleFieldDispatch}
-             props={props}
-          />
-        )}
-       {showInfoPopup && (
-        <Model name={props.data.logical_field_name} isTooltip={true} data={props.data.details}  handlebuttonClick={handlePopupBackButton} />
+        </form>
       )}
     </>
   );
 };
 
-export default Toggle;
-
-
-
-
-
-
-
-
-
-
-import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { Provider } from "react-redux";
-import configureStore from "redux-mock-store";
-import Toggle from "./toggle";
-import { taxAction } from "../../../utils/store/tax-slice";
-import { aliasAction } from "../../../utils/store/alias-slice";
-import { fieldErrorAction } from "../../../utils/store/field-error-slice";
-import { stagesAction } from "../../../utils/store/stages-slice";
-
-const mockStore = configureStore([]);
-
-describe("Toggle Component", () => {
-  let store: any;
-  let defaultProps: any;
-
-  beforeEach(() => {
-    store = mockStore({
-      stages: {
-        stages: [{ stageId: "ssf-1", stageInfo: { applicants: {} } }],
-        userInput: { applicants: {} },
-        journeyType: "test-journey",
-      },
-      alias: { fields: [], count: 0 },
-      tax: { fields: [], count: 0 },
-    });
-
-    defaultProps = {
-      data: { 
-        logical_field_name: "other_name_or_alias",
-        rwb_label_name: "Other Name or Alias",
-        info_tooltips: "Yes",
-        details: "Some tooltip details",
-      },
-      handleCallback: jest.fn(),
-      handleFieldDispatch: jest.fn(),
-      value: "test-value",
-    };
-  });
-
-  const renderComponent = (customProps = defaultProps) =>
-    render(
-      <Provider store={store}>
-        <Toggle {...customProps} />
-      </Provider>
-    );
-
-  test("renders the toggle component", () => {
-    renderComponent();
-    expect(screen.getByText("Other Name or Alias")).toBeInTheDocument();
-  });
-
-  test("toggles the checkbox and dispatches actions", () => {
-    renderComponent();
-    const checkbox = screen.getByRole("checkbox");
-
-    // Initially unchecked
-    expect(checkbox).not.toBeChecked();
-
-    // Click to toggle ON
-    fireEvent.click(checkbox);
-    expect(store.getActions()).toContainEqual(
-      expect.objectContaining({ type: "last/getField" })
-    );
-
-    // Click to toggle OFF
-    fireEvent.click(checkbox);
-    expect(store.getActions()).toContainEqual(
-      expect.objectContaining({ type: "last/getField" })
-    );
-  });
-
-  test("toggles alias field when logical_field_name is other_name_or_alias", () => {
-    renderComponent();
-    const checkbox = screen.getByRole("checkbox");
-
-    // Click to enable
-    fireEvent.click(checkbox);
-    expect(store.getActions()).toContainEqual(aliasAction.addAliasField("alias_1"));
-    expect(store.getActions()).toContainEqual(aliasAction.updateCount(1));
-
-    // Click to disable
-    fireEvent.click(checkbox);
-    expect(store.getActions()).toContainEqual(aliasAction.resetAliasField([]));
-  });
-
-  test("toggles tax field when logical_field_name is tax_resident_of_other_country", () => {
-    const taxProps = {
-      ...defaultProps,
-      data: { ...defaultProps.data, logical_field_name: "tax_resident_of_other_country" },
-    };
-    renderComponent(taxProps);
-    const checkbox = screen.getByRole("checkbox");
-
-    // Click to enable
-    fireEvent.click(checkbox);
-    expect(store.getActions()).toContainEqual(
-      taxAction.addTaxFiled("no_of_tax_residency_country")
-    );
-    expect(store.getActions()).toContainEqual(taxAction.updateCount(1));
-
-    // Click to disable
-    fireEvent.click(checkbox);
-    expect(store.getActions()).toContainEqual(taxAction.resetTaxField([]));
-  });
-
-  test("renders tooltip when info_tooltips is 'Yes'", () => {
-    renderComponent();
-    const tooltipIcon = screen.getByClassName("tool-tip__icon");
-    expect(tooltipIcon).toBeInTheDocument();
-
-    // Click to open modal
-    fireEvent.click(tooltipIcon);
-    expect(screen.getByText("Some tooltip details")).toBeInTheDocument();
-  });
-
-  test("renders the Alias component when toggle is enabled for alias", () => {
-    renderComponent();
-    const checkbox = screen.getByRole("checkbox");
-
-    fireEvent.click(checkbox);
-    expect(screen.getByText("Alias Component")).toBeInTheDocument();
-  });
-
-  test("renders the Tax component when toggle is enabled for tax_resident_of_other_country", () => {
-    const taxProps = {
-      ...defaultProps,
-      data: { ...defaultProps.data, logical_field_name: "tax_resident_of_other_country" },
-    };
-    renderComponent(taxProps);
-    const checkbox = screen.getByRole("checkbox");
-
-    fireEvent.click(checkbox);
-    expect(screen.getByText("Tax Component")).toBeInTheDocument();
-  });
-
-  test("handles tax residency field count updates", () => {
-    store = mockStore({
-      ...store,
-      stages: {
-        ...store.stages,
-        userInput: { applicants: { no_of_tax_residency_country_a_1: "2" } },
-      },
-    });
-
-    renderComponent();
-
-    expect(store.getActions()).toContainEqual(
-      taxAction.addTaxFiled("country_of_tax_residence_1")
-    );
-    expect(store.getActions()).toContainEqual(
-      taxAction.addTaxFiled("country_of_tax_residence_2")
-    );
-  });
-});
-
+export default ThankYou;
