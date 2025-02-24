@@ -897,3 +897,246 @@ const Text = (props: KeyWithAnyModel) => {
 };
 
 export default Text;
+
+
+
+
+
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import Text from "./Text"; // Adjust path based on location
+import { store } from "../../../utils/store/store";
+import { stagesAction } from "../../../utils/store/stages-slice";
+
+// Mock the Redux store
+const mockStore = configureStore([]);
+const initialState = {
+  stages: {
+    stages: [
+      {
+        stageId: "bd-1",
+        stageInfo: {
+          applicants: {
+            full_name_a_1: "John Doe",
+            NRIC_a_1: "S1234567D",
+            embossed_dc_name_a_1: "",
+            tax_id_no_a_1: "",
+          },
+          products: [{ product_category: "CC" }],
+          application: { journey_type: "ETC" },
+        },
+      },
+    ],
+    userInput: {
+      applicants: {},
+    },
+  },
+  fielderror: { error: {} },
+  postalCode: { postalCode: {} },
+  urlParam: { resume: false },
+};
+
+describe("Text Component", () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore(initialState);
+  });
+
+  test("renders Text component correctly", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "full_name",
+            rwb_label_name: "Full Name",
+            mandatory: "Yes",
+            regex: "^[a-zA-Z ]+$",
+            min_length: 3,
+            length: 50,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    expect(screen.getByLabelText("full_name")).toBeInTheDocument();
+  });
+
+  test("updates value on change", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "full_name",
+            rwb_label_name: "Full Name",
+            mandatory: "Yes",
+            regex: "^[a-zA-Z ]+$",
+            min_length: 3,
+            length: 50,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    const input = screen.getByLabelText("full_name");
+    fireEvent.change(input, { target: { value: "Jane Doe" } });
+    expect(input.value).toBe("Jane Doe");
+  });
+
+  test("shows error on empty input when mandatory", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "full_name",
+            rwb_label_name: "Full Name",
+            mandatory: "Yes",
+            regex: "^[a-zA-Z ]+$",
+            min_length: 3,
+            length: 50,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    const input = screen.getByLabelText("full_name");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(screen.getByText("Full Name is required")).toBeInTheDocument();
+  });
+
+  test("validates input against regex", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "full_name",
+            rwb_label_name: "Full Name",
+            mandatory: "Yes",
+            regex: "^[a-zA-Z ]+$",
+            min_length: 3,
+            length: 50,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    const input = screen.getByLabelText("full_name");
+    fireEvent.change(input, { target: { value: "John123" } });
+    expect(screen.getByText("Full Name must contain only letters")).toBeInTheDocument();
+  });
+
+  test("displays embossed card name", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "embossed_dc_name",
+            rwb_label_name: "Embossed Name",
+            mandatory: "Yes",
+            regex: "^[A-Z ]+$",
+            min_length: 1,
+            length: 19,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    expect(screen.getByText("Embossed Name")).toBeInTheDocument();
+  });
+
+  test("updates Redux store on change", () => {
+    const dispatchMock = jest.spyOn(store, "dispatch");
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "NRIC",
+            rwb_label_name: "NRIC",
+            mandatory: "Yes",
+            regex: "^[SFTG]\\d{7}[A-Z]$",
+            min_length: 9,
+            length: 9,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    const input = screen.getByLabelText("NRIC");
+    fireEvent.change(input, { target: { value: "S1234567D" } });
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining(stagesAction.removeAddToggleField)
+    );
+  });
+
+  test("hides field conditionally", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "tax_id_no",
+            rwb_label_name: "Tax ID",
+            mandatory: "Yes",
+            regex: "^[0-9]+$",
+            min_length: 5,
+            length: 10,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    const input = screen.queryByLabelText("tax_id_no");
+    expect(input).toBeNull(); // Field should be hidden
+  });
+
+  test("handles focus event", () => {
+    render(
+      <Provider store={store}>
+        <Text
+          data={{
+            logical_field_name: "full_name",
+            rwb_label_name: "Full Name",
+            mandatory: "Yes",
+            regex: "^[a-zA-Z ]+$",
+            min_length: 3,
+            length: 50,
+            editable: false,
+            type: "text",
+          }}
+          handleCallback={jest.fn()}
+        />
+      </Provider>
+    );
+
+    const input = screen.getByLabelText("full_name");
+    fireEvent.focus(input);
+    expect(input).toHaveFocus();
+  });
+});
