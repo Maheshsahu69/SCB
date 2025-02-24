@@ -1,301 +1,899 @@
-/* eslint-disable @typescript-eslint/no-unused-expressions */
-import { cleanup } from "@testing-library/react";
-import loader, { loaderAction } from "../utils/store/loader-slice";
-import { getTokenChno, getUrl } from "../utils/common/change.utils";
-import { ValueUpdateAction } from "../utils/store/value-update-slice";
-import { dispatchLoader, isFormUpdate, technicalError,sortByAscendingOrder,sortingList, getProductInfo, setReferralCode, AppDispatch, getMyinfoTokens, setAggregator, dispatchCtaLoader, getProductCategory, defaultError, thankYouPage, offerData, submitBasicDataDocument, creditToTrust, channelReference, submitBasicDataMyInfo, submitBasicData, dispatchAuth, getCasaBannerData, getLovData, getClientInfo, formConfig, lovRequests,} from './common-service';
-import { store } from "../utils/store/store";
-import axios from "axios";
-import { ProductModel } from "../utils/model/common-model";
-import generatePayload from "./payload";
-import {useSelector } from "react-redux";
-import { urlParamAction } from "../utils/store/urlparam-slice";
-import { errorAction } from "../utils/store/error-slice";
+import React, { useEffect, useLayoutEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { KeyWithAnyModel, StoreModel } from "../../../utils/model/common-model";
+import {
+  fieldError,
+  fieldIdAppend,
+  getUrl,
+  isFieldUpdate,
+  isFieldValueUpdate,
+} from "../../../utils/common/change.utils";
+import "./text.scss";
+import validateService from "../../../services/validation-service";
+import errorMsg from "../../../assets/_json/error.json";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import Cards from "../cards/cards";
+import { aliasAction } from "../../../utils/store/alias-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { lastAction } from "../../../utils/store/last-accessed-slice";
+import { authenticateType } from "../../../utils/common/change.utils";
+import { store } from "../../../utils/store/store";
+// import ReferralCode from "../../../shared/components/referral-code/referral-code";
+// import { referralcodeAction } from "../../../utils/store/referral-code-slice";
 
+const Text = (props: KeyWithAnyModel) => {
+  const [error, setError] = useState("");
+  const stageSelector = useSelector((state: StoreModel) => state.stages.stages);
+  const specialCharRegex = /^[^a-zA-Z0-9]+$/;
 
-jest.autoMockOff();
-jest.mock("axios",()=>({
-  request:jest.fn(),
-  get:jest.fn(),
-  post:jest.fn()
-}));
-jest.mock("react-redux", () => ({
-  useDispatch: jest.fn(),
-  useSelector: jest.fn(),
-}));
-const mockedAxios = axios as jest.Mocked<typeof axios>;
-afterEach(() => {
-  cleanup();
-  jest.resetAllMocks();
-});
-afterAll(() => {
-  jest.clearAllMocks();
-});
-jest.mock('../utils/common/change.utils', () => ({
-  authenticateType: jest.fn(),
-  getUrl:{
-    getJourneyType:jest.fn(),
-    getParameterByName:jest.fn(),
-    getProductInfo:jest.fn()
-  },
-  filterDisableFields:jest.fn(),
-  getTokenChno:jest.fn()
-}));
+  const userInputSelector = useSelector(
+    (state: StoreModel) => state.stages.userInput
+  );
+  const applicantsSelector = useSelector(
+    (state: StoreModel) => state.stages.userInput.applicants
+  );
+  const fieldErrorSelector = useSelector(
+    (state: StoreModel) => state.fielderror.error
+  );
+  const postalCodeSelector = useSelector(
+    (state: StoreModel) => state.postalCode.postalCode
+  );
+  // const referralcodeSelector = useSelector((state: StoreModel) => state.referralcode);
+  const resumeSelector = useSelector(
+    (state: StoreModel) => state.urlParam.resume
+  );
+  const dispatch = useDispatch();
 
-// jest.mock('./payload.ts', () => ({
-//   generatePayload:{
-//     formConfigPayload:jest.fn(),
-//   },
+  const [defaultValue, setDefaultValue] = useState("");
+  const [embossCounter, setEmbossCounter] = useState(0);
+  const [postalCode, setPostalCode] = useState<any>({});
+  const [hide,show] = useState(true);
+  // const [showReferralCode, setShowReferralcode] = useState(false);
+  const stage = store.getState();
+
+  const validationPatterns = () => {
+    let pattern; 
+    let fieldName = props.data.logical_field_name;
+    if(fieldName === "name_of_business"){
+      pattern = "^[a-zA-Z0-9]+$";
+    }
+    return pattern
+  }
+
+  const changeHandler = (
+    fieldName: string,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    embossedNameCounter(event.target.value);
+    setDefaultValue(event.target.value);
+    props.handleCallback(props.data, event.target.value);
+    setError("");
+    // if (props.data.logical_field_name === "referral_id_2") {
+    //   setDefaultValue(
+    //     event.target.value !== ""
+    //       ? event.target.value.toUpperCase()
+    //       : event.target.value
+    //   );
+    //   // dispatch(
+    //   //   referralcodeAction.setReferralId(
+    //   //     event.target.value !== ""
+    //   //       ? event.target.value.toUpperCase()
+    //   //       : event.target.value
+    //   //   )
+    //   // );
+    //   // dispatch(referralcodeAction.setReferralErrorMsg(""));
+    // }
+    if (
+      (props.data.mandatory === "Yes" ||
+        props.data.mandatory === "Conditional") &&
+      event.target.value.length < 1 &&
+      props.data.logical_field_name !== "referral_id_2"
+    ) {
+      setError(`${errorMsg.emity} ${props.data.rwb_label_name}`);
+    } else if (
+      `${event.target.value}`[0] === " " ||
+      `${event.target.value}`[`${event.target.value}`.length - 1] === " "
+    ) {
+      setError(
+        `${props.data.rwb_label_name} cannot have leading or trailing spaces`
+      );
+    }else if (
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.logical_field_name == "embossed_name" 
+    ) {
+      setError(`${props.data.rwb_label_name} ${errorMsg.containtext}`);
+
+    } else if(
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.rwb_label_name ==="Alias (s) 1"
+    ){
+        setError(`${props.data.rwb_label_name}${errorMsg.alias}`)
+    }
+    else if(
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.rwb_label_name ==="Alias (s) 2"
+    ){
+        setError(`${props.data.rwb_label_name}${errorMsg.alias}`)
+    }
+    else if(
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.rwb_label_name ==="Alias (s) 3"
+    ){
+        setError(`${props.data.rwb_label_name}${errorMsg.alias}`)
+    }
+    else if(
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.rwb_label_name ==="Alias (s) 4"
+    ){
+        setError(`${props.data.rwb_label_name}${errorMsg.alias}`)
+    } else if (
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.logical_field_name !== "referral_id_2" && props.data.logical_field_name !== "name_of_business" &&
+      props.data.logical_field_name !== "full_name" &&props.data.logical_field_name !== "NRIC" &&props.data.logical_field_name !== "passport_no" 
+      &&props.data.rwb_label_name !=="Alias (s) 1"&&props.data.rwb_label_name !=="Alias (s) 2"&&props.data.rwb_label_name !=="Alias (s) 3"&&props.data.rwb_label_name !=="Alias (s) 4"
+) {
+     setError(`${errorMsg.patterns}${props.data.rwb_label_name} `);
+
+    } 
+    else if (
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.logical_field_name !== "referral_id_2" && props.data.logical_field_name !== "name_of_business" &&
+      props.data.logical_field_name == "full_name"
+
+    ) {
+      setError(`${errorMsg.fullName} `);
+      
+    }
+    else if (
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.logical_field_name == "NRIC" 
+      
+    ) {
+      
+    setError(`${errorMsg.nricAn}`);
+    } 
+    else if (
+      props.data.regex &&
+      !`${event.target.value}`.match(props.data.regex) &&
+      props.data.logical_field_name == "passport_no" 
+      
+    ) {
+    setError(`${errorMsg.passportAn}`);
+    } 
+    
+   // Check for pattern match
+  
+    
+   else if (
+      props.data.min_length &&
+      `${event.target.value}`.length < props.data.min_length &&
+      props.data.logical_field_name !== "referral_id_2"
+    ) {
+      setError(`${errorMsg.minLength} ${props.data.min_length} characters`);
+    }
+
+    else if(props.data.logical_field_name === "full_name" &&(event.target.value.match(/@/g)||[]).length>1){
+       setError(`${errorMsg.fullNameRegexLimit}`)
+    }
+    
+    else if(props.data.logical_field_name === "name_of_business" && event.target.value.length>1){
+    
+      setError("");
+    } 
+    else if(props.data.logical_field_name === "crs_comments" && event.target.value.length>0){
+        dispatch(fieldErrorAction.getMandatoryFields([]));
+        let valObj:any={
+          casa_fatca_declaration_a_1: '',
+          country_of_tax_residence_a_1: '',
+          crs_reason_code_a_1: ''
+        }
+        for(let key in valObj) {
+          if(applicantsSelector[key]!==""&&applicantsSelector[key]!==undefined){
+               valObj[key] = applicantsSelector[key];
+          }else{
+            delete valObj[key];
+          }
+      }
+      valObj={...valObj,
+        crs_comments_a_1: event.target.value,
+      }
+        dispatch(
+          stagesAction.removeAddToggleField({
+            removeFields: ["tax_id_no","name_of_employer", "nature_of_employer", "job_title","office_phone_number","name_of_business","NRIC"],
+            newFields: ["casa_fatca_declaration","country_of_tax_residence","crs_reason_code","crs_comments"],
+            value:valObj
+          })
+        );
+    } 
+    else {
+      setError(
+        !event.target.validity.valid &&
+        props.data.logical_field_name !== "referral_id_2"
+          ? `${errorMsg.patterns} ${props.data.rwb_label_name}`
+          : ""
+      );
+    }
+    // if (
+    //   props.data.logical_field_name === "referral_id_2" &&
+    //   referralcodeSelector &&
+    //   referralcodeSelector.errormsg !== ""
+    // ) {
+    //   setError("");
+    // }
+  };
+
+  useEffect(() => {
+    setPostalCode(postalCodeSelector);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postalCodeSelector]);
+
+  useEffect(() => {
+    let setPostalValue = null;
+    if (
+      props.data.logical_field_name === "block" ||
+      props.data.logical_field_name === "building_name" ||
+      props.data.logical_field_name === "street_name"
+    ) {
+      if (props.data.logical_field_name === "block") {
+        setPostalValue = postalCode.block_a_1 || "";
+      } else if (props.data.logical_field_name === "building_name") {
+        setPostalValue = postalCode.building_name_a_1 || "";
+      } else if (props.data.logical_field_name === "street_name") {
+        setPostalValue = postalCode.street_name_a_1 || "";
+      }
+      if (setPostalValue) {
+        setDefaultValue(setPostalValue);
+        props.handleCallback(props.data, setPostalValue);
+        dispatch(isFieldValueUpdate(props, stageSelector, setPostalValue));
+        dispatch(
+          isFieldUpdate(props, setPostalValue, props.data.logical_field_name)
+        );
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postalCode]);
+
+  useEffect(() => {
+    // if (props.data.logical_field_name === "referral_id_2") {
+    //   if ( referralcodeSelector && referralcodeSelector.refer && referralcodeSelector.refer === "true") {
+    //     setShowReferralcode(true);
+    //     if (referralcodeSelector.referId !== null) {
+    //       const getReferralCode =
+    //       referralcodeSelector && referralcodeSelector.referId
+    //         ? referralcodeSelector.referId.toUpperCase()
+    //         : '';
+    //     setDefaultValue(getReferralCode);
+    //     dispatch(referralcodeAction.setReferralId(getReferralCode));
+    //     }
+    //     else{
+    //        setDefaultValue("");
+    //     }
+    //   }
+    //   if (
+    //     getUrl.getParameterByName("auth") === "resume" || resumeSelector
+    //   ) {
+    //     setShowReferralcode(true);
+    //     if(referralcodeSelector && referralcodeSelector.referId){
+    //       setDefaultValue(referralcodeSelector && referralcodeSelector.referId);
+    //     } 
+    //   }
+    // }
+    if (
+      stageSelector &&
+      stageSelector[0] &&
+      stageSelector[0].stageInfo &&
+      stageSelector[0].stageInfo.applicants
+    ) {
+      const userInputResponse =
+        userInputSelector.applicants[fieldIdAppend(props)];
+
+      const stageIndex = getUrl
+        .getUpdatedStage()
+        .updatedStageInputs.findIndex(
+          (ref: any) => ref && ref.stageId === stageSelector[0].stageId
+        );
+      let updatedVal = null;
+      if (stageIndex > -1) {
+        updatedVal =
+          getUrl.getUpdatedStage().updatedStageInputs[stageIndex].applicants[
+            fieldIdAppend(props)
+          ];
+      }
+
+      let fieldValue = "";
+      if (updatedVal) {
+        fieldValue = updatedVal;
+      } else if (userInputResponse) {
+        fieldValue = userInputResponse;
+      } else if (
+        stageSelector[0].stageInfo.applicants[fieldIdAppend(props)] &&
+        updatedVal !== ""
+      ) {
+        fieldValue =
+          stageSelector[0].stageInfo.applicants[fieldIdAppend(props)];
+      }
+      if (props.data.logical_field_name === "residential_address") {
+        let myInfoAddress :string = "";
+        if(stageSelector[0].stageInfo.application.journey_type === 'NTC' && (stageSelector[0].stageInfo.products[0].product_category === 'CC' || stageSelector[0].stageInfo.products[0].product_type === '280')
+         && stageSelector[0].stageInfo.applicants["mailing_address_a_1"]){
+         myInfoAddress = stageSelector[0].stageInfo.applicants["mailing_address_a_1"];    
+        }
+        else if(getUrl.getParameterByName("isMyInfoVirtual") === "true"){
+        const block = stageSelector[0].stageInfo.applicants["block_a_1"];
+        const building =
+          stageSelector[0].stageInfo.applicants["building_name_a_1"];
+        const street = stageSelector[0].stageInfo.applicants["street_name_a_1"];
+        const unitNo = stageSelector[0].stageInfo.applicants["unit_no_a_1"];
+        const postalCode =
+          stageSelector[0].stageInfo.applicants["postal_code_a_1"];
+
+        if (block && street && postalCode) {
+          myInfoAddress = block +
+            (building ? "," + building : "") +
+            "," +
+            street +
+            (unitNo ? "," + unitNo : "") +
+            "," +
+            postalCode;
+        }
+      }
+        if(myInfoAddress){
+        setDefaultValue(myInfoAddress);
+        dispatch(
+          isFieldUpdate(props, myInfoAddress, props.data.logical_field_name)
+          );
+        }
+      } else if (
+        props.data.logical_field_name === "tax_id_no" &&
+        stageSelector[0].stageInfo.applicants["casa_fatca_declaration_a_1"] ===
+          "Y"
+      ) {
+        setDefaultValue(stageSelector[0].stageInfo.applicants["NRIC_a_1"]);
+        dispatch(
+          isFieldUpdate(
+            props,
+            stageSelector[0].stageInfo.applicants["NRIC_a_1"],
+            props.data.logical_field_name
+          )
+        );
+      }else if(props.data.logical_field_name === "tax_id_no" &&
+      stageSelector[0].stageInfo.applicants["tax_id_no_a_1"] !== ""){
+        setDefaultValue(stageSelector[0].stageInfo.applicants["tax_id_no_a_1"]);
+        dispatch(
+          isFieldUpdate(props,stageSelector[0].stageInfo.applicants["tax_id_no_a_1"], props.data.logical_field_name)
+          );
+      } else if (
+        ((props.data.logical_field_name === "embossed_dc_name" &&
+          !stageSelector[0].stageInfo.applicants["embossed_dc_name_a_1"]) ||
+          (props.data.logical_field_name === "embossed_name" &&
+            !stageSelector[0].stageInfo.applicants["embossed_name_a_1"]) ||
+          (props.data.logical_field_name === "embossed_name_2" &&
+            !stageSelector[0].stageInfo.applicants["embossed_name_2_a_1"])) &&
+        new RegExp(props.data.regex).test(
+          stageSelector[0].stageInfo.applicants["full_name_a_1"]
+        )
+      ) {
+        const fullName =
+          fieldValue || stageSelector[0].stageInfo.applicants["full_name_a_1"];
+        if (fullName && fullName.length >= 19) {
+          let firstName = fullName.split(" ")[0];
+          firstName = firstName.length >= 19 ? "" : firstName;
+          embossedNameCounter(firstName);
+          setDefaultValue(firstName);
+          dispatch(
+            isFieldUpdate(props, firstName, props.data.logical_field_name)
+          );
+          props.handleCallback(props.data, firstName);
+        } else {
+          embossedNameCounter(fullName);
+          setDefaultValue(fullName);
+          dispatch(
+            isFieldUpdate(props, fullName, props.data.logical_field_name)
+          );
+          props.handleCallback(props.data, fullName);
+        }
+      } else if (
+        userInputSelector.applicants[props.data.logical_field_name + "_a_1"] !==
+          undefined &&
+        props.data.logical_field_name.substring(0, 9) === "tax_id_no"
+      ) {
+        setDefaultValue(fieldValue);
+        dispatch(
+          isFieldUpdate(
+            props,
+            fieldValue ||
+              userInputSelector.applicants[
+                props.data.logical_field_name + "_a_1"
+              ],
+            props.data.logical_field_name
+          )
+        );
+        props.handleCallback(
+          props.data,
+          userInputSelector.applicants[props.data.logical_field_name + "_a_1"]
+        );
+      } else if (
+        stageSelector[0].stageInfo.applicants[
+          props.data.logical_field_name + "_a_1"
+        ] ||
+        fieldValue
+      ) {
+        setDefaultValue(fieldValue);
+        if (
+          !(stageSelector[0].stageId === "ssf-2" && getUrl.getJourneyType())
+        ) {
+          dispatch(
+            isFieldUpdate(props, fieldValue, props.data.logical_field_name)
+          );
+          props.handleCallback(props.data, fieldValue);
+        } else {
+          dispatch(
+            isFieldUpdate(
+              props,
+              fieldValue ||
+                stageSelector[0].stageInfo.applicants[
+                  props.data.logical_field_name + "_a_1"
+                ],
+              props.data.logical_field_name
+            )
+          );
+          props.handleCallback(
+            props.data,
+            fieldValue ||
+              stageSelector[0].stageInfo.applicants[
+                props.data.logical_field_name + "_a_1"
+              ]
+          );
+        }
+        if (
+          props.data.logical_field_name === "embossed_dc_name" ||
+          props.data.logical_field_name === "embossed_name" ||
+          props.data.logical_field_name === "embossed_name_2"
+        ) {
+          embossedNameCounter(
+            stageSelector[0].stageInfo.applicants[
+              props.data.logical_field_name + "_a_1"
+            ]
+          );
+        }
+      } else if (props.data.logical_field_name === "passport_no") {
+        const passVal =
+          userInputSelector.applicants[
+            props.data.logical_field_name + "_a_1"
+          ] || "";
+        setDefaultValue(passVal);
+        dispatch(isFieldUpdate(props, passVal, props.data.logical_field_name));
+        props.handleCallback(props.data, passVal);
+      } else {
+        if(props.data.logical_field_name !== "referral_id_2"){
+          setDefaultValue(fieldValue);   
+        }  
+        if (
+          !(stageSelector[0].stageId === "ssf-2" && getUrl.getJourneyType())
+        ) {
+          dispatch(
+            isFieldUpdate(props, fieldValue, props.data.logical_field_name)
+          );
+          props.handleCallback(props.data, fieldValue);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // useEffect(() => {
+  //   if (
+  //     props.data.logical_field_name === "tax_id_no" &&
+  //     stageSelector &&
+  //     stageSelector[0] &&
+  //     stageSelector[0].stageInfo &&
+  //     stageSelector[0].stageInfo.applicants
+  //   ) {
+  //     setError("");
+  //     const stageIndex = getUrl
+  //       .getUpdatedStage()
+  //       .updatedStageInputs.findIndex(
+  //         (ref: any) => ref && ref.stageId === stageSelector[0].stageId
+  //       );
+  //     let updatedVal = null;
+  //     if (stageIndex > -1) {
+  //       updatedVal =
+  //         getUrl.getUpdatedStage().updatedStageInputs[stageIndex].applicants[
+  //           fieldIdAppend(props)
+  //         ];
+  //     }
+  //     let tax_id_value =
+  //       updatedVal ||
+  //       stageSelector[0].stageInfo.applicants[
+  //         `${props.data.logical_field_name}_a_1`
+  //       ];
+  //     if (userInputSelector.applicants["casa_fatca_declaration_a_1"] === "Y") {
+  //       tax_id_value = stageSelector[0].stageInfo.applicants["NRIC_a_1"];
+  //     }
+  //     setDefaultValue(tax_id_value ? tax_id_value : "");
+  //     dispatch(
+  //       isFieldUpdate(props, tax_id_value, props.data.logical_field_name)
+  //     );
+  //     props.handleCallback(props.data, tax_id_value);
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [userInputSelector.applicants.casa_fatca_declaration_a_1]);
+
+  useEffect(() => {
+    if (props.data.logical_field_name === "annual_income") {
+      setDefaultValue(userInputSelector.applicants.annual_income_a_1);}
+    //  else if (props.data.logical_field_name === "required_loan_amount") {
+    //   setDefaultValue(userInputSelector.applicants.required_loan_amount_a_1);
+    // } else if (props.data.logical_field_name === "loan_tenor") {
+    //   setDefaultValue(userInputSelector.applicants.loan_tenor_a_1);
+    // }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    userInputSelector.applicants.annual_income_a_1,
+    // userInputSelector.applicants.required_loan_amount_a_1,
+    // userInputSelector.applicants.loan_tenor_a_1,
+  ]);
+
+  const bindHandler = (
+    fieldName: string,
+    event: React.FocusEvent<HTMLInputElement>
+  ) => {
+    if (event.target.validity.valid && fieldName !== "name_of_employer") {
+      const fieldValue = event.target.value;
+      props.handleCallback(props.data, event.target.value);
+      dispatch(isFieldValueUpdate(props, stageSelector, fieldValue));
+      dispatch(isFieldUpdate(props, fieldValue, fieldName));
+      if (fieldName === "tax_id_no") {
+        dispatch(stagesAction.updateTaxToggle());
+      }
+      if (
+        fieldName &&
+        fieldName.substring(0, 9) === "tax_id_no" &&
+        fieldName.length > 9
+      ) {
+        dispatch(stagesAction.updateAddTaxToggle());
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (fieldError(fieldErrorSelector, props)) {
+      setError(`${errorMsg.emity} ${props.data.rwb_label_name}`);
+    } else {
+      setError("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fieldErrorSelector]);
+
+  useEffect(()=>{
+    if(userInputSelector.applicants.crs_reason_code_a_1 !==undefined){
+    if(userInputSelector.applicants.crs_reason_code_a_1 !==""
+     && stageSelector[0].stageId==='ad-2' && props.data.logical_field_name === "tax_id_no"){
+        show(false);
+        setDefaultValue('');
+    }
+    else if(userInputSelector.applicants["country_of_tax_residence_a_1"] === "SG" && props.data.logical_field_name === "crs_comments"){
+      show(false);
+    }
+    else{
+      show(true)
+    }
+  }
+  },[userInputSelector.applicants.crs_reason_code_a_1])
+
+  useEffect(()=>{
+    if (userInputSelector.applicants["country_of_tax_residence_a_1"] === "SG") {
+      if(props.data.logical_field_name==='tax_id_no'){
+      show(true);
+      setDefaultValue(stageSelector[0].stageInfo.applicants["NRIC_a_1"]);
+      dispatch(
+        isFieldUpdate(
+          props,
+          stageSelector[0].stageInfo.applicants["NRIC_a_1"],
+          props.data.logical_field_name
+        )
+      );
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["casa_declaration_info_3","tax_resident_of_other_country","NRIC"],
+          newFields: [],
+        })
+      );
+      }
+      else if(props.data.logical_field_name === "crs_comments"){
+        show(false);
+      }
+      else{
+        show(true)
+      }
+    }
+    else if(props.data.logical_field_name==='tax_id_no' && 
+    userInputSelector.applicants["country_of_tax_residence_a_1"] &&
+    userInputSelector.applicants["country_of_tax_residence_a_1"] !== 'SG'){
+      const valObj:any={
+        casa_fatca_declaration_a_1: '',
+        country_of_tax_residence_a_1: '',
+        crs_comments_a_1: '',
+        crs_reason_code_a_1: ''
+      }
+      for(let key in valObj) {
+        if(applicantsSelector[key]!==""&&applicantsSelector[key]!==undefined){
+             valObj[key] = applicantsSelector[key];
+        }else{
+          delete valObj[key];
+        }
+    }
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["casa_declaration_info_3"],
+          newFields: ["casa_fatca_declaration","tax_id_no","crs_reason_code","crs_comments"],
+          value:valObj
+        })
+      );
+      
+      if(stageSelector[0].stageInfo.applicants['tax_id_no_a_1']===''){
+          setDefaultValue('');
+      }
+    }
+    else if(props.data.logical_field_name==='crs_comments' && 
+    userInputSelector.applicants["country_of_tax_residence_a_1"] &&
+    userInputSelector.applicants["country_of_tax_residence_a_1"] !== 'SG'){
+      if(stageSelector[0].stageInfo.applicants['crs_comments_a_1']===''){
+        setDefaultValue('');
+    }
+    }
+    else{
+      show(true)
+    } 
+  },[userInputSelector.applicants.country_of_tax_residence_a_1]);
+  useEffect(()=>{
+    if(userInputSelector.applicants["tax_resident_of_other_country_a_1"] ==="Y"){
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["crs_comments","crs_reason_code"],
+          newFields: [],
+        })
+      )
+    }
+   },[userInputSelector.applicants.tax_resident_of_other_country_a_1])
+   useEffect(()=>{
+    if(stageSelector[0].stageId==="ad-2"){
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["purpose_of_account","insurance_consent_SG-PA"],
+          newFields: [],
+        })
+      )
+    }
+
+   },[])
+  useEffect(()=>{
  
-// }));
-const response = {
-  "response": {
-    "status": "error",
-    "statusText": "no response",
-  }
-}
-
-const sorting_list = {
-  "application_reference": "HK20231204000003",
-  "channel_reference": "04R0405987830122023",
-  "stage": {
-    "stage_id": "BD",
-    "page_id": "bd-4"
-  }
-}
-
-const sorted_data = {
-  "application": {
-    "application_reference": "HK20231204000003",
-    "channel_reference": "04R0405987830122023",
-    "stage": {
-      "stage_id": "BD",
-      "page_id": "bd-4"
+    if(stageSelector[0].stageId==="ad-1"){
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["banca_ins_request_2",
+          "crs_comments",
+          "crs_reason_code",
+          "deposit_insurance_scheme",
+          "purpose_of_account",
+          "tax_id_no",
+          "casa_declaration_info_3", 
+          "casa_fatca_declaration",
+          "NRIC",
+          "annual_income_fff_2",
+          "banca_ins_request_1",
+          "credit_limit_consent",
+          "myinfo_data_cli",
+          "year_of_assessment_fff_2",
+        ],
+          newFields: [],
+        })
+      );
     }
-  },
-  "applicants": [
-    {
-      "place_of_birth": "CN",
-      "nationality": "HKG",
-      "gender": "M",
-      "marital_status": "M",
-      "source_of_fund": "06",
-      "work_type_2": "D",
-      "nature_of_employer": "RS32-15",
-      "indicative_income": "76587697"
+    if(stageSelector[0].stageInfo.products[0].product_category === 'CC'
+    &&stageSelector[0].stageInfo.products[0].product_category === 'CC'
+    &&stage.stages.journeyType === "ETC"){
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["banca_ins_request_2","myinfo_data_nocli"],
+          newFields:[]
+        })
+      )
     }
-  ]
+  },[])
+  useLayoutEffect(()=>{
+    if(stageSelector[0].stageInfo.applicants['tax_id_no_a_1']){
+    if(props.data.logical_field_name === "crs_comments" &&
+    !userInputSelector.applicants["crs_comments_a_1"]){
+      show(false)
+    }
+    if(props.data.logical_field_name === "tax_id_no"){
+      show(true);
+    }
+  }
+    if(!userInputSelector.applicants["tax_id_no_a_1"] &&
+    props.data.logical_field_name === "crs_comments"){
+      show(true);
+    }
+  })
+  useEffect(()=>{
+    if(userInputSelector.applicants.tax_id_no_a_1!=='' 
+    && userInputSelector.applicants.tax_id_no_a_1!==undefined 
+    && props.data.logical_field_name === "crs_comments"){
+      show(false);
+      dispatch(
+        stagesAction.removeAddToggleField({
+          removeFields: ["crs_reason_code","crs_comments"],
+          newFields: [],
+        })
+      )
+    }
+    else if(userInputSelector.applicants.tax_id_no_a_1==='' && props.data.logical_field_name === "crs_comments"){
+      show(true);
+    }
+  },[userInputSelector.applicants.tax_id_no_a_1]);
+
+  // useEffect(() => {
+  //   if (
+  //     props.data.logical_field_name === "referral_id_2" &&
+  //     referralcodeSelector &&
+  //     referralcodeSelector.errormsg !== ""
+  //   ) {
+  //     setError(referralcodeSelector.errormsg);
+  //     if (
+  //       referralcodeSelector &&
+  //       referralcodeSelector.referId !== "" &&
+  //       referralcodeSelector.referId !== null &&
+  //       referralcodeSelector.referId.length === 1
+  //     ) {
+  //       dispatch(referralcodeAction.setReferralId(""));
+  //       setDefaultValue("");
+  //       dispatch(referralcodeAction.setReferralErrorMsg(""));
+  //     }
+  //   } else {
+  //     setError("");
+  //   }
+
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [referralcodeSelector.errormsg]);
+
+  const embossedNameCounter = (value: string) => {
+    setEmbossCounter(value.length);
+  };
+
+  const placeHolderText = (fieldName: string) => {
+    if (fieldName === "passport_no") {
+      return "Enter your passport Number";
+    }if (fieldName === "referral_id_2" && stageSelector[0].stageId !== "bd-1") {
+      return "Enter referral code here";
+    } else {
+      return props.data.rwb_label_name;
+    }
+  };
+  const removeAliasField = () => {
+    dispatch(aliasAction.removeAliasField(props.data.logical_field_name));
+    dispatch(
+      fieldErrorAction.removeMandatoryFields([props.data.logical_field_name])
+    );
+    dispatch(
+      stagesAction.removeAddToggleField({
+        removeFields: [props.data.logical_field_name],
+        newFields: [],
+      })
+    );
+  };
+  const focusHandler = (
+    fieldName: string,
+    event: React.FocusEvent<HTMLInputElement>
+  ) => {
+    dispatch(lastAction.getField(fieldName));
+  };
+
+  const allowNumericCharacter = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    fieldName: string
+  ) => {
+    if(fieldName === 'referral_id_2'){
+      validateService.allowOnlyCharacter(event, fieldName);
+    } 
+  };
+  return (
+    <>
+      {(props.data.logical_field_name === "embossed_dc_name" ||
+        props.data.logical_field_name === "embossed_name" ||
+        props.data.logical_field_name === "embossed_name_2") && (
+        <Cards name={defaultValue} />
+      )}
+     {/* {(showReferralCode || */}
+ 
+       { hide&&(props.data.logical_field_name !== "referral_id_2") && (
+      <div className="text" id={stageSelector[0].stageId ==="bd-1" && props.data.logical_field_name}>
+        <label htmlFor={props.data.logical_field_name}>
+          {props.data.rwb_label_name}
+        </label>
+        {/* {showReferralCode && stageSelector[0].stageId !== "bd-1" && (<ReferralCode />)} */}
+        <div
+          className={`text__count ${
+            // (userInputSelector.applicants["casa_fatca_declaration_a_1"] ===
+            //   "Y" &&
+            //   props.data.logical_field_name === "tax_id_no") ||
+            (stageSelector[0].stageId === "bd-1" &&
+              props.data.logical_field_name.substring(0, 5) === "alias")
+              ? "disabled"
+              : ""
+          } ${
+            stageSelector[0].stageId === "ssf-1" && authenticateType() === "myinfo" && props.data.logical_field_name === "NRIC"
+              ? "disabled"
+              : ""
+          }${
+            stageSelector[0].stageId === "ssf-1" && authenticateType() === "myinfo" && props.data.logical_field_name === "full_name"
+              ? "disabled"
+              : ""
+          }${
+            stageSelector[0].stageId === "ssf-1" && authenticateType() === "myinfo" && props.data.logical_field_name === "email"
+              ? "disabled"
+              : ""
+          } ${
+              stageSelector[0].stageId === "ad-2" && authenticateType() === "myinfo" && props.data.logical_field_name === "tax_id_no"
+              && userInputSelector.applicants["country_of_tax_residence_a_1"] === "SG"
+                ? "disabled"
+                : ""
+            }`}
+        >
+          <input
+            type={props.data.type}
+            name={props.data.logical_field_name}
+            aria-label={props.data.logical_field_name}
+            id={fieldIdAppend(props)}
+            placeholder={placeHolderText(props.data.logical_field_name)}
+            value={defaultValue}
+            minLength={props.data.logical_field_name !== "referral_id_2" && props.data.min_length}
+            maxLength={props.data.length}
+            pattern={props.data.regex === "null" || null ? validationPatterns() : props.data.regex}
+            onChange={changeHandler.bind(this, props.data.logical_field_name)}
+            onBlur={bindHandler.bind(this, props.data.logical_field_name)}
+            disabled={
+             ((props.data.editable || stageSelector[0].stageId === "bd-1")
+              &&
+              props.data.logical_field_name !== "referral_id_2") ||
+            (stageSelector[0].stageId === "bd-1" &&
+              props.data.logical_field_name === "referral_id_2")
+            }
+            onFocus={focusHandler.bind(this, props.data.logical_field_name)}
+            onKeyPress={(event) =>
+              allowNumericCharacter(event, props.data.logical_field_name)
+            }
+          />
+          {error && <span className="error-msg">{error}</span>}
+          {props.data.logical_field_name &&
+            props.data.logical_field_name.split("_")[0] === "alias" &&
+            props.data.logical_field_name.split("_")[1] !== "1" &&
+            !props.data.hide_remove_btn && (
+              <span
+                className="text__remove__button"
+                onClick={() => removeAliasField()}
+              ></span>
+            )}
+          {(props.data.logical_field_name === "embossed_dc_name" ||
+            props.data.logical_field_name === "embossed_name" ||
+            props.data.logical_field_name === "embossed_name_2") && (
+            <span className="text__count__num">{embossCounter}/19</span>
+          )}
+        </div>
+      </div>
+      )}
+    </>
+  );
 };
-// jest.mock("./common-service", () => ({
-//   getProductInfo: jest.fn(),
-//   dispatchLoader:jest.fn(),
-//   isFormUpdate:jest.fn(),
-//   technicalError:jest.fn(),
-//   sortByAscendingOrder:jest.fn(),
-//   sortingList:jest.fn(),
-// }));
-describe("Common services", () => {
-  const mockDispatch = jest.fn();
-  const mockedChannelRefNo="testref";
-  const mockStagePayloadData = {key:"value",products:[{product_type:"CC"}]};
-  let dispatch:jest.MockedFunction<AppDispatch>;
-  beforeEach(()=>{
-    dispatch=jest.fn();
-    jest.clearAllMocks();
-  });
-afterEach(()=>{
-  jest.clearAllMocks();
-})
 
-  test('should return the product when conditions are met', () => {
-  });
-    test('dispatchLoader Method', () => {
-      expect(dispatchLoader(true)).not.toBeNull();
-      expect(loaderAction.getState(loader)).not.toBeNull();
-    });
-    test('isFormUpdate Method', () => {
-      expect(isFormUpdate(true)).not.toBeNull();
-      const mocked = store.dispatch(ValueUpdateAction.getValueUpdate(true));
-      const isFormUpdatePayload = { "payload": true, "type": "valueUpdate/getValueUpdate" };
-      expect(mocked).toEqual(isFormUpdatePayload);
-    });
-    test('technicalError Method', () => {
-      // let data = {"status_code":404}
-      expect(technicalError(response)).not.toBeNull();
-      // expect(technicalError(data)).toEqual(response.response);
-    });
-    test('sortByAscendingOrder Method', () => {
-      expect(sortByAscendingOrder(sorted_data)).not.toBeNull();
-    });
-    test('sortingList Method', () => {
-      expect(sortingList(sorting_list, "object")).toEqual(sorting_list);
-    });
-    test('reder test referralcode',async () => {
-      (getUrl.getParameterByName as jest.Mock).mockReturnValue("test");
-      await setReferralCode()(dispatch);
-      expect(dispatch).toHaveBeenCalled();
-    });
-    test('render test referralcode w',async () => {
-      (getUrl.getParameterByName as jest.Mock).mockReturnValue((selector:any)=>{
-        if(selector.toString().includes('aggregator_type'))
-        return "test"
-        if(selector.toString().includes('referId'))
-        return undefined
-        if(selector.toString().includes('refer'))
-        return undefined
-        });
-      await setReferralCode()(dispatch);
-      expect(dispatch).toHaveBeenCalled();
-    });
-    test('render test setAggregator', () => {
-      (getUrl.getParameterByName as jest.Mock).mockReturnValue("test");
-      expect(setAggregator().ext_source).toBe("test");
-    });
-
-    test('render test dispatchCtaLoader',async () => {
-      (getUrl.getParameterByName as jest.Mock).mockReturnValue("test");
-        await dispatchCtaLoader(true)(dispatch);
-      expect(dispatch).toHaveBeenCalled();
-    });
-    test('render test dispatchLoader',async () => {
-      (getUrl.getParameterByName as jest.Mock).mockReturnValue("test");
-        await dispatchLoader(true)(dispatch);
-      expect(dispatch).toHaveBeenCalled();
-    });
-    test('render test erro',async () => {
-      (getUrl.getParameterByName as jest.Mock).mockReturnValue("test");
-      await defaultError()(dispatch);
-      expect(dispatch).toHaveBeenCalled();
-    });
-    test('render test getProductCategory', () => {
-      getProductCategory([{product_category:"PL"},{product_category:"PL"}]);
-      getProductCategory([{product_category:"CA"},{product_category:"CA"}]);
-      getProductCategory([{product_category:"SA"},{product_category:"SA"}]);
-      getProductCategory([{product_category:"CA"},{product_category:"CA"}]);
-      expect(getProductCategory([{product_category:"CC"}])).toBe("CC");
-      expect(getProductCategory([{product_category:"CA"}])).toBe("CA");
-      expect(getProductCategory([{product_category:"PL"},{product_category:"SA"},{product_category:"CA"},{product_category:"CC"},{product_category:"PL"},{product_category:"CA"}])).toEqual("CC");
-    });
-
-    test('render test thankYouPage',async () => {
-      
-     const mockresponse={data:{success:true}};
-     mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-      await thankYouPage(mockStagePayloadData,mockedChannelRefNo,mockDispatch);
-     expect(mockedAxios.request).toHaveBeenCalled();
-    });
-    test('render test offerData',async () => {
-      
-      const mockresponse={data:{success:true}};
-      mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-       await offerData(mockStagePayloadData,mockedChannelRefNo,mockDispatch);
-      expect(mockedAxios.request).toHaveBeenCalled();
-     });
-     test('render test submitBasicDataDocument',async () => {
-      
-      const mockresponse={data:{success:true}};
-      mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-       await submitBasicDataDocument(mockStagePayloadData,mockedChannelRefNo,mockDispatch);
-      expect(mockedAxios.request).toHaveBeenCalled();
-     });
-     test('render test creditToTrust',async () => {
-      
-      const mockresponse={data:{success:true}};
-      mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-       await creditToTrust(mockStagePayloadData,mockedChannelRefNo,mockDispatch);
-      expect(mockedAxios.request).toHaveBeenCalled();
-     });
-     test('render test channelReference',async () => {
-      const mockresponse={data:{success:true}};
-      mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-       await channelReference(mockStagePayloadData,mockedChannelRefNo,mockDispatch);
-      expect(mockedAxios.request).toHaveBeenCalled();
-     });
-     test('render test dispatch auth',async () => {
-       await dispatchAuth(true)(dispatch);
-      expect(dispatch).toHaveBeenCalled();
-     });
-     test('render test isFormUpdate',async () => {
-      await isFormUpdate(true)(dispatch);
-     expect(dispatch).toHaveBeenCalled();
-    });
-     test('render test technicalError',() => {
-     
-     expect(technicalError({"response":{'status-code':"test"}})).toEqual({"response": {"status": undefined, "statusText": "no response"}});
-    });
-     test('render test submitBasicDataMyInfo',async () => {
-      // (useSelector as jest.Mock).mockImplementation((SelectorFn)=>{
-      //   // if(SelectorFn.toString().includes("state.stages.stages"))
-      //    return [{
-      //       stageId:'bd-1',
-      //       stageInfo:{
-      //           applicants:{
-      //               annual_income_a_1:"100"
-      //           },
-      //           products:[{product_category:"CC"}]
-      //       }
-          
-      //   }];
-      // });
-      (getTokenChno as jest.Mock).mockReturnValue({channelRefNo:"123"});
-      (getUrl.getProductInfo as jest.Mock).mockReturnValue([{product_type: 'mockType'}]);
-      const mockresponse={data:{success:true}};
-      mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-       await submitBasicDataMyInfo(mockStagePayloadData,mockDispatch);
-      expect(mockedAxios.request).toHaveBeenCalled();
-     });
-     test('render test submitBasicData',async () => {
-      (getTokenChno as jest.Mock).mockReturnValue({channelRefNo:"123"});
-      (getUrl.getProductInfo as jest.Mock).mockReturnValue([{product_type: 'mockType'}]);
-      const mockresponse={data:{success:true}};
-      mockedAxios.request.mockResolvedValue(()=>({request:mockresponse}));
-       await submitBasicData(mockStagePayloadData,mockedChannelRefNo,mockDispatch);
-      expect(mockedAxios.request).toHaveBeenCalled();
-     });
-
-     test('render test getCasaBannerData',async () => {
-   
-      const mockresponse={data:{success:true}};
-      mockedAxios.get.mockResolvedValue(()=>({request:mockresponse}));
-       await getCasaBannerData();
-      expect(mockedAxios.get).not.toHaveBeenCalled();
-     });
-     test('render test getlovrequest',async () => {
-   
-      const mockresponse={data:{success:true}};
-      mockedAxios.get.mockResolvedValue(()=>({request:mockresponse}));
-      let prop1 ={fieldmetadata:{data:{stages:[]}}};
-       await lovRequests(prop1,'ssf-1');
-      expect(mockedAxios.get).not.toHaveBeenCalled();
-     });
-
-     test('render test getCasaBannerData ef',async () => {
-   
-      const mockresponse={data:{success:true}};
-      mockedAxios.get.mockResolvedValue(()=>({request:mockresponse}));
-       await getLovData("field");
-      expect(mockedAxios.get).not.toHaveBeenCalled();
-     });
-     test('render test clientinfo ef',async () => {
-   
-      const mockresponse={data:{success:true}};
-      mockedAxios.get.mockResolvedValue(()=>({request:mockresponse}));
-       await getClientInfo();
-      expect(mockedAxios.get).not.toHaveBeenCalled();
-     });
-     test('render test formconfig',async () => {
-      (getUrl.getProductInfo as jest.Mock).mockResolvedValue(()=>[{product_type:"CC"}]);
-      (getUrl.getParameterByName as jest.Mock).mockResolvedValue("manual");
-      // (generatePayload.formConfigPayload as jest.Mock).mockResolvedValue(()=>({stage:{
-      //   stage_id:"",
-      //   page_id:"ssf-1",
-      // }}));
-      const mockresponse={data:{success:true,status:{"status-code":"200"}}};
-      mockedAxios.post.mockResolvedValue(()=>({request:mockresponse}));
-       await formConfig("manual");
-      expect(mockedAxios.post).not.toHaveBeenCalled();
-     });
-
-  });
-
-
+export default Text;
