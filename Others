@@ -112,3 +112,180 @@ export const App = () => {
   );
 };
 export default App;
+
+
+
+
+
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import { createStore } from "redux";
+import { MemoryRouter } from "react-router-dom";
+import { StoreModel } from "../utils/model/common-model";
+import App from "../App";
+import trackEvents from "../services/track-events";
+import ActivityDetector from "react-activity-detector";
+
+// Mock external dependencies
+jest.mock("../services/track-events", () => ({
+  triggerAdobeEvent: jest.fn(),
+}));
+
+jest.mock("react-activity-detector", () => ({
+  __esModule: true,
+  default: jest.fn(() => null),
+}));
+
+jest.mock("../shared/components/model/idle-time-out", () => () => (
+  <div data-testid="idle-popup">Idle Timeout Modal</div>
+));
+
+jest.mock("../shared/components/spinner/spinner", () => () => (
+  <div data-testid="spinner">Loading...</div>
+));
+
+jest.mock("../shared/components/model/dynamic-model", () => () => (
+  <div data-testid="error-modal">Error Modal</div>
+));
+
+jest.mock("../shared/components/model/model", () => () => (
+  <div data-testid="global-error-modal">Global Error Modal</div>
+));
+
+jest.mock("../router/main", () => () => <div data-testid="main-component">Main Component</div>);
+
+// Mock store setup
+const initialState: StoreModel = {
+  loader: { isFetching: false },
+  error: { errors: [], exceptionList: {} },
+};
+
+const mockStore = (state = initialState) =>
+  createStore((s) => s || state);
+
+// Setup environment variable
+process.env.REACT_APP_RTOB_APP_IDLE_TIMEOUT_DURATION = "60";
+
+describe("App Component", () => {
+  it("renders the main component", () => {
+    render(
+      <Provider store={mockStore()}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByTestId("main-component")).toBeInTheDocument();
+  });
+
+  it("displays loader when fetching", () => {
+    const store = mockStore({
+      loader: { isFetching: true },
+      error: { errors: [], exceptionList: {} },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByTestId("spinner")).toBeInTheDocument();
+  });
+
+  it("displays error modal when there are errors", () => {
+    const store = mockStore({
+      loader: { isFetching: false },
+      error: { errors: ["Some error"], exceptionList: {} },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByTestId("global-error-modal")).toBeInTheDocument();
+  });
+
+  it("displays dynamic error modal when there are exceptions", () => {
+    const store = mockStore({
+      loader: { isFetching: false },
+      error: { errors: [], exceptionList: { error_header: "Exception!" } },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByTestId("error-modal")).toBeInTheDocument();
+  });
+
+  it("tracks form abandonment on unload", () => {
+    render(
+      <Provider store={mockStore()}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent(window, new Event("unload"));
+
+    expect(trackEvents.triggerAdobeEvent).toHaveBeenCalledWith(
+      "formAbandonment",
+      "BrowserClose"
+    );
+  });
+
+  it("disables right-click", () => {
+    render(
+      <Provider store={mockStore()}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const contextMenuEvent = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+
+    fireEvent(window, contextMenuEvent);
+    expect(contextMenuEvent.defaultPrevented).toBe(true);
+  });
+
+  it("triggers idle timeout popup", async () => {
+    let onIdleCallback: () => void;
+    (ActivityDetector as jest.Mock).mockImplementation(({ onIdle }) => {
+      onIdleCallback = onIdle;
+      return null;
+    });
+
+    render(
+      <Provider store={mockStore()}>
+        <MemoryRouter>
+          <App />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    // Simulate idle timeout
+    onIdleCallback();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("idle-popup")).toBeInTheDocument();
+    });
+  });
+});
