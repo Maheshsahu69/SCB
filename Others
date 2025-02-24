@@ -2099,3 +2099,93 @@ export const offerData = async (
     });
  
 };
+
+
+
+
+
+
+
+
+import { renderHook, act } from '@testing-library/react-hooks';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import axios from 'axios';
+import * as commonService from '../common-service';
+import { urlParamAction } from '../utils/store/urlparam-slice';
+import { loaderAction } from '../utils/store/loader-slice';
+import { errorAction } from '../utils/store/error-slice';
+
+jest.mock('axios');
+const mockStore = configureStore([thunk]);
+
+const setup = () => {
+  const store = mockStore({});
+  const wrapper = ({ children }) => <Provider store={store}>{children}</Provider>;
+  return { store, wrapper };
+};
+
+describe('Common Service Tests', () => {
+  let store;
+
+  beforeEach(() => {
+    store = mockStore({});
+    jest.clearAllMocks();
+  });
+
+  test('dispatches getProductInfo with valid products', async () => {
+    const { wrapper } = setup();
+    axios.get.mockResolvedValue({ data: { products: [{ product_type: 'CC' }] } });
+    await act(async () => {
+      await store.dispatch(commonService.getProductInfo('CC', [{ product_type: 'CC' }]));
+    });
+    const actions = store.getActions();
+    expect(actions).toContainEqual(urlParamAction.productDetails([{ product_type: 'CC' }]));
+  });
+
+  test('getProductInfo dispatches error action when no products are found', async () => {
+    const { wrapper } = setup();
+    axios.get.mockResolvedValue({ data: { products: [] } });
+    await act(async () => {
+      await store.dispatch(commonService.getProductInfo('CC', []));
+    });
+    const actions = store.getActions();
+    expect(actions).toContainEqual(errorAction.getError(expect.any(Object)));
+  });
+
+  test('dispatches getProductMetaData with error handling', async () => {
+    axios.get.mockRejectedValue(new Error('API Error'));
+    await act(async () => {
+      await store.dispatch(commonService.getProductMetaData('CC'));
+    });
+    const actions = store.getActions();
+    expect(actions).toContainEqual(errorAction.getError(expect.any(Object)));
+  });
+
+  test('initiateRTOBJourney dispatches correct actions', async () => {
+    const { wrapper } = setup();
+    jest.spyOn(commonService, 'authenticateType').mockReturnValue('manual');
+    axios.post.mockResolvedValue({ data: {} });
+    await act(async () => {
+      await store.dispatch(commonService.initiateRTOBJourney());
+    });
+    const actions = store.getActions();
+    expect(actions).toContainEqual(loaderAction.getState({ isFetching: true }));
+  });
+
+  test('dispatchError handles API errors correctly', () => {
+    const error = { response: { status: 500, statusText: 'Server Error' } };
+    store.dispatch(commonService.dispatchError(error));
+    const actions = store.getActions();
+    expect(actions).toContainEqual(errorAction.getError({ statusCode: 500, statusText: 'Server Error' }));
+  });
+
+  test('dispatchLoader toggles loader state', () => {
+    store.dispatch(commonService.dispatchLoader(true));
+    store.dispatch(commonService.dispatchLoader(false));
+    const actions = store.getActions();
+    expect(actions).toContainEqual(loaderAction.getState({ isFetching: true }));
+    expect(actions).toContainEqual(loaderAction.getState({ isFetching: false }));
+  });
+});
