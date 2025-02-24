@@ -198,3 +198,100 @@ export const defaultInterceptor = () => {
 };
 
 export default defaultInterceptor;
+
+
+
+
+
+
+
+
+
+import axios from 'axios';
+import { defaultInterceptor, injectStore, generateSHA256Encrypt } from '../default-interceptor';
+import { getTokenChno, getUrl, keyToken } from '../../utils/common/change.utils';
+import submitService from '../../services/submit-service';
+import { sha256 } from 'js-sha256';
+
+jest.mock('axios');
+jest.mock('js-sha256', () => ({
+  sha256: jest.fn((input) => `mockedHash(${input})`),
+}));
+jest.mock('../../services/submit-service', () => ({
+  generateUUID: 'mocked-uuid',
+}));
+jest.mock('../../utils/common/change.utils', () => ({
+  getTokenChno: jest.fn(() => ({ channelRefNo: 'mockChannelRef', code: 'mockCode' })),
+  getUrl: {
+    getParameterByName: jest.fn((param) => {
+      if (param === 'SSCode') return 'mockSSCode';
+      return null;
+    }),
+    getChannelRefNo: jest.fn(() => ({
+      applicationRefNo: 'mockAppRef',
+      channelRefNo: 'mockChannelRef',
+    })),
+    getProductInfo: jest.fn(() => [{ product_type: 'mockProduct' }]),
+  },
+  keyToken: jest.fn(() => 'mockKeyToken'),
+}));
+
+describe('defaultInterceptor', () => {
+  let store;
+
+  beforeEach(() => {
+    store = {
+      getState: jest.fn(() => ({
+        auth: { sessionUid: 'mockSessionUid' },
+      })),
+    };
+    injectStore(store);
+    jest.clearAllMocks();
+  });
+
+  test('should initialize request interceptor and modify headers', async () => {
+    axios.interceptors.request.use = jest.fn((callback) => {
+      const mockRequest = { url: '/api/customer', headers: { set: jest.fn() } };
+      const result = callback(mockRequest);
+      expect(result.headers.set).toHaveBeenCalled();
+      return callback;
+    });
+    defaultInterceptor();
+  });
+
+  test('should initialize response interceptor', async () => {
+    axios.interceptors.response.use = jest.fn((callback) => {
+      const mockResponse = { data: 'mockData' };
+      const result = callback(mockResponse);
+      expect(result).toEqual(mockResponse);
+      return callback;
+    });
+    defaultInterceptor();
+  });
+
+  test('should generate SHA256 encryption with different conditions', () => {
+    const request = { data: { mobileNo: '12345', flowType: 'login', applnRefNo: 'mockRef' } };
+    let headers = {};
+
+    generateSHA256Encrypt(request, 'mockSessionUid', 'generate', headers);
+    expect(sha256).toHaveBeenCalledWith(expect.any(String));
+    expect(headers).toHaveProperty('generate_otp');
+
+    generateSHA256Encrypt(request, 'mockSessionUid', 'verify', headers);
+    expect(headers).toHaveProperty('verify_otp');
+  });
+
+  test('should correctly modify request headers for different endpoints', () => {
+    const mockRequest = { url: '/api/customer', headers: { set: jest.fn() } };
+    const mockHeaders = {};
+    generateSHA256Encrypt(mockRequest, 'mockSessionUid', 'customer', mockHeaders);
+    expect(mockHeaders).toHaveProperty('tokenKeys');
+    expect(mockHeaders).toHaveProperty('personKeys');
+  });
+
+  test('should extract values from objects correctly', () => {
+    const data = { b: 'value2', a: 'value1', c: 'value3' };
+    const extracted = generateSHA256Encrypt.extractValue(data);
+    expect(extracted).toBe('value1value2value3');
+  });
+});
