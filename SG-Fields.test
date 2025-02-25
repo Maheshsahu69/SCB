@@ -1,1 +1,211 @@
 
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { Provider } from "react-redux";
+import configureStore from "redux-mock-store";
+import { MemoryRouter } from "react-router-dom";
+import Fields from "../Fields";
+import { stagesAction } from "../../../utils/store/stages-slice";
+import { fieldErrorAction } from "../../../utils/store/field-error-slice";
+import { ValueUpdateAction } from "../../../utils/store/value-update-slice";
+import { trustBankAction } from "../../../utils/store/trust-bank-slice";
+import { referralcodeAction } from "../../../utils/store/referral-code-slice";
+
+jest.mock("../../../services/common-service", () => ({
+  submitBasicData: jest.fn(() => Promise.resolve({ customerDetails: [{ journey_type: "NTC" }] })),
+  submitBasicDataMyInfo: jest.fn(() => Promise.resolve({})),
+  submitBasicDataDocument: jest.fn(() => Promise.resolve({})),
+  getOfferData: jest.fn(() => Promise.resolve({})),
+  offerData: jest.fn(() => Promise.resolve({})),
+  creditToTrust: jest.fn(() => Promise.resolve({})),
+  thankYouPage: jest.fn(() => Promise.resolve({})),
+}));
+
+jest.mock("react-redux", () => ({
+  useSelector: jest.fn(),
+  useDispatch: jest.fn(() => jest.fn()),
+}));
+
+const mockStore = configureStore([]);
+let store: any;
+
+describe("Fields Component", () => {
+  beforeEach(() => {
+    store = mockStore({
+      stages: {
+        stages: [{ stageId: "bd-3", stageInfo: { products: [{ product_category: "CC" }] } }],
+        userInput: { applicants: {} },
+        currentStage: "bd-3",
+      },
+      valueUpdate: { value: false, backNavigation: { lastStageId: null } },
+      fielderror: { mandatoryFields: [] },
+      tax: { fields: [] },
+      alias: { fields: [] },
+      referralcode: { refer: null, referId: "" },
+      bancaList: { bancaDetails: {} },
+      error: {},
+    });
+
+    store.dispatch = jest.fn();
+  });
+
+  it("renders Fields component correctly", () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+    expect(screen.getByRole("form")).toBeInTheDocument();
+  });
+
+  it("dispatches action on form submit", async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const submitButton = screen.getByRole("button", { name: /continue/i });
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(expect.any(Function));
+    });
+  });
+
+  it("navigates to next stage correctly", async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    const continueButton = screen.getByRole("button", { name: /continue/i });
+    fireEvent.click(continueButton);
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(expect.any(Function));
+    });
+  });
+
+  it("renders conditional UI elements", async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.queryByText(/NOA Income Details/i)).not.toBeInTheDocument();
+  });
+
+  it("calls appropriate Redux actions on button clicks", async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(stagesAction.updateLastStageInput("bd-3"));
+    });
+  });
+
+  it("handles age validation popup correctly", async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Invalid Age/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("handles back navigation", async () => {
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /back/i }));
+
+    await waitFor(() => {
+      expect(store.dispatch).toHaveBeenCalledWith(stagesAction.updateStageId(expect.any(String)));
+    });
+  });
+
+  it("displays referral code popup when required", async () => {
+    store = mockStore({
+      ...store.getState(),
+      referralcode: { refer: "true", referId: null },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Referral Code/i)).toBeInTheDocument();
+    });
+  });
+
+  it("handles document upload stage correctly", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: { stages: [{ stageId: "doc", stageInfo: {} }] },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.getByText(/Document Upload/i)).toBeInTheDocument();
+  });
+
+  it("shows correct fields based on stage", async () => {
+    store = mockStore({
+      ...store.getState(),
+      stages: { stages: [{ stageId: "ad-2", stageInfo: {} }] },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Fields />
+        </MemoryRouter>
+      </Provider>
+    );
+
+    expect(screen.queryByText(/credit limit/i)).not.toBeInTheDocument();
+  });
+});
