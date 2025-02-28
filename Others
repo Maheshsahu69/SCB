@@ -130,3 +130,124 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+
+
+
+
+
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import Dashboard from "./dashboard";
+import { Provider } from "react-redux";
+import { store } from "../../utils/store/store";
+import { MemoryRouter } from "react-router-dom";
+import * as redux from "react-redux";
+import { getClientInfo } from "../../services/common-service";
+import { loaderAction } from "../../utils/store/loader-slice";
+
+// Mock dependencies
+jest.mock("../../services/common-service", () => ({
+  getClientInfo: jest.fn(),
+}));
+
+jest.mock("react-router-dom", () => ({
+  ...jest.requireActual("react-router-dom"),
+  useNavigate: jest.fn(),
+  useLocation: jest.fn(() => ({
+    pathname: "/dashboard",
+  })),
+}));
+
+// Helper function for rendering component with Redux and Router
+const renderComponent = () => {
+  return render(
+    <Provider store={store}>
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>
+    </Provider>
+  );
+};
+
+describe("Dashboard Component", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("renders the Dashboard component", () => {
+    renderComponent();
+    expect(screen.getByRole("heading", { name: /dashboard/i })).toBeInTheDocument();
+  });
+
+  test("dispatches actions on mount", async () => {
+    const dispatchMock = jest.spyOn(redux, "useDispatch");
+    const mockDispatch = jest.fn();
+    dispatchMock.mockReturnValue(mockDispatch);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalledWith(loaderAction.getState({ isFetching: false }));
+      expect(mockDispatch).toHaveBeenCalledWith(expect.any(Function)); // Mocked async action
+    });
+  });
+
+  test("calls getClientInfo on mount", async () => {
+    (getClientInfo as jest.Mock).mockResolvedValueOnce({ data: "mockData" });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(getClientInfo).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  test("renders the Header component", () => {
+    renderComponent();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+  });
+
+  test("renders Fields component when conditions are met", async () => {
+    (getClientInfo as jest.Mock).mockResolvedValueOnce({ data: "mockData" });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("fields-component")).toBeInTheDocument();
+    });
+  });
+
+  test("handles window resize event correctly", async () => {
+    renderComponent();
+
+    fireEvent.resize(window, { target: { innerWidth: 500 } });
+
+    await waitFor(() => {
+      expect(window.innerWidth).toBe(500);
+    });
+  });
+
+  test("renders popup modal when url is invalid", async () => {
+    (getClientInfo as jest.Mock).mockResolvedValueOnce(null);
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("popup-modal")).toBeInTheDocument();
+    });
+  });
+
+  test("calls navigation function on success", async () => {
+    const mockNavigate = jest.fn();
+    jest.spyOn(require("react-router-dom"), "useNavigate").mockReturnValue(mockNavigate);
+
+    (getClientInfo as jest.Mock).mockResolvedValueOnce({});
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("sg/super-short-form");
+    });
+  });
+});
