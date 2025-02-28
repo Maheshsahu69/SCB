@@ -415,3 +415,91 @@ const Header = () => {
 };
 
 export default Header;
+
+
+
+
+
+
+
+
+
+
+
+
+import { render, screen, fireEvent } from "@testing-library/react";
+import Header from "./header";
+import { Provider } from "react-redux";
+import { store } from "../../../utils/store/store";
+import { MemoryRouter } from "react-router-dom";
+import * as redux from "react-redux";
+
+// Mock dependencies
+jest.mock("../../../utils/common/change.utils", () => ({
+  getUrl: {
+    getParameterByName: jest.fn((param) => (param === "auth" ? "upload" : "")),
+  },
+}));
+
+const mockState = {
+  stages: {
+    stages: [
+      {
+        stageId: "test-stage",
+        stageInfo: {
+          products: [{ name: "Test Product", product_category: "Category A" }],
+        },
+      },
+    ],
+    journeyType: "new",
+    isDocumentUpload: false,
+  },
+};
+
+jest.mock("react-redux", () => ({
+  ...jest.requireActual("react-redux"),
+  useSelector: jest.fn((selector) => selector(mockState)),
+}));
+
+describe("Header Component", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const renderComponent = () => {
+    return render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <Header />
+        </MemoryRouter>
+      </Provider>
+    );
+  };
+
+  test("renders Header component", () => {
+    renderComponent();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+  });
+
+  test("displays product name if not in upload mode", () => {
+    renderComponent();
+    expect(screen.getByText("Test Product")).toBeInTheDocument();
+  });
+
+  test("does not display product name in upload mode", () => {
+    jest.mocked(getUrl.getParameterByName).mockReturnValueOnce("upload");
+    renderComponent();
+    expect(screen.queryByText("Test Product")).not.toBeInTheDocument();
+  });
+
+  test("updates header title based on stage ID", () => {
+    renderComponent();
+    expect(screen.getByText(/test-stage/i)).toBeInTheDocument();
+  });
+
+  test("handles window resize event", () => {
+    renderComponent();
+    fireEvent.resize(window, { target: { innerWidth: 500 } });
+    expect(window.innerWidth).toBe(500);
+  });
+});
